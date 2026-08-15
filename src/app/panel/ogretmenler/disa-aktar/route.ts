@@ -6,7 +6,12 @@ import {
 } from "@/lib/ayar";
 import { prisma } from "@/lib/db";
 import { gorevYillari } from "@/lib/ogretmen/gorev-yillari";
-import { csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
+import {
+  altBaslikYaz,
+  bicimCoz,
+  disaAktarmaYaniti,
+} from "@/lib/rapor/disa-aktarma";
+import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { ogretmenEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import { ogretmenListeFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -23,19 +28,19 @@ export const dynamic = "force-dynamic";
  * genişletmenin arka kapısı hâline getirirdi.
  */
 
-const BASLIKLAR = [
-  "Ad",
-  "Soyad",
-  "Branş",
-  "Okul",
-  "Okul türü",
-  "İl",
-  "İlçe",
-  "Güncel görev",
-  "Görev aldığı yıllar",
-  "Aktif danışmanlık",
-  "Düzenlediği etkinlik",
-] as const;
+const SUTUNLAR: readonly XlsxSutun[] = [
+  { baslik: "Ad", genislik: 18 },
+  { baslik: "Soyad", genislik: 18 },
+  { baslik: "Branş", genislik: 24 },
+  { baslik: "Okul", genislik: 38 },
+  { baslik: "Okul türü", genislik: 26 },
+  { baslik: "İl", genislik: 14 },
+  { baslik: "İlçe", genislik: 16 },
+  { baslik: "Güncel görev", genislik: 24 },
+  { baslik: "Görev aldığı yıllar", genislik: 22 },
+  { baslik: "Aktif danışmanlık", genislik: 14 },
+  { baslik: "Düzenlediği etkinlik", genislik: 16 },
+];
 
 const ROL_ETIKETLERI: Record<string, string> = {
   DANISMAN: "Danışman öğretmen",
@@ -102,13 +107,15 @@ export async function GET(istek: Request) {
     orderBy: [{ ad: "asc" }, { soyad: "asc" }],
   });
 
+  const bicim = bicimCoz(adres);
+
   await erisimLoglaCoklu(
     ogretmenler.map((ogretmen) => ({
       kullaniciId: kullanici.id,
       islem: "GORUNTULEME" as const,
       hedefTip: "OGRETMEN" as const,
       hedefId: ogretmen.id,
-      detay: "Öğretmen listesi CSV olarak dışa aktarıldı",
+      detay: `Öğretmen listesi ${bicim.toUpperCase()} olarak dışa aktarıldı`,
     })),
   );
 
@@ -132,5 +139,12 @@ export async function GET(istek: Request) {
     ];
   });
 
-  return csvYaniti("genctek-ogretmenler", csvBelgesi(BASLIKLAR, satirlar));
+  return disaAktarmaYaniti({
+    bicim,
+    dosyaAdi: "genctek-ogretmenler",
+    baslik: "GençTek Ekosistemi",
+    altBaslik: altBaslikYaz("Öğretmen envanteri", satirlar.length),
+    sutunlar: SUTUNLAR,
+    satirlar,
+  });
 }

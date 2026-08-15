@@ -1,7 +1,6 @@
 import {
   BadgeCheck,
   Compass,
-  Download,
   FileText,
   GraduationCap,
   Handshake,
@@ -10,13 +9,16 @@ import {
   Megaphone,
   Search,
   Settings,
+  School,
   ShieldCheck,
+  TriangleAlert,
   UserCog,
   Users,
   UsersRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   Kart,
   KartBasligi,
@@ -31,6 +33,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { ekipYonetebilirMi } from "@/lib/ekip/kurallar";
+import { onayliMentorMu } from "@/lib/mentor/veri";
 import {
   birimUyarilari,
   illeriSuz,
@@ -99,6 +102,11 @@ export default async function YonetimSayfasi({
   }
 
   const merkezMi = projeYoneticisiMi(kullanici);
+  /*
+   * Mentörlük bir ROL DEĞİL, onaya bağlı bir kayıt; bu yüzden koşul
+   * veritabanından soruluyor (bkz. lib/mentor/veri.ts · onayliMentorMu).
+   */
+  const onayliMentor = await onayliMentorMu(kullanici.id);
   const ilKodu = koordinatorIlKodu(kullanici);
 
   /*
@@ -179,6 +187,56 @@ export default async function YonetimSayfasi({
               yol="/panel/paydaslar"
             />
           )}
+          {/*
+            OKUL EKSİK DURUMLARI (15 Ağustos 2026 · Aşama 3).
+
+            Kart bu panonun sayılarının DEVAMI: burada "kaç danışmansız okul
+            var" yazıyor, orada "hangileri" ve "ne yapılmalı". Sayının yanına
+            konması bilinçli — sayıyı gören kişinin bir sonraki sorusu bu.
+
+            Menüye ayrı sekme AÇILMADI: bu panonun dosya başındaki notu diğer
+            yönetim ekranlarının burada kart olarak durduğunu söylüyor.
+          */}
+          {/*
+            EKİP YÖNETİMİ (15 Ağustos 2026 · Aşama 5). `panel/ekipler` "benim
+            ekiplerim"; bu kart tüm ekiplerin envanterine gidiyor. İkisi ayrı
+            tutuldu çünkü koordinatör kendi ekibini yüzlerce kaydın içinde
+            aramamalı (gerekçe ekranın başında).
+          */}
+          {ekipYonetebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Ekip Yönetimi"
+              aciklama="Tüm ekipler: tür, danışman ve üye sayısı — danışmansız ekipler dahil"
+              Ikon={UsersRound}
+              yol="/panel/ekip-yonetimi"
+            />
+          )}
+          {/*
+            OKULLAR (15 Ağustos 2026 · Aşama 4). Kırılımın son basamağının düz
+            ve aranabilir ikizi: aynı sayıları aynı sorgudan alıyor ama okul
+            adı, ilçe ya da KURUM KODU ile aranabiliyor. Kırılım "burada ne
+            var" diye gezdiriyor, bu ekran "şu okulu bul" diyene cevap veriyor.
+          */}
+          <KisayolKarti
+            baslik="Okullar"
+            aciklama={
+              merkezMi
+                ? "Ülke genelinde okul arama — ad, ilçe ya da kurum kodu"
+                : "İlinizdeki okullar ve kişi sayıları"
+            }
+            Ikon={School}
+            yol="/panel/okullar"
+          />
+          <KisayolKarti
+            baslik="Okul Eksik Durumları"
+            aciklama={
+              merkezMi
+                ? "Ülke genelinde danışman, öğrenci ya da temsilci eksiği olan okullar"
+                : "İlinizde danışman, öğrenci ya da temsilci eksiği olan okullar"
+            }
+            Ikon={TriangleAlert}
+            yol="/panel/okul-eksikleri"
+          />
           {(merkezMi || ilKoordinatoruMu(kullanici)) && (
             <KisayolKarti
               baslik="Görev Rolleri"
@@ -270,6 +328,33 @@ export default async function YonetimSayfasi({
             />
           )}
           {/*
+            MENTÖRLÜĞÜM (15 Ağustos 2026 · istek: "koordinatör sayfasında
+            mentörlüğüm isminde bir menü var, onu yönetim paneline kart olarak
+            koy").
+
+            Sekme koordinatör ve merkezde MENÜDEN KALKTI, kart olarak buraya
+            geldi — "Ekiplerim" kartıyla aynı gerekçe: mentörlük koordinatörün
+            günlük işi değil, ihtiyaç oldukça açtığı bir kapı.
+
+            SEKME HERKESTEN KALKMADI. Onaylı mentör olmak bir rol değil, onaya
+            bağlı bir kayıt: öğrenci, danışman ve mezun da mentör olabiliyor
+            (bkz. layout.tsx · mentorSekmesi). Onlar Yönetim Paneli'ni
+            göremediği için sekmeleri yerinde duruyor — kaldırılsaydı kendi
+            mentörlük kutularına ulaşacak hiçbir yolları kalmazdı.
+
+            KOŞUL YİNE VERİTABANINDAN (`onayliMentorMu`), rolden değil: kart
+            yalnızca onaylı mentörde basılıyor, yoksa 404 dönen bir kapıya
+            davet edilmiş olurdu.
+          */}
+          {onayliMentor && (
+            <KisayolKarti
+              baslik="Mentörlüğüm"
+              aciklama="Size gelen mentörlük talepleri ve verdiğiniz cevaplar"
+              Ikon={Compass}
+              yol="/panel/mentorlugum"
+            />
+          )}
+          {/*
             EKİPLERİM (13 Ağustos 2026 · istek: "il koordinatörü ekipler
             kurabilsin … bunu da yönetim paneline kart olarak ekleyelim, ismi
             ekiplerim olsun").
@@ -320,7 +405,13 @@ export default async function YonetimSayfasi({
           */}
           <KisayolKarti
             baslik="Etkinlik Raporları"
-            aciklama="Biten etkinliklerin raporları ve raporu eksik olanlar"
+            /*
+              CSV çıktısı açıklamaya YAZILDI (14 Ağustos 2026): program ve
+              çalışma grubu istatistiği o ekranın içinde bir form ve merkezin
+              onu araması için kartta bir iz olmalı — "raporlar" adı tek başına
+              istatistik çıktısını akla getirmiyor.
+            */
+            aciklama="Biten etkinliklerin raporları, raporu eksik olanlar ve program / çalışma grubu istatistiği (CSV)"
             Ikon={FileText}
             yol="/panel/raporlar"
           />
@@ -371,13 +462,13 @@ export default async function YonetimSayfasi({
             Ikon={MapPin}
           />
           {/*
-            CSV, EKRANDA GÖRÜNEN LİSTENİN AYNISI: arama ve sıralama adresten
+            DOSYA, EKRANDA GÖRÜNEN LİSTENİN AYNISI: arama ve sıralama adresten
             geldiği için indirme bağlantısına da aynı parametreler ekleniyor.
             Ölçütler taşınmasaydı "koordinatörsüz iller" listesini süzen kişi,
             indirdiği dosyada 81 ilin tamamını bulurdu.
           */}
-          <Link
-            href={`/panel/yonetim/disa-aktar${
+          <DisaAktarmaBagi
+            yol={`/panel/yonetim/disa-aktar${
               suzgecVar
                 ? `?${new URLSearchParams({
                     ...(aranan ? { ara: aranan } : {}),
@@ -385,11 +476,7 @@ export default async function YonetimSayfasi({
                   }).toString()}`
                 : ""
             }`}
-            className={SINIF_IKINCIL_BUTON}
-          >
-            <Download size={16} aria-hidden />
-            CSV indir
-          </Link>
+          />
         </div>
 
         {/*

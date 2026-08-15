@@ -14,6 +14,7 @@ import {
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { uygulamaYolu } from "@/lib/ortam";
 import {
   ilKoordinatorDurumlari,
@@ -94,6 +95,13 @@ export default async function RolEnvanteriSayfasi({
   });
 
   const bosIller = iller.filter((il) => il.koordinator === null);
+  /*
+   * BAŞLIKTA "28 ilde koordinatör yok" TEK BAŞINA YANILTICIYDI: o 28 ilin
+   * çoğunda hiç öğrenci yok ve koordinatörsüzlükleri kimseyi etkilemiyor.
+   * Sayı, bakan kişiye 28 işlik bir yığın gösteriyordu; gerçekte iş çıkaran
+   * il sayısı çok daha az. İkisi de yazılıyor.
+   */
+  const acilBosIller = bosIller.filter((il) => il.ogrenciSayisi > 0);
   const atanmamisToplam = iller.reduce(
     (toplam, il) => toplam + il.atanmamisOgrenciSayisi,
     0,
@@ -121,8 +129,24 @@ export default async function RolEnvanteriSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Rol/atama envanteri"
-        aciklama={`${iller.length} il · ${bosIller.length} ilde koordinatör yok · ${danismansizOkullar.length} okul danışmansız`}
+        aciklama={`${iller.length} il · ${bosIller.length} ilde koordinatör yok (${acilBosIller.length}'i öğrencili) · ${danismansizOkullar.length} okul danışmansız`}
       />
+
+      {/*
+        İKİ KIRILIM, İKİ DOSYA: il kırılımı ve okul kırılımı farklı satır
+        anlamı taşıyor (bir satır = bir il / bir okul). Tek dosyaya zorlanmaları
+        okul satırlarında koordinatör sütununu boş bırakırdı.
+      */}
+      <p className="flex flex-wrap gap-6">
+        <DisaAktarmaBagi
+          yol="/panel/rol-envanteri/disa-aktar"
+          etiket="İl kırılımını Excel indir"
+        />
+        <DisaAktarmaBagi
+          yol="/panel/rol-envanteri/disa-aktar?kirilim=okul"
+          etiket="Okul kırılımını Excel indir"
+        />
+      </p>
 
       {durum === "atandi" && (
         <BilgiKutusu cesit="olumlu">
@@ -170,7 +194,7 @@ export default async function RolEnvanteriSayfasi({
       <Kart>
         <KartBasligi
           baslik="İl koordinatörü durumu"
-          aciklama="Boş iller listenin başında ve vurgulu gösterilir."
+          aciklama="Sıra aciliyete göre: önce öğrencisi olup koordinatörü olmayan iller, sonra diğer boş iller, sonra atanmış olanlar."
           Ikon={MapPin}
         />
 
@@ -197,19 +221,42 @@ export default async function RolEnvanteriSayfasi({
             </thead>
             <tbody>
               {[...iller]
+                /*
+                 * SIRA ACİLİYETE GÖRE (15 Ağustos 2026).
+                 *
+                 * Önceki hâlde ölçüt tek bir soruydu: "koordinatörü var mı".
+                 * 81 ilin 28'i boş olduğu için listenin başı, aralarında hiçbir
+                 * fark olmayan 28 satırlık bir blok hâline geliyordu — ve o
+                 * bloğun çoğunda ÖĞRENCİ DE YOKTU. Koordinatörsüz ama kimsenin
+                 * bulunmadığı bir il bir iş değildir; kimse etkilenmiyor.
+                 * Asıl iş, öğrencisi olup koordinatörü olmayan ildedir ve o
+                 * satırlar alfabetik sırada 23 boş ilin arasında kayboluyordu.
+                 *
+                 * Üç kademe: (0) boş + öğrencisi var, (1) boş + kimse yok,
+                 * (2) atanmış. Kademe içinde alfabetik.
+                 */
                 .sort((a, b) => {
-                  const aBos = a.koordinator === null ? 0 : 1;
-                  const bBos = b.koordinator === null ? 0 : 1;
-                  if (aBos !== bBos) return aBos - bBos;
+                  const kademe = (il: (typeof iller)[number]) =>
+                    il.koordinator !== null ? 2 : il.ogrenciSayisi > 0 ? 0 : 1;
+                  const fark = kademe(a) - kademe(b);
+                  if (fark !== 0) return fark;
                   return a.ilAdi.localeCompare(b.ilAdi, "tr");
                 })
                 .map((il) => {
                   const bosMu = il.koordinator === null;
+                  /*
+                   * VURGU YALNIZCA İŞ ÇIKARAN SATIRDA. Eskiden 28 boş ilin
+                   * hepsi sarıya boyanıyordu; ekranın üçte biri tek renk
+                   * olunca vurgu vurgu olmaktan çıkıp arka plana dönüşüyordu.
+                   * Şimdi yalnızca öğrencisi olup koordinatörü olmayan iller
+                   * vurgulu — bakan kişinin gerçekten yapacağı iş o.
+                   */
+                  const acilMi = bosMu && il.ogrenciSayisi > 0;
                   return (
                     <tr
                       key={il.ilKodu}
                       className={`border-b border-cizgi last:border-0 ${
-                        bosMu ? "bg-uyari-zemin" : ""
+                        acilMi ? "bg-uyari-zemin" : ""
                       }`}
                     >
                       <td className={`${SINIF_HUCRE} font-medium text-metin`}>
@@ -230,17 +277,39 @@ export default async function RolEnvanteriSayfasi({
                             )}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 font-medium text-uyari-metin">
+                          /*
+                           * "Atanmadı" metni her boş ilde duruyor ama RENK
+                           * yalnızca acil olanda: kimsesiz bir ilin boşluğu
+                           * bilgi, öğrencili bir ilin boşluğu uyarı.
+                           */
+                          <span
+                            className={`inline-flex items-center gap-1.5 font-medium ${
+                              acilMi ? "text-uyari-metin" : "text-metin-yumusak"
+                            }`}
+                          >
                             <UserX size={14} aria-hidden />
                             Atanmadı
                           </span>
                         )}
                       </td>
-                      <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                        {il.ogretmenSayisi}
+                      {/*
+                        SIFIR "—" OLARAK YAZILIYOR. 81 satırın çoğunda iki
+                        sütun da sıfırdı; sayfa "0" ile dolunca gerçekten
+                        sayı olan hücreler görünmez oluyordu.
+                      */}
+                      <td
+                        className={`${SINIF_HUCRE} tabular-nums ${
+                          il.ogretmenSayisi > 0 ? "text-metin" : "text-metin-yumusak"
+                        }`}
+                      >
+                        {il.ogretmenSayisi > 0 ? il.ogretmenSayisi : "—"}
                       </td>
-                      <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                        {il.ogrenciSayisi}
+                      <td
+                        className={`${SINIF_HUCRE} tabular-nums ${
+                          il.ogrenciSayisi > 0 ? "text-metin" : "text-metin-yumusak"
+                        }`}
+                      >
+                        {il.ogrenciSayisi > 0 ? il.ogrenciSayisi : "—"}
                         {il.atanmamisOgrenciSayisi > 0 && (
                           <span className="ml-1 font-medium text-hata-metin">
                             ({il.atanmamisOgrenciSayisi} atanmamış)

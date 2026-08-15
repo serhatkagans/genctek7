@@ -6,8 +6,13 @@ import {
   KATILIMCI_TIPI_ETIKETLERI,
   katilimciTipi,
 } from "@/lib/faaliyet/kurallar";
-import { csvAdParcasi, csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
-import { tarihYaz } from "@/lib/tarih";
+import { adParcasi } from "@/lib/rapor/csv";
+import {
+  altBaslikYaz,
+  bicimCoz,
+  disaAktarmaYaniti,
+} from "@/lib/rapor/disa-aktarma";
+import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { basvuruDegerlendirebilirMi, yetkiDevrolduMu } from "@/lib/yetki/izinler";
 import {
   DEGERLENDIRME_KATILIMCI_ALANLARI,
@@ -32,22 +37,22 @@ export const dynamic = "force-dynamic";
  * olmayan bir duvar örmek olurdu.
  */
 
-const BASLIKLAR = [
-  "Ad",
-  "Soyad",
-  "Katılımcı tipi",
-  "Sınıf / branş",
-  "Okul",
-  "İl",
-  "Çalışma grupları",
-  "Başvuru tarihi",
-  "Durum",
-  "Adına başvuran",
-  "Gerekçe",
-] as const;
+const SUTUNLAR: readonly XlsxSutun[] = [
+  { baslik: "Ad", genislik: 18 },
+  { baslik: "Soyad", genislik: 18 },
+  { baslik: "Katılımcı tipi", genislik: 18 },
+  { baslik: "Sınıf / branş", genislik: 18 },
+  { baslik: "Okul", genislik: 38 },
+  { baslik: "İl", genislik: 14 },
+  { baslik: "Çalışma grupları", genislik: 34 },
+  { baslik: "Başvuru tarihi", genislik: 14 },
+  { baslik: "Durum", genislik: 14 },
+  { baslik: "Adına başvuran", genislik: 22 },
+  { baslik: "Gerekçe", genislik: 50 },
+];
 
 export async function GET(
-  _istek: Request,
+  istek: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const kullanici = await oturumKullanicisi();
@@ -123,7 +128,8 @@ export async function GET(
     basvuru.katilimci.calismaGruplari
       .map((secim) => secim.calismaGrubu.ad)
       .join(", "),
-    tarihYaz(basvuru.basvuruTarihi),
+    // Gerçek tarih: dosya böyle başvuru tarihine göre sıralanabiliyor.
+    basvuru.basvuruTarihi,
     BASVURU_DURUMU_ETIKETLERI[basvuru.durum],
     basvuru.adinaBasvuran
       ? `${basvuru.adinaBasvuran.ad} ${basvuru.adinaBasvuran.soyad}`
@@ -131,8 +137,12 @@ export async function GET(
     basvuru.gerekce,
   ]);
 
-  return csvYaniti(
-    `genctek-basvurular-${csvAdParcasi(faaliyet.ad, String(faaliyet.id))}`,
-    csvBelgesi(BASLIKLAR, satirlar),
-  );
+  return disaAktarmaYaniti({
+    bicim: bicimCoz(new URL(istek.url)),
+    dosyaAdi: `genctek-basvurular-${adParcasi(faaliyet.ad, String(faaliyet.id))}`,
+    baslik: "GençTek Ekosistemi",
+    altBaslik: altBaslikYaz(`Başvurular · ${faaliyet.ad}`, satirlar.length),
+    sutunlar: SUTUNLAR,
+    satirlar,
+  });
 }

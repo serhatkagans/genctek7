@@ -1,9 +1,13 @@
 import {
+  EKIP_TURLERI,
   buEkibiYonetebilirMi,
   ekipAdiniCoz,
+  ekipDanismansizMi,
+  ekipKapsaminiCoz,
   ekipMesajiniCoz,
   ekipSohbetiOkuyabilirMi,
   ekipSohbetineYazabilirMi,
+  ekipTuruGecerliMi,
   ekipYonetebilirMi,
 } from "@/lib/ekip/kurallar";
 import {
@@ -120,5 +124,84 @@ describe("ekip mesajı", () => {
       olurMu: true,
       icerik: "merhaba",
     });
+  });
+});
+
+describe("ekipKapsaminiCoz", () => {
+  it("okul takımında okulu zorunlu tutar", () => {
+    /*
+     * Veritabanı kısıtı (ck_ekip_okul_takimi_kurum) bunu zaten engelliyor ama
+     * oradan gelen hata kullanıcıya ham metin olarak çıkardı; burası anlaşılır
+     * cümleyi söyleyebilen tek yer.
+     */
+    const karar = ekipKapsaminiCoz({ tur: "OKUL_TAKIMI", kurumKodu: null });
+
+    expect(karar.olurMu).toBe(false);
+    expect(karar.olurMu === false && karar.neden).toContain("okul");
+  });
+
+  it("okul takımında kurum kodunu sayıya çevirir", () => {
+    const karar = ekipKapsaminiCoz({ tur: "OKUL_TAKIMI", kurumKodu: " 758715 " });
+
+    expect(karar).toEqual({ olurMu: true, tur: "OKUL_TAKIMI", kurumKodu: 758715 });
+  });
+
+  it("okul dışı türlerde okul seçimini sessizce düşürür", () => {
+    /*
+     * Form türü değiştirdiğinde tarayıcıda eski okul seçimi kalabiliyor; bu
+     * kullanıcının hatası değil, hata vermek yerine değer düşürülüyor.
+     * Kısıt zaten kurum dolu bir çalışma grubunu reddediyor.
+     */
+    for (const tur of ["CALISMA_GRUBU", "IL_GENCTEK_EKIBI"]) {
+      expect(ekipKapsaminiCoz({ tur, kurumKodu: "758715" })).toEqual({
+        olurMu: true,
+        tur,
+        kurumKodu: null,
+      });
+    }
+  });
+
+  it("uydurma türü reddeder", () => {
+    // Adres çubuğundan/formdan gelen değer doğrulanmasaydı Prisma patlardı.
+    expect(ekipKapsaminiCoz({ tur: "OKUL", kurumKodu: null }).olurMu).toBe(false);
+    expect(ekipKapsaminiCoz({ tur: "", kurumKodu: null }).olurMu).toBe(false);
+  });
+
+  it("sayı olmayan kurum kodunu reddeder", () => {
+    expect(
+      ekipKapsaminiCoz({ tur: "OKUL_TAKIMI", kurumKodu: "abc" }).olurMu,
+    ).toBe(false);
+  });
+});
+
+describe("ekipDanismansizMi", () => {
+  it("danışmanı olmayan ekibi danışmansız sayar", () => {
+    expect(ekipDanismansizMi({ danisman: null })).toBe(true);
+  });
+
+  it("PASİF danışmanlı ekibi de danışmansız sayar", () => {
+    /*
+     * Görevden ayrılmış öğretmen ekipte yazılı kalmaya devam ediyor ve ekip
+     * kimsenin bakmadığı bir ekip oluyor. Yalnızca alanın boşluğuna bakılsaydı
+     * bu ekipler listede hiç görünmezdi — en çok onların görünmesi gerekiyor.
+     */
+    expect(ekipDanismansizMi({ danisman: { aktif: false } })).toBe(true);
+  });
+
+  it("aktif danışmanlı ekibi danışmansız saymaz", () => {
+    expect(ekipDanismansizMi({ danisman: { aktif: true } })).toBe(false);
+  });
+});
+
+describe("ekipTuruGecerliMi", () => {
+  it("üç türü tanır", () => {
+    for (const tur of EKIP_TURLERI) {
+      expect(ekipTuruGecerliMi(tur)).toBe(true);
+    }
+  });
+
+  it("uydurma değeri reddeder", () => {
+    expect(ekipTuruGecerliMi("OKUL")).toBe(false);
+    expect(ekipTuruGecerliMi("")).toBe(false);
   });
 });

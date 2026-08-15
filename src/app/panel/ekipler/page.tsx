@@ -10,9 +10,15 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { EKIP_SOHBET_UYARISI, ekipYonetebilirMi } from "@/lib/ekip/kurallar";
+import {
+  EKIP_SOHBET_UYARISI,
+  EKIP_TURLERI,
+  EKIP_TURU_ETIKETLERI,
+  ekipYonetebilirMi,
+} from "@/lib/ekip/kurallar";
 import { ekipleriGetir } from "@/lib/ekip/veri";
 import { koordinatorIlKodu, projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { OGRETMEN } from "@/lib/yetki/kapsam";
 import { ekipKurEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +58,16 @@ export default async function EkiplerSayfasi({
   const yonetebilir = ekipYonetebilirMi(kullanici);
   const merkezMi = projeYoneticisiMi(kullanici);
 
-  const [ekipler, iller] = await Promise.all([
+  /*
+   * OKUL VE ÖĞRETMEN LİSTELERİ YALNIZCA KOORDİNATÖRE (15 Ağustos 2026):
+   * ikisi de "ekibin ili" belli olduğunda anlamlı. Merkezin ili yok, ili
+   * formda seçiyor — ülke genelindeki tüm okulları ve öğretmenleri açılır
+   * listeye koymak on binlerce satır demek olurdu. Merkez okul takımını ve
+   * danışmanı, ekibi kurduktan sonra düzenleyerek bağlıyor.
+   */
+  const koordinatorIli = merkezMi ? null : koordinatorIlKodu(kullanici);
+
+  const [ekipler, iller, okullar, ogretmenler] = await Promise.all([
     ekipleriGetir(kullanici),
     /*
      * İl listesi YALNIZCA MERKEZE gerekiyor: koordinatörün ekibi kendi iline
@@ -63,6 +78,20 @@ export default async function EkiplerSayfasi({
       ? prisma.il.findMany({
           orderBy: { ad: "asc" },
           select: { ilKodu: true, ad: true },
+        })
+      : [],
+    yonetebilir && koordinatorIli
+      ? prisma.kurum.findMany({
+          where: { ilKodu: koordinatorIli, aktif: true },
+          orderBy: { ad: "asc" },
+          select: { kurumKodu: true, ad: true },
+        })
+      : [],
+    yonetebilir && koordinatorIli
+      ? prisma.kullanici.findMany({
+          where: { ilKodu: koordinatorIli, aktif: true, ...OGRETMEN },
+          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+          select: { id: true, ad: true, soyad: true, brans: true },
         })
       : [],
   ]);
@@ -198,6 +227,78 @@ export default async function EkiplerSayfasi({
                 <strong>{koordinatorIlKodu(kullanici) ?? "—"}</strong> olan
                 ilinize bağlanır; üyeleri de bu ilden seçilir.
               </p>
+            )}
+
+            {/*
+              TÜR VE OKUL (15 Ağustos 2026 · Aşama 5).
+
+              OKUL SEÇİMİ HER ZAMAN GÖRÜNÜR ama yalnızca Okul Takımı türünde
+              kullanılıyor; diğer türlerde sunucu tarafında sessizce düşürülüyor
+              (bkz. ekipKapsaminiCoz). Alanı JavaScript ile gizlemek yerine
+              böyle yapıldı: form sunucu bileşeni içinde ve ekranın tamamını
+              istemciye taşımak, tek bir alanın gizlenmesi için ödenecek bedel
+              değil. Etiket ne zaman gerektiğini açıkça söylüyor.
+
+              MERKEZDE OKUL LİSTESİ TEKLİF EDİLMİYOR: il seçilmeden hangi ilin
+              okulları listeleneceği bilinmiyor ve ülke genelindeki tüm okulları
+              tek açılır listeye koymak (on binlerce satır) kullanılamaz olurdu.
+              Merkez okul takımını, ili seçtikten sonra ekibi düzenleyerek
+              bağlar; koordinatörde ise il zaten sabit.
+            */}
+            <label className="block sm:w-72">
+              <span className="text-sm font-medium text-metin">Ekip türü</span>
+              <select name="tur" defaultValue="CALISMA_GRUBU" className={SINIF_GIRDI}>
+                {EKIP_TURLERI.map((tur) => (
+                  <option key={tur} value={tur}>
+                    {EKIP_TURU_ETIKETLERI[tur]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {okullar.length > 0 && (
+              <label className="block sm:w-96">
+                <span className="text-sm font-medium text-metin">
+                  Okul{" "}
+                  <span className="font-normal text-metin-yumusak">
+                    (yalnızca Okul Takımı türünde kullanılır, o türde zorunlu)
+                  </span>
+                </span>
+                <select name="kurumKodu" defaultValue="" className={SINIF_GIRDI}>
+                  <option value="">Seçin</option>
+                  {okullar.map((okul) => (
+                    <option key={okul.kurumKodu} value={okul.kurumKodu}>
+                      {okul.ad}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {/*
+              DANIŞMAN İSTEĞE BAĞLI ve boş bırakılabilir olması bilinçli:
+              danışmansız ekip izlenen bir durum (Ekip Yönetimi · danışmansız
+              süzgeci). Zorunlu yapılsaydı o liste hiç dolmaz, ekipler de
+              "bir isim yazayım da geçeyim" ile kurulurdu.
+            */}
+            {ogretmenler.length > 0 && (
+              <label className="block sm:w-96">
+                <span className="text-sm font-medium text-metin">
+                  Danışman öğretmen{" "}
+                  <span className="font-normal text-metin-yumusak">
+                    (isteğe bağlı, sonradan atanabilir)
+                  </span>
+                </span>
+                <select name="danismanId" defaultValue="" className={SINIF_GIRDI}>
+                  <option value="">Sonra belirlenecek</option>
+                  {ogretmenler.map((ogretmen) => (
+                    <option key={ogretmen.id} value={ogretmen.id}>
+                      {ogretmen.ad} {ogretmen.soyad}
+                      {ogretmen.brans ? ` · ${ogretmen.brans}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
             )}
 
             <button type="submit" className={SINIF_BIRINCIL_BUTON}>

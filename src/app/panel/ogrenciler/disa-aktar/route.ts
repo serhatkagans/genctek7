@@ -5,7 +5,13 @@ import {
   VARSAYILAN_DISA_AKTARMA_UST_SINIRI,
 } from "@/lib/ayar";
 import { prisma } from "@/lib/db";
-import { csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
+import { BILISIM_YOLCULUGU_TIPLERI } from "@/lib/kazanim/kurallar";
+import {
+  altBaslikYaz,
+  bicimCoz,
+  disaAktarmaYaniti,
+} from "@/lib/rapor/disa-aktarma";
+import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { ogrenciEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import { ogrenciListeFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -14,7 +20,7 @@ import { ogrenciFiltreleriniCoz, type SorguParametreleri } from "../filtreler";
 export const dynamic = "force-dynamic";
 
 /**
- * Öğrenci envanterinin CSV çıktısı.
+ * Öğrenci envanterinin dosya çıktısı (varsayılan XLSX, `?bicim=csv` ile CSV).
  *
  * Dosya, ekranda görünen listenin AYNISIDIR: aynı kapsam filtresinden ve aynı
  * ekran filtrelerinden geçer, aynı sütunları taşır. Dışa aktarmaya ekranda
@@ -24,19 +30,20 @@ export const dynamic = "force-dynamic";
  * Tek fark sayfalamanın olmaması; onun yerine bir satır sınırı var.
  */
 
-const BASLIKLAR = [
-  "Ad",
-  "Soyad",
-  "Sınıf",
-  "Eğitim-öğretim yılı",
-  "Okul",
-  "Okul türü",
-  "Kurum kodu",
-  "İl",
-  "İlçe",
-  "Danışman",
-  "Çalışma grupları",
-] as const;
+const SUTUNLAR: readonly XlsxSutun[] = [
+  { baslik: "Ad", genislik: 18 },
+  { baslik: "Soyad", genislik: 18 },
+  { baslik: "Sınıf", genislik: 10 },
+  { baslik: "Eğitim-öğretim yılı", genislik: 16 },
+  { baslik: "Okul", genislik: 38 },
+  { baslik: "Okul türü", genislik: 26 },
+  { baslik: "Kurum kodu", genislik: 12 },
+  { baslik: "İl", genislik: 14 },
+  { baslik: "İlçe", genislik: 16 },
+  { baslik: "Danışman", genislik: 22 },
+  { baslik: "Çalışma grupları", genislik: 34 },
+  { baslik: "Deneyimler", genislik: 50 },
+];
 
 export async function GET(istek: Request) {
   const kullanici = await oturumKullanicisi();
@@ -96,6 +103,16 @@ export async function GET(istek: Request) {
       calismaGruplari: {
         select: { calismaGrubu: { select: { ad: true } } },
       },
+      /*
+       * DENEYİMLER (Aşama 8): GençTek DIŞINDA kazanılanlar. GençTek etkinlik
+       * katılımı buraya girmiyor — o zaten sistemin kendi kaydından geliyor ve
+       * dosyada tekrar edilmesi "aynı veriyi iki kez saklama" olurdu.
+       */
+      kazanimlar: {
+        where: { tip: { in: [...BILISIM_YOLCULUGU_TIPLERI] } },
+        orderBy: { tarih: "desc" },
+        select: { baslik: true },
+      },
       ogrenciAtamalari: {
         where: { bitisTarihi: null },
         select: { danisman: { select: { ad: true, soyad: true } } },
@@ -105,17 +122,19 @@ export async function GET(istek: Request) {
   });
 
   /*
-   * Dışa aktarma da kayıt bazında loglanır ve detayında "CSV" geçer: veri bu
+   * Dışa aktarma da kayıt bazında loglanır ve detayında biçim geçer: veri bu
    * yolla kurum dışına çıkabildiği için, denetimde ekranda bakılan kayıtla
    * indirilen kaydı ayırt edebilmek gerekir.
    */
+  const bicim = bicimCoz(adres);
+
   await erisimLoglaCoklu(
     ogrenciler.map((ogrenci) => ({
       kullaniciId: kullanici.id,
       islem: "GORUNTULEME" as const,
       hedefTip: "OGRENCI" as const,
       hedefId: ogrenci.id,
-      detay: "Öğrenci listesi CSV olarak dışa aktarıldı",
+      detay: `Öğrenci listesi ${bicim.toUpperCase()} olarak dışa aktarıldı`,
     })),
   );
 
@@ -128,15 +147,25 @@ export async function GET(istek: Request) {
       ogrenci.egitimOgretimYili,
       ogrenci.kurum?.ad ?? "",
       ogrenci.kurum?.okulTuru ?? "",
-      ogrenci.kurumKodu ?? "",
+      // Kurum kodu KİMLİKTİR, sayı değil: metin kalsın ki Excel onu
+      // hesaplanabilir bir değere çevirmesin (bkz. lib/rapor/xlsx.ts).
+      ogrenci.kurumKodu === null ? "" : String(ogrenci.kurumKodu),
       ogrenci.il?.ad ?? "",
       ogrenci.ilce?.ad ?? "",
       danisman ? `${danisman.ad} ${danisman.soyad}` : "Atanmadı",
       ogrenci.calismaGruplari
         .map((secim) => secim.calismaGrubu.ad)
         .join(", "),
+      ogrenci.kazanimlar.map((kazanim) => kazanim.baslik).join(", "),
     ];
   });
 
-  return csvYaniti("genctek-ogrenciler", csvBelgesi(BASLIKLAR, satirlar));
+  return disaAktarmaYaniti({
+    bicim,
+    dosyaAdi: "genctek-ogrenciler",
+    baslik: "GençTek Ekosistemi",
+    altBaslik: altBaslikYaz("Öğrenci envanteri", satirlar.length),
+    sutunlar: SUTUNLAR,
+    satirlar,
+  });
 }

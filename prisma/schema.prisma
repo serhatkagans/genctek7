@@ -361,6 +361,7 @@ model Kurum {
   faaliyetler      Faaliyet[]
   ogrenciGorevleri OgrenciGorevRolu[]
   mezunBasvurulari DisKullaniciBasvurusu[]
+  ekipler          Ekip[]
 
   @@index([ilKodu])
   @@index([ilceKodu])
@@ -506,6 +507,7 @@ model Kullanici {
   gizledigiTalepCevaplari TalepCevabi[] @relation("TalepCevabiGizleyen")
 
   kurduguEkipler      Ekip[]       @relation("EkipKuran")
+  danismanOlduguEkipler  Ekip[]       @relation("EkipDanismani")
   ekipUyelikleri      EkipUyesi[]  @relation("EkipUyesi")
   ekipMesajlari       EkipMesaji[] @relation("EkipMesajiYazan")
   gizledigiEkipMesajlari EkipMesaji[] @relation("EkipMesajiGizleyen")
@@ -1788,22 +1790,54 @@ model Talep {
 ///
 /// SİLME YOK, PASİFE ALMA VAR (calisma_grubu ile aynı): dağılan ekibin
 /// mesajları ve üye geçmişi kayıt olarak kalır.
+/// Ekibin niteliği (15 Ağustos 2026 · manisa-farklari-plani.md · Aşama 5).
+///
+/// Ekipler bugüne kadar tek tipti ve hepsi il seviyesinde kuruluyordu. Üç tür
+/// ayrımı, ekip listesinin 100'ü aşınca okunamaz hâle gelmesinden doğdu:
+/// "hangi okulun takımı" ile "ilin çalışma grubu" aynı listede ayırt
+/// edilemiyordu.
+enum EkipTuru {
+  /// Bir okula bağlı takım; `kurumKodu` ZORUNLUDUR (ck_ekip_okul_takimi_kurum).
+  OKUL_TAKIMI
+  /// İl içinde konu bazlı çalışma grubu. Varsayılan tür — mevcut kayıtların
+  /// tamamı bu, çünkü hepsi il seviyesinde kurulmuştu.
+  CALISMA_GRUBU
+  /// İlin GençTek ekibi; ilde tek olması beklenir ama kısıtla ZORLANMAZ
+  /// (dönem geçişlerinde iki ekibin bir süre birlikte durması olağan).
+  IL_GENCTEK_EKIBI
+}
+
 model Ekip {
-  id                Int      @id @default(autoincrement())
-  ad                String   @db.VarChar(150)
-  aciklama          String?  @db.Text
-  ilKodu            String   @map("il_kodu") @db.VarChar(2)
-  kuranKullaniciId  Int      @map("kuran_kullanici_id")
-  aktif             Boolean  @default(true)
-  olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  id                  Int      @id @default(autoincrement())
+  ad                  String   @db.VarChar(150)
+  aciklama            String?  @db.Text
+  ilKodu              String   @map("il_kodu") @db.VarChar(2)
+  /// Varsayılan CALISMA_GRUBU: mevcut kayıtların hepsi il seviyesinde
+  /// kurulmuştu, göç sırasında veri düzeltmesi gerekmiyor.
+  tur                 EkipTuru @default(CALISMA_GRUBU)
+  /// OKUL_TAKIMI türünde ZORUNLU, diğerlerinde NULL kalır. Kısıt migration'da
+  /// (ck_ekip_okul_takimi_kurum) — `ck_ogrenci_gorev_kapsam` ile aynı desen:
+  /// kapsam sütunu türüne göre zorunlu.
+  kurumKodu           Int?     @map("kurum_kodu")
+  /// Ekibin danışman öğretmeni. NULL KALABİLİR ve bu bir eksiklik değil, aranan
+  /// şeyin ta kendisi: "danışmansız ekipler" listesi bu sütuna bakıyor. Zorunlu
+  /// yapılsaydı o liste hiçbir zaman dolmazdı.
+  danismanKullaniciId Int?     @map("danisman_kullanici_id")
+  kuranKullaniciId    Int      @map("kuran_kullanici_id")
+  aktif               Boolean  @default(true)
+  olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   il       Il          @relation(fields: [ilKodu], references: [ilKodu])
+  kurum    Kurum?      @relation(fields: [kurumKodu], references: [kurumKodu])
+  danisman Kullanici?  @relation("EkipDanismani", fields: [danismanKullaniciId], references: [id])
   kuran    Kullanici   @relation("EkipKuran", fields: [kuranKullaniciId], references: [id])
   uyeler   EkipUyesi[]
   mesajlar EkipMesaji[]
 
   @@index([ilKodu, aktif])
   @@index([kuranKullaniciId])
+  @@index([kurumKodu])
+  @@index([danismanKullaniciId])
   @@map("ekip")
 }
 

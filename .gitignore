@@ -25,6 +25,21 @@ dist/
 /belge-promptu.md
 /PROJE-INCELEME-RAPORU.md
 /.claude/settings.local.json
+# Kök dizindeki geçici betikler ve çıktı klasörleri (yukarıdaki gerekçenin
+# aynısı; desen eksikti, dosyalar birikmişti).
+/.tmp-*
+
+# BAŞKA BİR EKİBİN PANELİNDEN ALINMIŞ EKRAN GÖRÜNTÜLERİ.
+#
+# Depo GitHub'da HERKESE AÇIK. `manisa/` altındaki görüntülerde gerçek
+# öğrencilerin ad-soyadı ve e-posta adresleri, ekli tabloda ise öğretmen
+# adları görünüyor. Karşılaştırma için alınmış çalışma malzemesi; incelemesi
+# `manisa-farklari-plani.md` içinde yazılı ve o belge kişisel veri taşımıyor.
+#
+# Görüntüler paylaşılacaksa bu ayrı bir karardır ve KVKK tarafı önce
+# değerlendirilmelidir — herkese açık bir depoya girdikten sonra geçmişten
+# silmek de ayrı bir iştir.
+/manisa/
 
 *.log
 npm-debug.log*

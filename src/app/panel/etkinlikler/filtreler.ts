@@ -54,6 +54,53 @@ export interface FaaliyetFiltreleri {
    * ilinin bekleyenlerini, merkez hepsini görür.
    */
   yalnizcaOnayBekleyen: boolean;
+  /**
+   * Zaman durumu sekmesi (15 Ağustos 2026 · Aşama 6b).
+   *
+   * Manisa panelinde "Devam Eden / Tamamlanan" ayrı sekmeler; bizde durum
+   * rozeti vardı ama tek tıkla daraltma yoktu.
+   *
+   * GÖRÜNÜM TERCİHİNDEN (ızgara/liste) AYRI TUTULDU. Manisa'da ikisi iç içe:
+   * "Etkinlikler" sekmesi kart, diğer ikisi tablo. Bu, "tamamlanan etkinlikleri
+   * kart olarak görmek" isteyeni çıkmaza sokuyor. İki eksen bizde zaten ayrı ve
+   * öyle kalıyor.
+   */
+  zaman: "hepsi" | "devam" | "tamamlanan";
+}
+
+export function zamanGecerliMi(
+  deger: string,
+): deger is FaaliyetFiltreleri["zaman"] {
+  return deger === "hepsi" || deger === "devam" || deger === "tamamlanan";
+}
+
+/**
+ * Zaman sekmesinin sorgu koşulu.
+ *
+ * "TAMAMLANAN" = bitiş tarihi geçmiş VE iptal edilmemiş. Çok günlü etkinlikte
+ * ölçüt bitiş, tek günlükte tarih — `raporlar` ekranındaki bitmişlik ölçütünün
+ * aynısı, iki ekran farklı tanım kullanmasın diye.
+ *
+ * İPTAL EDİLEN HİÇBİR SEKMEYE GİRMEZ değil — tam tersine "hepsi" sekmesinde
+ * durur. İptal bir sonuçtur ve listeden düşmesi, kullanıcının "etkinliğim
+ * kayboldu" demesine yol açardı (aynı ilke model Faaliyet notunda yazılı).
+ */
+export function zamanKosulu(
+  zaman: FaaliyetFiltreleri["zaman"],
+  simdi: Date,
+): Prisma.FaaliyetWhereInput {
+  if (zaman === "hepsi") return {};
+
+  const bitmis = {
+    OR: [
+      { bitisTarihi: { not: null, lte: simdi } },
+      { bitisTarihi: null, tarih: { lte: simdi } },
+    ],
+  };
+
+  return zaman === "tamamlanan"
+    ? { durum: "AKTIF", ...bitmis }
+    : { durum: "AKTIF", NOT: bitmis };
 }
 
 export function faaliyetFiltreleriniCoz(
@@ -75,11 +122,23 @@ export function faaliyetFiltreleriniCoz(
     yalnizcaBenim: tekil(parametreler.benim) === "1",
     yalnizcaRaporsuz: tekil(parametreler.raporsuz) === "1",
     yalnizcaOnayBekleyen: tekil(parametreler.onay) === "bekleyen",
+    zaman: (() => {
+      const deger = tekil(parametreler.zaman) ?? "hepsi";
+      return zamanGecerliMi(deger) ? deger : "hepsi";
+    })(),
   };
 }
 
 export function faaliyetFiltresiVarMi(filtreler: FaaliyetFiltreleri): boolean {
-  return Object.values(filtreler).some(
+  /*
+   * `zaman` SEKMEDİR, filtre değil: "Filtreleri temizle" bağlantısını
+   * tetiklememeli ve varsayılan "hepsi" zaten daraltma yapmıyor. Görünüm
+   * tercihiyle (ızgara/liste) aynı gerekçe.
+   */
+  const { zaman, ...suzgecler } = filtreler;
+  void zaman;
+
+  return Object.values(suzgecler).some(
     (deger) => deger !== null && deger !== false,
   );
 }
@@ -92,6 +151,11 @@ export function faaliyetListeFiltresi(
   const kosullar: Prisma.FaaliyetWhereInput[] = [
     faaliyetKapsamFiltresi(kullanici),
   ];
+
+  // Zaman sekmesi de sorguya buradan giriyor (Aşama 6b): dışa aktarma da aynı
+  // fonksiyondan geçtiği için dosya, açık sekmenin kümesini taşıyor.
+  const zaman = zamanKosulu(filtreler.zaman, simdi);
+  if (Object.keys(zaman).length > 0) kosullar.push(zaman);
 
   if (filtreler.kapsam) kosullar.push({ kapsam: filtreler.kapsam });
   // Kapsam ve kategori bağımsız filtrelerdir; birlikte de kullanılabilirler.

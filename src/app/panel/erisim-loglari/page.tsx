@@ -1,5 +1,6 @@
 import { ScrollText, Search } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   BilgiKutusu,
   Kart,
@@ -9,25 +10,25 @@ import {
   SINIF_GIRDI,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import type { LogHedefTip, LogIslemi } from "@/generated/prisma/enums";
+import {
+  AYAR_ANAHTARLARI,
+  ayarSayi,
+  VARSAYILAN_DISA_AKTARMA_UST_SINIRI,
+} from "@/lib/ayar";
 import {
   erisimLoguSayfasiGetir,
   SAYFA_BOYUTU,
 } from "@/lib/rapor/erisim-logu";
-import { gunBasi, gunSonu, girdiTarihi, tarihSaatYaz } from "@/lib/tarih";
+import { girdiTarihi, tarihSaatYaz } from "@/lib/tarih";
 import {
   LOG_HEDEF_ETIKETLERI,
   LOG_ISLEM_ETIKETLERI,
 } from "@/lib/yetki/etiketler";
 import { erisimLoglariniGorebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
+import { erisimLogFiltreleriniCoz } from "./filtreler";
 
 export const dynamic = "force-dynamic";
-
-function tekil(deger: string | string[] | undefined): string | null {
-  if (Array.isArray(deger)) return deger[0] ?? null;
-  return deger ?? null;
-}
 
 /**
  * Erişim kayıtları — "kim, hangi kaydı, ne zaman gördü veya değiştirdi".
@@ -54,21 +55,22 @@ export default async function ErisimLoglariSayfasi({
     );
   }
 
-  const ara = tekil(parametreler.ara);
-  const islem = tekil(parametreler.islem) as LogIslemi | null;
-  const hedefTip = tekil(parametreler.hedefTip) as LogHedefTip | null;
-  const baslangicMetni = tekil(parametreler.baslangic);
-  const bitisMetni = tekil(parametreler.bitis);
-  const sayfa = Number.parseInt(tekil(parametreler.sayfa) ?? "1", 10);
+  /*
+   * Çözümleme dışa aktarma rotasıyla PAYLAŞILIYOR (15 Ağustos 2026): ekran ve
+   * dosya aynı süzgeçten geçmezse indirilen küme ekranda görünenden farklı
+   * olur ve fark kimseye görünmez.
+   */
+  const { baslangicMetni, bitisMetni, ...filtre } =
+    erisimLogFiltreleriniCoz(parametreler);
+  const { ara, islem, hedefTip } = filtre;
 
-  const sonuc = await erisimLoguSayfasiGetir({
-    ara,
-    islem: islem && islem in LOG_ISLEM_ETIKETLERI ? islem : null,
-    hedefTip: hedefTip && hedefTip in LOG_HEDEF_ETIKETLERI ? hedefTip : null,
-    baslangic: gunBasi(baslangicMetni),
-    bitis: gunSonu(bitisMetni),
-    sayfa: Number.isFinite(sayfa) ? sayfa : 1,
-  });
+  const [sonuc, ustSinir] = await Promise.all([
+    erisimLoguSayfasiGetir(filtre),
+    ayarSayi(
+      AYAR_ANAHTARLARI.DISA_AKTARMA_UST_SINIRI,
+      VARSAYILAN_DISA_AKTARMA_UST_SINIRI,
+    ),
+  ]);
 
   await erisimLogla({
     kullaniciId: kullanici.id,
@@ -78,17 +80,30 @@ export default async function ErisimLoglariSayfasi({
     detay: `Erişim kayıtları görüntülendi (sayfa ${sonuc.sayfa}, ${sonuc.toplam} kayıt)`,
   });
 
-  // Sayfa bağlantıları mevcut filtreleri korur.
-  const sorgu = (yeniSayfa: number) => {
+  /** Süzgeçleri koruyan sorgu dizesi; sayfa numarası isteğe bağlı. */
+  const suzgecSorgusu = (yeniSayfa?: number) => {
     const parcalar = new URLSearchParams();
     if (ara) parcalar.set("ara", ara);
     if (islem) parcalar.set("islem", islem);
     if (hedefTip) parcalar.set("hedefTip", hedefTip);
     if (baslangicMetni) parcalar.set("baslangic", baslangicMetni);
     if (bitisMetni) parcalar.set("bitis", bitisMetni);
-    parcalar.set("sayfa", String(yeniSayfa));
-    return `/panel/erisim-loglari?${parcalar.toString()}`;
+    if (yeniSayfa !== undefined) parcalar.set("sayfa", String(yeniSayfa));
+    return parcalar.toString();
   };
+
+  // Sayfa bağlantıları mevcut filtreleri korur.
+  const sorgu = (yeniSayfa: number) =>
+    `/panel/erisim-loglari?${suzgecSorgusu(yeniSayfa)}`;
+
+  /*
+   * İNDİRME BAĞLANTISI SAYFA NUMARASI TAŞIMAZ: ekran 50'şer kayıt gösteriyor
+   * ama dosya süzgece uyan kaydın TAMAMI olmalı. Sayfa da taşınsaydı, denetim
+   * için indirilen dosya sessizce ilk 50 satırdan ibaret kalırdı.
+   */
+  const disaAktarmaBaglantisi = `/panel/erisim-loglari/disa-aktar${
+    suzgecSorgusu() ? `?${suzgecSorgusu()}` : ""
+  }`;
 
   return (
     <div className="space-y-6">
@@ -101,6 +116,34 @@ export default async function ErisimLoglariSayfasi({
         Kayıtlar elle silinemez veya düzenlenemez; saklama süresi dolduğunda
         (varsayılan 24 ay) bakım işi tarafından toplu olarak temizlenir.
       </BilgiKutusu>
+
+      {sonuc.toplam > 0 && (
+        <Kart>
+          <KartBasligi
+            baslik="Denetim dökümü"
+            aciklama="Süzgece uyan kayıtların tamamı — ekrandaki sayfa değil. Dosya kişisel veri taşır; indirilmesi de kayda geçer."
+          />
+          {/*
+            SINIR EKRANDA SÖYLENİYOR (15 Ağustos 2026). Denetim tablosu iki
+            yıllık kayıt tutuyor ve süzgeçsiz sorgu üst sınırı kolayca aşıyor;
+            bağlantı yine de gösterilseydi kullanıcı tıklayıp 413 duvarına
+            çarpar ve bunu bir arıza sanardı. Sınır burada okunup söyleniyor,
+            böylece kullanıcı süzgeci ÖNCEDEN daraltıyor.
+          */}
+          {sonuc.toplam > ustSinir ? (
+            <BilgiKutusu cesit="uyari">
+              Süzgece uyan {sonuc.toplam} kayıt var; tek dosyada en fazla{" "}
+              {ustSinir} kayıt indirilebilir. Tarih aralığı, işlem ya da kayıt
+              türü süzgeciyle daraltın.
+            </BilgiKutusu>
+          ) : (
+            <DisaAktarmaBagi
+              yol={disaAktarmaBaglantisi}
+              kayitSayisi={sonuc.toplam}
+            />
+          )}
+        </Kart>
+      )}
 
       <Kart>
         <KartBasligi baslik="Filtreler" Ikon={Search} />

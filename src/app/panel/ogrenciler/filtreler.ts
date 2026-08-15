@@ -54,6 +54,8 @@ export function ogrenciFiltreleriniCoz(
     calismaGrubuId: sayiVeyaNull(tekil(parametreler.grup)),
     ara: tekil(parametreler.ara),
     danismansizMi: tekil(parametreler.danismansiz) === "1",
+    kazanimTipi: tekil(parametreler.kazanim),
+    kazanimAra: tekil(parametreler.kazanimAra),
   };
 }
 

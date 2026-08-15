@@ -1,0 +1,12 @@
+﻿Tablo;Sutun;Tip;Uzunluk;Zorunlu;Ornek;Aciklama
+il;il_kodu;Karakter;2;Evet;06;Birincil anahtar. 81 kayit.
+il;ad;Metin;100;Evet;Ankara;
+ilce;ilce_kodu;Karakter;4;Evet;0601;Birincil anahtar.
+ilce;il_kodu;Karakter;2;Evet;06;il tablosuna yabanci anahtar.
+ilce;ad;Metin;100;Evet;Cankaya;
+kurum;kurum_kodu;Tam sayi;;Evet;750123;Birincil anahtar. SSO'dan gelen okul kodu burada BULUNMALIDIR.
+kurum;ad;Metin;250;Evet;Ankara Fen Lisesi;
+kurum;il_kodu;Karakter;2;Evet;06;il tablosuna yabanci anahtar.
+kurum;ilce_kodu;Karakter;4;Evet;0601;ilce tablosuna yabanci anahtar.
+kurum;okul_turu;Metin;120;Evet;Fen Lisesi;OKUL TURU BURADAN GELIR. Ogrenci/ogretmen listesi suzgeci, CSV ciktilari, profil ekranlari ve yonetim panosu bu alani kullanir.
+kurum;aktif;Evet/Hayir;;Evet;Evet;Kapanan okul pasife alinir, silinmez.

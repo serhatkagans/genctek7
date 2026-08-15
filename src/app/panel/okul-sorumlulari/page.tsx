@@ -1,5 +1,6 @@
-import { School, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { notFound } from "next/navigation";
 import {
   BilgiKutusu,
@@ -13,6 +14,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { tarihYaz } from "@/lib/tarih";
 import { rolEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
+import { okulSorumlusuKosulu } from "./filtreler";
 
 export const dynamic = "force-dynamic";
 
@@ -44,31 +46,11 @@ export default async function OkulSorumlulariSayfasi({
   const aramaMetni = (ara ?? "").trim();
 
   /*
-   * Sorgu PROFİL üzerinden yürüyor, kullanıcı üzerinden değil: koşul
-   * (`yegitekOkulSorumlusu`) o tabloda ve kısmi indeks de onu taşıyor
-   * (bkz. migration). Kullanıcıdan başlansaydı her satır için profil
-   * birleştirilir, işaretsizler de taranırdı.
+   * Koşul `filtreler.ts` içinde ve dışa aktarma rotasıyla PAYLAŞILIYOR:
+   * ekranla dosya aynı kümeyi göstermeli. Gerekçesi orada yazılı.
    */
   const sorumlular = await prisma.ogretmenProfil.findMany({
-    where: {
-      yegitekOkulSorumlusu: true,
-      kullanici: {
-        aktif: true,
-        ...(aramaMetni
-          ? {
-              OR: [
-                { ad: { contains: aramaMetni, mode: "insensitive" as const } },
-                { soyad: { contains: aramaMetni, mode: "insensitive" as const } },
-                {
-                  kurum: {
-                    ad: { contains: aramaMetni, mode: "insensitive" as const },
-                  },
-                },
-              ],
-            }
-          : {}),
-      },
-    },
+    where: okulSorumlusuKosulu(aramaMetni),
     orderBy: [
       { kullanici: { il: { ad: "asc" } } },
       { kullanici: { ad: "asc" } },
@@ -102,6 +84,17 @@ export default async function OkulSorumlulariSayfasi({
       },
     },
   });
+
+  /*
+   * İki sayaç TÜM LİSTE üzerinden: ekranın `take: 500` kırpması sayıya
+   * yansımıyor ama arama yansıyor — uyarı, o an bakılan kümeye ait olmalı.
+   */
+  const gorevBitenler = sorumlular.filter(
+    (satir) => satir.kullanici.roller.length === 0,
+  ).length;
+  const iletisimsizler = sorumlular.filter(
+    (satir) => !satir.eposta && !satir.telefon,
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -145,12 +138,57 @@ export default async function OkulSorumlulariSayfasi({
         </form>
       </Kart>
 
+      {/*
+        ÖZET ŞERİDİ (15 Ağustos 2026). Ekran bir rehber ama içinde AKSİYON
+        GEREKTİREN bir alt küme var: işaret danışman öğretmene konuyor, görevi
+        bırakan kişide ise kalmaya devam ediyor. O kayıtlar tabloda satır satır
+        aranmak yerine sayıyla söyleniyor — ekip yönetimindeki "danışmansız
+        ekip" uyarısıyla aynı desen.
+
+        İLETİŞİM EKSİĞİ DE SAYILIYOR: bu ekranın var oluş sebebi "okulda
+        YEĞİTEK'in muhatabı kim" sorusu; muhatabın telefonu ve e-postası yoksa
+        kayıt adı dışında bir işe yaramıyor.
+      */}
+      {sorumlular.length > 0 && (gorevBitenler > 0 || iletisimsizler > 0) && (
+        <BilgiKutusu cesit="uyari">
+          {gorevBitenler > 0 && (
+            <>
+              <strong>{gorevBitenler}</strong> kişinin danışmanlık görevi
+              bitmiş ama işareti duruyor.{" "}
+            </>
+          )}
+          {iletisimsizler > 0 && (
+            <>
+              <strong>{iletisimsizler}</strong> kişide e-posta ve telefon
+              girilmemiş.
+            </>
+          )}
+        </BilgiKutusu>
+      )}
+
       <Kart>
         <KartBasligi
           baslik="Sorumlular"
           aciklama={`${sorumlular.length} kişi${aramaMetni ? " (filtreli)" : ""}`}
           Ikon={ShieldCheck}
         />
+        {sorumlular.length > 0 && (
+          /*
+           * Bağlantı ekrandaki aramayı taşır ama ekranın `take: 500` kırpmasını
+           * TAŞIMAZ: dosya merkezin elindeki tam envanter olmalı (gerekçe
+           * rotanın başında).
+           */
+          <p className="mb-4">
+            <DisaAktarmaBagi
+              yol={`/panel/okul-sorumlulari/disa-aktar${
+                aramaMetni
+                  ? `?${new URLSearchParams({ ara: aramaMetni }).toString()}`
+                  : ""
+              }`}
+              kayitSayisi={sorumlular.length}
+            />
+          </p>
+        )}
         {sorumlular.length === 0 ? (
           <p className="text-metin-yumusak">
             {aramaMetni
@@ -158,38 +196,107 @@ export default async function OkulSorumlulariSayfasi({
               : "Henüz kimse kendini YEĞİTEK Okul Sorumlusu olarak işaretlemedi."}
           </p>
         ) : (
-          <ul className="divide-y divide-cizgi">
-            {sorumlular.map((satir) => (
-              <li key={satir.kullaniciId} className="py-3">
-                <p className="flex flex-wrap items-center gap-2 font-medium text-metin">
-                  <School size={15} className="text-vurgu-metin" aria-hidden />
-                  {satir.kullanici.ad} {satir.kullanici.soyad}
-                  {satir.kullanici.roller.length === 0 && (
-                    <span className="rounded-full bg-uyari-zemin px-2.5 py-0.5 text-xs font-semibold text-uyari-metin">
-                      Danışmanlık görevi yok
-                    </span>
-                  )}
-                </p>
-                <p className="mt-1 text-sm text-metin-yumusak">
-                  {satir.kullanici.kurum?.ad ?? "Okul kaydı yok"}
-                  {" · "}
-                  {[satir.kullanici.ilce?.ad, satir.kullanici.il?.ad]
-                    .filter(Boolean)
-                    .join(" / ") || "—"}
-                  {" · "}
-                  {satir.kullanici.brans ?? "Branş girilmemiş"}
-                </p>
-                <p className="mt-0.5 text-sm text-metin-yumusak">
-                  {satir.yegitekIsaretlemeTarihi
-                    ? `${tarihYaz(satir.yegitekIsaretlemeTarihi)} tarihinde işaretledi`
-                    : "İşaretleme tarihi yok"}
-                  {" · "}
-                  {satir.eposta ?? "e-posta girilmemiş"}
-                  {satir.telefon ? ` · ${satir.telefon}` : ""}
-                </p>
-              </li>
-            ))}
-          </ul>
+          /*
+           * LİSTE YERİNE TABLO (15 Ağustos 2026).
+           *
+           * Önceki hâlde her kayıt üç satır düz metindi ve alanlar noktayla
+           * ayrılıyordu ("Okul · İlçe / İl · Branş"). Göz her satırda hangi
+           * bilginin ne olduğunu yeniden çözmek zorunda kalıyordu; okulu uzun
+           * bir kayıtta branş satırın sonuna kayıyordu. Panelin diğer yönetim
+           * ekranları (Okullar, Ekip Yönetimi, Okul Eksik Durum) zaten tablo —
+           * bu ekran onlarla da tutarsızdı.
+           *
+           * DANIŞMANLIK DURUMU ARTIK KENDİ SÜTUNUNDA. Bilgi ekranda vardı ama
+           * yalnızca ROZET olarak ve yalnızca sorunlu kayıtta basılıyordu;
+           * sütun olmadığı için "kimlerin görevi sürüyor" diye bakan kişi
+           * satırların yokluğundan çıkarım yapmak zorundaydı. Dışa aktarma
+           * dosyasında bu sütun zaten vardı — ekranın dosyadan eksik kalması
+           * ters bir durumdu.
+           */
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-cizgi text-metin-yumusak">
+                <tr>
+                  <th className="py-2 pr-4 font-medium">Ad soyad</th>
+                  <th className="py-2 pr-4 font-medium">Branş</th>
+                  <th className="py-2 pr-4 font-medium">Okul</th>
+                  <th className="py-2 pr-4 font-medium">İl / İlçe</th>
+                  <th className="py-2 pr-4 font-medium">İletişim</th>
+                  <th className="py-2 pr-4 font-medium">Danışmanlık</th>
+                  <th className="py-2 font-medium">İşaretleme</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorumlular.map((satir) => {
+                  const gorevSuruyor = satir.kullanici.roller.length > 0;
+                  return (
+                    <tr
+                      key={satir.kullaniciId}
+                      className={`border-b border-cizgi last:border-0 ${
+                        gorevSuruyor ? "" : "bg-uyari-zemin"
+                      }`}
+                    >
+                      <td className="py-2 pr-4 font-medium text-metin">
+                        {satir.kullanici.ad} {satir.kullanici.soyad}
+                      </td>
+                      <td className="py-2 pr-4 text-metin-yumusak">
+                        {satir.kullanici.brans ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {satir.kullanici.kurum?.ad ?? (
+                          <span className="text-metin-yumusak">Okul kaydı yok</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4 text-metin-yumusak">
+                        {[satir.kullanici.il?.ad, satir.kullanici.ilce?.ad]
+                          .filter(Boolean)
+                          .join(" / ") || "—"}
+                      </td>
+                      {/*
+                        İLETİŞİM TEK SÜTUNDA, iki satır: e-posta ve telefon ayrı
+                        sütun olsaydı ikisi de çoğu kayıtta boş kalır ve tablo
+                        iki boş sütunla uzardı.
+                      */}
+                      <td className="py-2 pr-4 text-metin-yumusak">
+                        {satir.eposta || satir.telefon ? (
+                          <>
+                            {satir.eposta && (
+                              <span className="block">{satir.eposta}</span>
+                            )}
+                            {satir.telefon && (
+                              <span className="block">{satir.telefon}</span>
+                            )}
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      {/*
+                        "Bitmiş" satırlar listenin en işe yarar bilgisi: işaret
+                        danışman öğretmene konuyor ama görevi bırakan kişide
+                        kalmaya devam ediyor. Renk TEK BAŞINA taşımıyor —
+                        metin de yazılı.
+                      */}
+                      <td className="py-2 pr-4">
+                        {gorevSuruyor ? (
+                          <span className="text-metin-yumusak">Aktif</span>
+                        ) : (
+                          <span className="font-medium text-uyari-metin">
+                            Görevi bitmiş
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-metin-yumusak">
+                        {satir.yegitekIsaretlemeTarihi
+                          ? tarihYaz(satir.yegitekIsaretlemeTarihi)
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </Kart>
     </div>

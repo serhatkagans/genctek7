@@ -1,0 +1,7 @@
+﻿Kaynak;Kullanici Tipi;Alan;Gerekce
+MEBBIS;PERSONEL (YEGITEK);Okul kodu / Il / Ilce / Sinif / Brans;"Proje yoneticisi bir okula bagli degildir; bos gonderilir."
+e-Devlet;MEZUN / PAYDAS / MENTOR;Okul kodu / Ilce / Sinif / Brans;"Bu kullanicilarin kurumu yoktur; bos gonderilir."
+EBA / e-Okul;OGRENCI;Brans;Yalnizca ogretmende doludur.
+MEBBIS;OGRETMEN;Sinif;Yalnizca ogrencide doludur.
+TUMU;TUMU;Dogum tarihi;ISTENMEYECEK. Semada sutun yoktur: 18 yas alti gozetimi yasa degil ROLE baglidir. Veri minimizasyonu geregi.
+TUMU;TUMU;Okul turu;"ISTENMEYECEK. Kullanici kaydinda degil kurum tablosunda durur; okul koduyla okunur (bkz. referans veri CSV)."

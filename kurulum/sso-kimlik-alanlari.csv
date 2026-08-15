@@ -1,0 +1,30 @@
+﻿Kaynak;Kullanici Tipi;Sira;Alan Adi;Teknik Ad;Veritabani Sutunu;Tip;Uzunluk;Zorunlu;Ornek;Aciklama
+EBA / e-Okul;OGRENCI;1;Kimlik numarasi;authProviderId;auth_provider_id;Metin;64;Evet;eba-8f3c1a...;"Tekil ve kalici olmali; asla yeniden kullanilmamali. TCKN KULLANILMAMALI."
+EBA / e-Okul;OGRENCI;2;Ad;ad;ad;Metin;100;Evet;Ayse;"Salt okunur; kullanici degistiremez."
+EBA / e-Okul;OGRENCI;3;Soyad;soyad;soyad;Metin;100;Evet;Yilmaz;"Salt okunur; kullanici degistiremez."
+EBA / e-Okul;OGRENCI;4;Cinsiyet;cinsiyet;cinsiyet;Karakter;1;Evet;K;Yalnizca E veya K. Kaynak 1/2 veya M/F donerse eslenmeli.
+EBA / e-Okul;OGRENCI;5;Okul kodu;kurumKodu;kurum_kodu;Tam sayi;;Evet;750123;kurum tablosuna yabanci anahtar. Kayit yoksa giris basarisiz olur.
+EBA / e-Okul;OGRENCI;6;Il kodu;ilKodu;il_kodu;Karakter;2;Evet;06;il tablosuna yabanci anahtar.
+EBA / e-Okul;OGRENCI;7;Ilce kodu;ilceKodu;ilce_kodu;Karakter;4;Evet;0601;ilce tablosuna yabanci anahtar.
+EBA / e-Okul;OGRENCI;8;Sinif;sinif;sinif;Metin;10;Evet;11-A;YALNIZCA OGRENCIDE. Ogretmende bos gonderilir.
+EBA / e-Okul;OGRENCI;9;Egitim-ogretim yili;egitimOgretimYili;egitim_ogretim_yili;Metin;9;Evet;2025-2026;YYYY-YYYY bicimi. Kaynak tek yil donerse donusum kurali netlesmeli.
+MEBBIS;OGRETMEN;1;Kimlik numarasi;authProviderId;auth_provider_id;Metin;64;Evet;mebbis-4d90e2...;"Tekil ve kalici olmali; asla yeniden kullanilmamali. TCKN KULLANILMAMALI."
+MEBBIS;OGRETMEN;2;Ad;ad;ad;Metin;100;Evet;Mehmet;"Salt okunur; kullanici degistiremez."
+MEBBIS;OGRETMEN;3;Soyad;soyad;soyad;Metin;100;Evet;Demir;"Salt okunur; kullanici degistiremez."
+MEBBIS;OGRETMEN;4;Cinsiyet;cinsiyet;cinsiyet;Karakter;1;Evet;E;Yalnizca E veya K. Kaynak 1/2 veya M/F donerse eslenmeli.
+MEBBIS;OGRETMEN;5;Okul kodu (asil kadro);kurumKodu;kurum_kodu;Tam sayi;;Evet;750123;KRITIK: danisman-ogrenci eslestirmesinin tek anahtari. Degisimi devir zincirini tetikler. Coklu gorev yeri varsa ASIL KADRO belirtilmeli.
+MEBBIS;OGRETMEN;6;Il kodu;ilKodu;il_kodu;Karakter;2;Evet;06;il tablosuna yabanci anahtar.
+MEBBIS;OGRETMEN;7;Ilce kodu;ilceKodu;ilce_kodu;Karakter;4;Evet;0601;ilce tablosuna yabanci anahtar.
+MEBBIS;OGRETMEN;8;Brans;brans;brans;Metin;100;Evet;Bilisim Teknolojileri;YALNIZCA OGRETMENDE. Ogrencide bos gonderilir.
+MEBBIS;OGRETMEN;9;Egitim-ogretim yili;egitimOgretimYili;egitim_ogretim_yili;Metin;9;Evet;2025-2026;YYYY-YYYY bicimi.
+MEBBIS;PERSONEL (YEGITEK);1;Kimlik numarasi;authProviderId;auth_provider_id;Metin;64;Evet;mebbis-11ab77...;Tekil ve kalici olmali.
+MEBBIS;PERSONEL (YEGITEK);2;Ad;ad;ad;Metin;100;Evet;Zeynep;Salt okunur.
+MEBBIS;PERSONEL (YEGITEK);3;Soyad;soyad;soyad;Metin;100;Evet;Kaya;Salt okunur.
+MEBBIS;PERSONEL (YEGITEK);4;Cinsiyet;cinsiyet;cinsiyet;Karakter;1;Evet;K;Yalnizca E veya K.
+MEBBIS;PERSONEL (YEGITEK);5;Egitim-ogretim yili;egitimOgretimYili;egitim_ogretim_yili;Metin;9;Evet;2025-2026;YYYY-YYYY bicimi.
+e-Devlet;MEZUN / PAYDAS / MENTOR;1;Kimlik numarasi;authProviderId;auth_provider_id;Metin;64;Evet;edevlet-c72f04...;Opak eslesme kimligi. TCKN KULLANILMAMALI.
+e-Devlet;MEZUN / PAYDAS / MENTOR;2;Ad;ad;ad;Metin;100;Evet;Ali;Salt okunur.
+e-Devlet;MEZUN / PAYDAS / MENTOR;3;Soyad;soyad;soyad;Metin;100;Evet;Ozturk;Salt okunur.
+e-Devlet;MEZUN / PAYDAS / MENTOR;4;Cinsiyet;cinsiyet;cinsiyet;Karakter;1;Evet;E;Yalnizca E veya K.
+e-Devlet;MEZUN / PAYDAS / MENTOR;5;Il kodu (adres ili);ilKodu;il_kodu;Karakter;2;Evet;34;il tablosuna yabanci anahtar.
+e-Devlet;MEZUN / PAYDAS / MENTOR;6;Egitim-ogretim yili;egitimOgretimYili;egitim_ogretim_yili;Metin;9;Evet;2025-2026;YYYY-YYYY bicimi.

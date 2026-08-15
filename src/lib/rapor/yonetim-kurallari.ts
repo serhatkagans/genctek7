@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 /**
  * Yönetim panosunun saf kuralları.
  *
@@ -266,4 +267,70 @@ export function yonetimYolIzi(
 
   adimlar.push({ etiket: sonAdim });
   return adimlar;
+}
+
+/**
+ * Okul özeti sorgusunun süzgeçleri.
+ *
+ * GENELLEŞTİRİLDİ (15 Ağustos 2026 · Aşama 4): imza eskiden `(ilceKodu: string)`
+ * idi ve yalnızca kırılımın son basamağına hizmet ediyordu. Okullar ekranı
+ * (`panel/okullar`) aynı sayıları düz ve aranabilir bir listede gösteriyor;
+ * ikinci bir okul sorgusu yazılsaydı sayımlar er ya da geç ayrışır ve iki ekran
+ * AYNI OKUL için farklı öğrenci sayısı gösterirdi.
+ */
+export type EkipDurumu = "hepsi" | "ekipli" | "ekipsiz";
+
+export function ekipDurumuGecerliMi(deger: string): deger is EkipDurumu {
+  return deger === "hepsi" || deger === "ekipli" || deger === "ekipsiz";
+}
+
+export interface OkulSuzgeci {
+  ilKodu?: string | null;
+  ilceKodu?: string | null;
+  okulTuru?: string | null;
+  /** Okul adı ya da ilçe adı içinde arama. */
+  ara?: string | null;
+  /**
+   * Okulda tanımlı ekip var mı (Aşama 5 ile açıldı).
+   *
+   * Manisa panelindeki "Ekip Tanımlanan / Ekip Tanımlanmayan" sekmelerinin
+   * karşılığı. Yalnızca OKUL TAKIMI türündeki ekipler sayılır: çalışma grubu
+   * ve il ekibi bir okula bağlı değil (şemadaki `ck_ekip_okul_takimi_kurum`),
+   * dolayısıyla "bu okulun ekibi var mı" sorusuna cevap vermezler.
+   */
+  ekipDurumu?: EkipDurumu;
+  atla?: number;
+  al?: number;
+}
+
+export function okulKosulu(suzgec: OkulSuzgeci): Prisma.KurumWhereInput {
+  const ara = suzgec.ara?.trim();
+
+  return {
+    aktif: true,
+    ...(suzgec.ilKodu ? { ilKodu: suzgec.ilKodu } : {}),
+    ...(suzgec.ilceKodu ? { ilceKodu: suzgec.ilceKodu } : {}),
+    ...(suzgec.okulTuru ? { okulTuru: suzgec.okulTuru } : {}),
+    ...(suzgec.ekipDurumu === "ekipli"
+      ? { ekipler: { some: { aktif: true } } }
+      : suzgec.ekipDurumu === "ekipsiz"
+        ? { ekipler: { none: { aktif: true } } }
+        : {}),
+    ...(ara
+      ? {
+          OR: [
+            { ad: { contains: ara, mode: "insensitive" as const } },
+            { ilce: { ad: { contains: ara, mode: "insensitive" as const } } },
+            /*
+             * KURUM KODU TAM EŞLEŞME. Kod bir kimliktir; "758" yazan kişi
+             * içinde 758 geçen 40 okulu değil, o kodlu okulu arıyor. Sayıya
+             * çevrilemeyen metin bu dalı hiç açmıyor.
+             */
+            ...(Number.isInteger(Number(ara))
+              ? [{ kurumKodu: Number(ara) }]
+              : []),
+          ],
+        }
+      : {}),
+  };
 }

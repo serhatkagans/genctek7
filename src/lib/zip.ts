@@ -15,10 +15,14 @@ import { deflateRawSync } from "node:zlib";
  * tamamı değil, "birkaç dosyayı tek arşivde topla"dan ibaret. Yazılan biçim
  * standart PKZIP: Windows Gezgini, macOS Arşiv Yardımcısı ve 7-Zip açar.
  *
- * KAPSAM DIŞI (bilerek): parola, zip64 (4 GB üstü arşiv), klasör ağacı, akış
- * (streaming). Etkinlik görselleri dosya başına birkaç MB ve sayıları onlarla
- * ifade ediliyor; hepsi belleğe sığar. Bu sınırlar aşılacaksa doğru cevap bu
- * dosyayı büyütmek değil, gerçek bir kütüphane eklemektir.
+ * KAPSAM DIŞI (bilerek): parola, zip64 (4 GB üstü arşiv), akış (streaming).
+ * Etkinlik görselleri dosya başına birkaç MB ve sayıları onlarla ifade
+ * ediliyor; hepsi belleğe sığar. Bu sınırlar aşılacaksa doğru cevap bu dosyayı
+ * büyütmek değil, gerçek bir kütüphane eklemektir.
+ *
+ * KLASÖR AĞACI 15 Ağustos 2026'da eklendi (`klasorlu` seçeneği): XLSX yazıcısı
+ * (lib/rapor/xlsx.ts) `xl/worksheets/sheet1.xml` gibi yollar gerektiriyor.
+ * Varsayılan davranış DEĞİŞMEDİ — görsel arşivi hâlâ düz.
  *
  * SIKIŞTIRMA "deflate" AMA ZORUNLU DEĞİL: JPEG ve PNG zaten sıkıştırılmış
  * biçimler, yeniden sıkıştırmak çoğu zaman dosyayı BÜYÜTÜR. Bu yüzden her giriş
@@ -138,13 +142,51 @@ function girisiHazirla(giris: ZipGirisi, ad: string): HazirGiris {
 }
 
 /**
+ * Klasörlü bir arşiv yolunu doğrular.
+ *
+ * `zipAdiTemizle` burada KULLANILAMAZ, çünkü o ayraçları düşürüyor. Onun
+ * yerine yol, zip slip'e karşı tek tek denetleniyor: mutlak yol yok, `..`
+ * parçası yok, boş parça yok. Yani koruma gevşetilmiyor, aynı garanti
+ * ayraçlara izin veren bir biçimde yeniden kuruluyor.
+ *
+ * Bu yol yalnızca KODDAN GELEN sabitler için düşünülmüştür (bkz. `klasorlu`);
+ * yine de doğrulanıyor, çünkü "çağıran dikkatli davranır" bir güvenlik
+ * önlemi değildir.
+ */
+function klasorluYolDogrula(ad: string): string {
+  const yol = ad.replaceAll("\\", "/");
+  const parcalar = yol.split("/");
+
+  const gecerli =
+    yol.length > 0 &&
+    !yol.startsWith("/") &&
+    parcalar.every((parca) => parca.length > 0 && parca !== "." && parca !== "..");
+
+  if (!gecerli) {
+    throw new Error(`Arşiv içinde geçersiz yol: ${ad}`);
+  }
+  return yol;
+}
+
+/**
  * Girişlerden tek bir ZIP arşivi üretir.
  *
  * Bayrak `0x0800` (UTF-8 ad) her girişte açık: dosya adları Türkçe ve bayrak
  * olmadan Windows arşivi kendi kod sayfasıyla okur, "Görsel.png" bozuk çıkar.
+ *
+ * `klasorlu` seçeneği, adları klasör yolu olarak KORUR ve tekilleştirmez —
+ * XLSX gibi belirli adlar bekleyen biçimler için. Varsayılan (kapalı) hâlde
+ * davranış eskisiyle aynıdır: adlar düzleştirilir, temizlenir, tekilleştirilir.
+ * Ayrım varsayılan olarak GÜVENLİ tarafta duruyor, çünkü asıl çağıran hâlâ
+ * kullanıcı yüklemesi adlarını geçiren görsel arşivi.
  */
-export function zipOlustur(girisler: readonly ZipGirisi[]): Buffer {
-  const adlar = adlariTekillestir(girisler.map((giris) => giris.ad));
+export function zipOlustur(
+  girisler: readonly ZipGirisi[],
+  secenekler: { klasorlu?: boolean } = {},
+): Buffer {
+  const adlar = secenekler.klasorlu
+    ? girisler.map((giris) => klasorluYolDogrula(giris.ad))
+    : adlariTekillestir(girisler.map((giris) => giris.ad));
   const hazirlar = girisler.map((giris, sira) =>
     girisiHazirla(giris, adlar[sira]),
   );

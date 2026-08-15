@@ -3,7 +3,6 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
-  Download,
   Filter,
   ShieldCheck,
   UserCheck,
@@ -11,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   BilgiKutusu,
   Kart,
@@ -22,6 +22,10 @@ import {
 import { YolIzi } from "@/components/YonetimKartlari";
 import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  BILISIM_YOLCULUGU_TIPLERI,
+  KAZANIM_TIPLERI,
+} from "@/lib/kazanim/kurallar";
 import {
   gorevRoluAtaEylemi,
   gorevRoluKaldirEylemi,
@@ -827,6 +831,50 @@ export default async function OgrencilerSayfasi({
               className={SINIF_SECIM}
             />
           </label>
+
+          {/*
+            DENEYİM SÜZGECİ (15 Ağustos 2026 · Aşama 8).
+
+            Manisa panelinde "Deneyimler" adında çok seçimli bir kutu var
+            ("TEKNOFEST Yarışmaları", "Bilim fuarları"). Bizde bu veri
+            `KullaniciKazanim` tablosunda zaten duruyor — yeni bir tablo
+            açılmadı, var olan kayıt ARAMA EKSENİ hâline getirildi.
+
+            İKİ ALAN AYRI: tip sabit listeden ("GençTek dışı etkinlikler"),
+            metin ise serbest ("teknofest"). Manisa'da ikisi tek listede ve
+            sonucu ekran görüntüsünde görünüyor — "Diğer: Bilişim hukuku ve
+            güvenli internet" gibi elle yazılmış girdiler süzgeç listesini
+            dolduruyor, aynı şeyin üç yazımı üç ayrı seçenek oluyor. Sabit
+            liste + serbest arama ayrımı bunu engelliyor.
+          */}
+          <label className="block">
+            <span className={SINIF_ETIKET}>Deneyim türü</span>
+            <select
+              name="kazanim"
+              defaultValue={filtreler.kazanimTipi ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm deneyimler</option>
+              {KAZANIM_TIPLERI.filter((tanim) =>
+                BILISIM_YOLCULUGU_TIPLERI.includes(tanim.tip),
+              ).map((tanim) => (
+                <option key={tanim.tip} value={tanim.tip}>
+                  {tanim.baslik}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className={SINIF_ETIKET}>Deneyim adında ara</span>
+            <input
+              type="text"
+              name="kazanimAra"
+              placeholder="Örn. TEKNOFEST"
+              defaultValue={filtreler.kazanimAra ?? ""}
+              className={SINIF_SECIM}
+            />
+          </label>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -846,13 +894,7 @@ export default async function OgrencilerSayfasi({
           {toplam > 0 && (
             // Bağlantı, formun o anki hâlini değil ADRESTEKİ filtreleri taşır:
             // indirilen dosya ekranda görünen listeyle birebir aynı olmalı.
-            <Link
-              href={disaAktarmaBaglantisi}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin"
-            >
-              <Download size={15} aria-hidden />
-              CSV indir ({toplam} kayıt)
-            </Link>
+            <DisaAktarmaBagi yol={disaAktarmaBaglantisi} kayitSayisi={toplam} />
           )}
         </div>
       </form>

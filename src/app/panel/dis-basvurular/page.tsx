@@ -8,6 +8,7 @@ import {
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
 } from "@/components/ui";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
   type BasvuruSatiri,
@@ -162,6 +163,20 @@ export default async function DisBasvurularSayfasi({
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
       {bilgi && <BilgiKutusu cesit="olumlu">{bilgi}</BilgiKutusu>}
+
+      {tumu.length > 0 && (
+        /*
+         * Dosya BEKLEYENLER VE KARARA BAĞLANANLARIN TAMAMINI taşır: ekran ikisini
+         * ayrı bölümlerde gösteriyor ama "kimler başvurdu, kaçı kabul edildi"
+         * sorusu tek tabloda cevaplanır.
+         */
+        <p>
+          <DisaAktarmaBagi
+            yol="/panel/dis-basvurular/disa-aktar"
+            kayitSayisi={tumu.length}
+          />
+        </p>
+      )}
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-baslik">

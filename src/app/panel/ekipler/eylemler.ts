@@ -8,12 +8,14 @@ import { prisma } from "@/lib/db";
 import {
   buEkibiYonetebilirMi,
   ekipAdiniCoz,
+  ekipKapsaminiCoz,
   ekipMesajiniCoz,
   ekipSohbetineYazabilirMi,
   ekipYonetebilirMi,
 } from "@/lib/ekip/kurallar";
 import { ekibiGetir } from "@/lib/ekip/veri";
 import { koordinatorIlKodu, projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { OGRETMEN } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
@@ -74,6 +76,46 @@ export async function ekipKurEylemi(veri: FormData): Promise<void> {
    * (ux_ekip_il_ad_aktif); burada önce sorulup anlaşılır bir hata dönülüyor —
    * kısıt ihlali kullanıcıya ham veritabanı hatası olarak çıkardı.
    */
+  /*
+   * TÜR VE OKUL BAĞI (15 Ağustos 2026 · Aşama 5). Kural saf dosyada ve testli;
+   * burada yalnızca sonucu uygulanıyor. Okul takımının okulu, ekibin iliyle
+   * AYNI İLDE olmak zorunda — başka ilin okuluna takım kurmak, ekibin il
+   * kapsamını (yönetim yetkisinin dayanağı) anlamsız kılardı.
+   */
+  const kapsam = ekipKapsaminiCoz({
+    tur: String(veri.get("tur") ?? "CALISMA_GRUBU"),
+    kurumKodu: String(veri.get("kurumKodu") ?? "") || null,
+  });
+  if (!kapsam.olurMu) hataylaDon(YOL, kapsam.neden);
+
+  if (kapsam.kurumKodu !== null) {
+    const okul = await prisma.kurum.findFirst({
+      where: { kurumKodu: kapsam.kurumKodu, ilKodu, aktif: true },
+      select: { kurumKodu: true },
+    });
+    if (!okul) {
+      hataylaDon(YOL, "Seçilen okul bu ile bağlı değil ya da kapalı.");
+    }
+  }
+
+  /*
+   * DANIŞMAN İSTEĞE BAĞLI: danışmansız ekip kurulabiliyor ve bu bir eksiklik
+   * değil, izlenen bir durum (bkz. ekip-yonetimi · ?danismansiz=1). Seçildiyse
+   * ekibin ilinden bir öğretmen olmak zorunda.
+   */
+  const danismanId = Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
+  let danismanKullaniciId: number | null = null;
+  if (Number.isInteger(danismanId)) {
+    const danisman = await prisma.kullanici.findFirst({
+      where: { id: danismanId, aktif: true, ilKodu, ...OGRETMEN },
+      select: { id: true },
+    });
+    if (!danisman) {
+      hataylaDon(YOL, "Seçilen danışman bu ilde görevli bir öğretmen değil.");
+    }
+    danismanKullaniciId = danismanId;
+  }
+
   const ayniAd = await prisma.ekip.findFirst({
     where: { ilKodu, ad: karar.ad, aktif: true },
     select: { id: true },
@@ -87,6 +129,9 @@ export async function ekipKurEylemi(veri: FormData): Promise<void> {
       ad: karar.ad,
       aciklama: karar.aciklama,
       ilKodu,
+      tur: kapsam.tur,
+      kurumKodu: kapsam.kurumKodu,
+      danismanKullaniciId,
       kuranKullaniciId: kullanici.id,
     },
     select: { id: true, ad: true },
@@ -97,7 +142,7 @@ export async function ekipKurEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "ROL",
     hedefId: ekip.id,
-    detay: `Ekip kuruldu: ${ekip.ad} (il ${ilKodu})`,
+    detay: `Ekip kuruldu: ${ekip.ad} (il ${ilKodu}, tür ${kapsam.tur})`,
   });
 
   revalidatePath(YOL);

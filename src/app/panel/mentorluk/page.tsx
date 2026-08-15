@@ -1,4 +1,5 @@
 import { GraduationCap } from "lucide-react";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { notFound } from "next/navigation";
 import {
   BilgiKutusu,
@@ -147,6 +148,15 @@ export default async function MentorlukKuyruguSayfasi({
             : "Bekleyen başvuru yok"
         }
       />
+
+      {kayitlar.length > 0 && (
+        <p>
+          <DisaAktarmaBagi
+            yol="/panel/mentorluk/disa-aktar"
+            kayitSayisi={kayitlar.length}
+          />
+        </p>
+      )}
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
       {durum && DURUM_MESAJLARI[durum] && (

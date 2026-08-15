@@ -1,5 +1,6 @@
 import { BadgeCheck, Filter, ShieldQuestion, UserCog, X } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   BilgiKutusu,
   Kart,
@@ -297,6 +298,20 @@ export default async function GorevRolleriSayfasi({
         baslik="Görev rolleri"
         aciklama={`İl ve İlçe Temsilcisi atamaları · ${kullanici.egitimOgretimYili} dönemi · ${toplam} öğrenci`}
       />
+
+      {/*
+        DOSYA BU LİSTENİN KOPYASI DEĞİL. Ekran görev VERİLEBİLECEK adayları
+        listeliyor (çoğunun görevi yok); dosya ise VERİLMİŞ görevleri taşıyor.
+        Gerekçenin tamamı rotanın başında.
+      */}
+      <p>
+        <DisaAktarmaBagi
+          yol={`/panel/gorev-rolleri/disa-aktar?yil=${encodeURIComponent(
+            kullanici.egitimOgretimYili,
+          )}`}
+          etiket="Verilmiş görevleri Excel indir"
+        />
+      </p>
 
       {!merkezMi && (
         <BilgiKutusu>

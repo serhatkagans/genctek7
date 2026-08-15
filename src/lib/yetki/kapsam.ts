@@ -123,6 +123,25 @@ export interface OgrenciListeFiltreleri {
   ara?: string | null;
   /** Danışmanı olmayan öğrenciler (il koordinatörünün takip etmesi gereken durum). */
   danismansizMi?: boolean;
+  /**
+   * DENEYİM SÜZGECİ (15 Ağustos 2026 · manisa-farklari-plani.md · Aşama 8).
+   *
+   * Manisa panelinde öğrenciler "Deneyimler" alanına göre süzülüyor
+   * ("TEKNOFEST Yarışmaları", "Bilim fuarları"). Bizde bu veri ZATEN VAR:
+   * `KullaniciKazanim` tablosu GençTek dışı etkinlikleri, yarışma derecelerini,
+   * sertifikaları ve toplulukları tutuyor. Eksik olan tablo değil, o veriyi
+   * ARAMA EKSENİ hâline getiren süzgeçti — plandaki "yeni bir deneyim tablosu"
+   * fikri uygulamada terk edildi; ikinci bir tablo mevcut modeli ikizlerdi.
+   *
+   * `kazanimTipi` kazanımın türünü ("GençTek dışı etkinlik"), `kazanimAra` ise
+   * başlığında geçen metni ("teknofest") daraltır. İkisi birlikte AYNI kazanım
+   * kaydında aranır: tipi eşleşen bir kayıt ile metni eşleşen BAŞKA bir kaydı
+   * olan öğrenci sonuçta çıkmamalı — "TEKNOFEST'e katılmış" ile "bir yarışması
+   * ve ayrıca bir sertifikası var" farklı şeyler.
+   */
+  kazanimTipi?: string | null;
+  /** Kazanım başlığında geçen metin. */
+  kazanimAra?: string | null;
 }
 
 /**
@@ -165,6 +184,30 @@ export function ogrenciListeFiltresi(
       ],
     });
   }
+  /*
+   * DENEYİM: tip ve metin TEK `some` içinde. Ayrı iki `some` yazılsaydı iki
+   * FARKLI kazanım kaydıyla eşleşen öğrenci de listeye girerdi.
+   */
+  if (filtreler.kazanimTipi || filtreler.kazanimAra?.trim()) {
+    kosullar.push({
+      kazanimlar: {
+        some: {
+          ...(filtreler.kazanimTipi
+            ? { tip: filtreler.kazanimTipi as never }
+            : {}),
+          ...(filtreler.kazanimAra?.trim()
+            ? {
+                baslik: {
+                  contains: filtreler.kazanimAra.trim(),
+                  mode: "insensitive" as const,
+                },
+              }
+            : {}),
+        },
+      },
+    });
+  }
+
   if (filtreler.calismaGrubuId) {
     kosullar.push({
       calismaGruplari: { some: { calismaGrubuId: filtreler.calismaGrubuId } },

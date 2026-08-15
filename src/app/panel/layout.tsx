@@ -272,8 +272,25 @@ export default async function PanelDuzeni({
    */
   baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
 
-  // Panonun hemen ardında: mentörün işi panodaki ilanları cevaplamak.
-  baglantilar.push(...mentorSekmesi);
+  /*
+   * MENTÖRLÜĞÜM SEKMESİ YÖNETİM PANELİ GÖRENLERDE YOK (15 Ağustos 2026 ·
+   * istek: "koordinatör sayfasındaki mentörlüğüm menüsünü yönetim paneline
+   * kart olarak koy").
+   *
+   * Koordinatör ve merkez ekrana Yönetim Paneli'ndeki karttan giriyor —
+   * "Ekiplerim" kartıyla aynı düzen: mentörlük onların günlük işi değil.
+   *
+   * SEKME HERKESTEN KALKMADI ve bu ayrım önemli: mentörlük bir rol değil,
+   * onaya bağlı bir kayıt — öğrenci, danışman ve mezun da onaylı mentör
+   * olabiliyor. Onlar Yönetim Paneli'ni göremiyor; sekme onlardan da
+   * kaldırılsaydı kendi mentörlük kutularına ulaşacak hiçbir yolları kalmazdı.
+   *
+   * Sekme kalanlarda panonun hemen ardında: mentörün işi panodaki ilanları
+   * cevaplamak.
+   */
+  if (!yonetimPanosuGorebilirMi(kullanici)) {
+    baglantilar.push(...mentorSekmesi);
+  }
 
   /*
    * ÜRÜNLERİM (GençTek Market) HERKESE AÇIK (I · 6 Ağustos 2026).

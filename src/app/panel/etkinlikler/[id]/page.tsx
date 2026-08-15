@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
-  Download,
   FileText,
   Handshake,
   Info,
@@ -24,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { notFound } from "next/navigation";
 import {
   BasvuruRozeti,
@@ -1621,15 +1621,13 @@ export default async function FaaliyetDetaySayfasi({
             aynısıdır; telefon ve e-posta orada da yoktur.
           */}
           {basvuranlar.length > 0 && (
-            <a
-              href={uygulamaYolu(
-                `/panel/etkinlikler/${faaliyet.id}/basvurular/disa-aktar`,
-              )}
-              className={`${SINIF_IKINCIL_BUTON} mb-4`}
-            >
-              <Download size={16} aria-hidden />
-              Başvuru listesini CSV indir
-            </a>
+            <div className="mb-4">
+              <DisaAktarmaBagi
+                yol={`/panel/etkinlikler/${faaliyet.id}/basvurular/disa-aktar`}
+                kayitSayisi={basvuranlar.length}
+                etiket="Başvuru listesini Excel indir"
+              />
+            </div>
           )}
 
           {devroldu && (

@@ -12,8 +12,12 @@ import {
   kontenjanDurumu,
   ONAY_DURUMU_ETIKETLERI,
 } from "@/lib/faaliyet/kurallar";
-import { csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
-import { tarihYaz } from "@/lib/tarih";
+import {
+  altBaslikYaz,
+  bicimCoz,
+  disaAktarmaYaniti,
+} from "@/lib/rapor/disa-aktarma";
+import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { faaliyetDisaAktarabilirMi } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import type { SorguParametreleri } from "../../ogrenciler/filtreler";
@@ -22,7 +26,7 @@ import { faaliyetFiltreleriniCoz, faaliyetListeFiltresi } from "../filtreler";
 export const dynamic = "force-dynamic";
 
 /**
- * Faaliyet listesinin CSV çıktısı.
+ * Faaliyet listesinin dosya çıktısı (varsayılan XLSX, `?bicim=csv` ile CSV).
  *
  * Ekranla aynı kapsam ve aynı filtrelerden geçer. Başvuru sayıları özet olarak
  * yazılır; başvuran ÖĞRENCİ adları burada yoktur — onlar faaliyetin
@@ -30,24 +34,24 @@ export const dynamic = "force-dynamic";
  * (references/permissions.md Bölüm 3).
  */
 
-const BASLIKLAR = [
-  "Etkinlik",
-  "Tarih",
-  "Kapsam",
-  "Etkinlik kategorisi",
-  "Program",
-  "Düzenleyen birim",
-  "Yer (okul/il)",
-  "Başvuru başlangıç",
-  "Başvuru bitiş",
-  "Kontenjan",
-  "Aktif başvuru",
-  "Seçilen",
-  "Yedek",
-  "Onay durumu",
-  "Etkinlik durumu",
-  "Çalışma grupları",
-] as const;
+const SUTUNLAR: readonly XlsxSutun[] = [
+  { baslik: "Etkinlik", genislik: 42 },
+  { baslik: "Tarih", genislik: 12 },
+  { baslik: "Kapsam", genislik: 14 },
+  { baslik: "Etkinlik kategorisi", genislik: 24 },
+  { baslik: "Program", genislik: 28 },
+  { baslik: "Düzenleyen birim", genislik: 28 },
+  { baslik: "Yer (okul/il)", genislik: 34 },
+  { baslik: "Başvuru başlangıç", genislik: 15 },
+  { baslik: "Başvuru bitiş", genislik: 15 },
+  { baslik: "Kontenjan", genislik: 11 },
+  { baslik: "Aktif başvuru", genislik: 12 },
+  { baslik: "Seçilen", genislik: 10 },
+  { baslik: "Yedek", genislik: 9 },
+  { baslik: "Onay durumu", genislik: 16 },
+  { baslik: "Etkinlik durumu", genislik: 15 },
+  { baslik: "Çalışma grupları", genislik: 34 },
+];
 
 export async function GET(istek: Request) {
   const kullanici = await oturumKullanicisi();
@@ -112,13 +116,15 @@ export async function GET(istek: Request) {
     },
   });
 
+  const bicim = bicimCoz(adres);
+
   await erisimLoglaCoklu(
     faaliyetler.map((faaliyet) => ({
       kullaniciId: kullanici.id,
       islem: "GORUNTULEME" as const,
       hedefTip: "FAALIYET" as const,
       hedefId: faaliyet.id,
-      detay: "Etkinlik listesi CSV olarak dışa aktarıldı",
+      detay: `Etkinlik listesi ${bicim.toUpperCase()} olarak dışa aktarıldı`,
     })),
   );
 
@@ -133,14 +139,14 @@ export async function GET(istek: Request) {
 
     return [
       faaliyet.ad,
-      tarihYaz(faaliyet.tarih),
+      faaliyet.tarih,
       KAPSAM_ETIKETLERI[faaliyet.kapsam],
       ETKINLIK_KATEGORISI_ETIKETLERI[faaliyet.etkinlikKategorisi],
       faaliyet.temelEtkinlikProgrami?.ad ?? "",
       faaliyet.duzenleyenBirim,
       faaliyet.kurum?.ad ?? faaliyet.il?.ad ?? "",
-      tarihYaz(faaliyet.basvuruBaslangic),
-      tarihYaz(faaliyet.basvuruBitis),
+      faaliyet.basvuruBaslangic,
+      faaliyet.basvuruBitis,
       faaliyet.kontenjan,
       kontenjan.aktifBasvuru,
       secilen,
@@ -153,5 +159,12 @@ export async function GET(istek: Request) {
     ];
   });
 
-  return csvYaniti("genctek-etkinlikler", csvBelgesi(BASLIKLAR, satirlar));
+  return disaAktarmaYaniti({
+    bicim,
+    dosyaAdi: "genctek-etkinlikler",
+    baslik: "GençTek Ekosistemi",
+    altBaslik: altBaslikYaz("Etkinlik listesi", satirlar.length),
+    sutunlar: SUTUNLAR,
+    satirlar,
+  });
 }

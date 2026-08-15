@@ -2,6 +2,8 @@ import {
   faaliyetFiltreleriniCoz,
   faaliyetFiltresiVarMi,
   faaliyetListeFiltresi,
+  zamanGecerliMi,
+  zamanKosulu,
 } from "@/app/panel/etkinlikler/filtreler";
 import { koordinatorYap, ogrenciYap, projeYoneticisiYap } from "./yardimcilar";
 
@@ -106,5 +108,57 @@ describe("etkinlik liste filtreleri · onay kuyruğu", () => {
     for (const kosul of filtre.AND as Record<string, unknown>[]) {
       expect(kosul).not.toHaveProperty("kapsam");
     }
+  });
+});
+
+describe("zamanKosulu (Aşama 6b)", () => {
+  const simdi = new Date("2026-08-15T12:00:00Z");
+
+  it("hepsi seçiliyken koşul koymaz", () => {
+    // Varsayılan sekme daraltma yapmamalı; "Filtreleri temizle"yi de
+    // tetiklememeli (bkz. faaliyetFiltresiVarMi).
+    expect(zamanKosulu("hepsi", simdi)).toEqual({});
+  });
+
+  it("tamamlananlarda bitiş tarihini ölçüt alır", () => {
+    /*
+     * Çok günlü etkinlikte bitiş, tek günlükte tarih — raporlar ekranındaki
+     * bitmişlik ölçütünün aynısı. İki ekran farklı tanım kullansaydı bir
+     * etkinlik birinde "bitmiş" öbüründe "devam eden" görünürdü.
+     */
+    const kosul = zamanKosulu("tamamlanan", simdi);
+
+    expect(kosul.durum).toBe("AKTIF");
+    expect(JSON.stringify(kosul.OR)).toContain("bitisTarihi");
+    expect(JSON.stringify(kosul.OR)).toContain("tarih");
+  });
+
+  it("devam edenler tamamlananların tam tersidir", () => {
+    // İkisi birlikte "AKTIF" kümesinin tamamını vermeli; arada kayıp olmamalı.
+    const devam = zamanKosulu("devam", simdi);
+    const tamamlanan = zamanKosulu("tamamlanan", simdi);
+
+    expect(devam.durum).toBe("AKTIF");
+    // `devam` bitmişliği OLUMSUZLAR: NOT'un içeriği tamamlananın koşuludur.
+    expect(JSON.stringify(devam.NOT)).toBe(
+      JSON.stringify({ OR: tamamlanan.OR }),
+    );
+  });
+
+  it("iptal edilenleri her iki sekmede de dışarıda bırakır", () => {
+    // İptal "yapılmadı" demek; ne devam ediyor ne tamamlandı. "Hepsi"
+    // sekmesinde ise durur — listeden düşmesi "etkinliğim kayboldu" olurdu.
+    expect(zamanKosulu("devam", simdi).durum).toBe("AKTIF");
+    expect(zamanKosulu("tamamlanan", simdi).durum).toBe("AKTIF");
+    expect(zamanKosulu("hepsi", simdi).durum).toBeUndefined();
+  });
+});
+
+describe("zamanGecerliMi", () => {
+  it("üç sekmeyi tanır, uydurmayı reddeder", () => {
+    expect(zamanGecerliMi("hepsi")).toBe(true);
+    expect(zamanGecerliMi("devam")).toBe(true);
+    expect(zamanGecerliMi("tamamlanan")).toBe(true);
+    expect(zamanGecerliMi("bitmis")).toBe(false);
   });
 });

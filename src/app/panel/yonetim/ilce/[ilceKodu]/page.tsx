@@ -53,7 +53,7 @@ export default async function IlceKirilimiSayfasi({
     );
   }
 
-  const okullar = await okulOzetleriniGetir(ilceKodu);
+  const okullar = await okulOzetleriniGetir({ ilceKodu });
   const toplam = ozetToplami(okullar);
 
   const ogrenciListesi = ogrenciEnvanteriGorebilirMi(kullanici);
@@ -73,6 +73,21 @@ export default async function IlceKirilimiSayfasi({
         baslik={`${ilce.ad} · Okullar`}
         aciklama="İlçedeki okullar ve her okuldaki öğretmen, danışman öğretmen ile öğrenci sayısı."
       />
+
+      {/*
+        DÜZ LİSTEYE GEÇİŞ (15 Ağustos 2026 · Aşama 4). Bu ekran kart kart
+        gezdiriyor; aranabilir ve dışa aktarılabilir hâli Okullar ekranında ve
+        AYNI sorgudan besleniyor. Bağlantı ilçeyi taşıyor, yani kullanıcı
+        bulunduğu yerden çıkmıyor.
+      */}
+      <p className="text-sm">
+        <Link
+          href={`/panel/okullar?ilce=${ilceKodu}`}
+          className="font-medium text-vurgu-metin underline underline-offset-2"
+        >
+          Bu ilçeyi aranabilir listede aç
+        </Link>
+      </p>
 
       <Kart>
         <KartBasligi

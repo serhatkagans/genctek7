@@ -3,17 +3,18 @@ import {
   Award,
   CalendarDays,
   Check,
-  Download,
   FileText,
   Filter,
   LayoutGrid,
   List,
   MapPin,
   Plus,
+  UserCheck,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import type {
   BasvuruDurumu,
   EtkinlikKategorisi,
@@ -74,6 +75,7 @@ import {
   faaliyetFiltreleriniCoz,
   faaliyetFiltresiVarMi,
   faaliyetListeFiltresi,
+  type FaaliyetFiltreleri,
 } from "./filtreler";
 import { kaynakIlKarariEylemi } from "./il-disi-eylemler";
 
@@ -96,6 +98,8 @@ export const dynamic = "force-dynamic";
  * silme düğmeleriyle aynı dili konuşan bir gezinme düğmesi ortaya çıkardı.
  * Burada istenen şey vurgu, uyarı değil — o yüzden yerel kalıyor.
  */
+const SAYFA_BOYUTU = 50;
+
 const SINIF_KIRMIZI_BUTON =
   "inline-flex items-center gap-2 rounded-md border border-hata-cizgi bg-hata-zemin px-4 py-2 text-sm font-semibold text-hata-metin transition hover:border-hata-metin";
 
@@ -129,6 +133,12 @@ interface EtkinlikKarti {
   benimBasvurum: BasvuruDurumu | null;
   raporBekliyor: boolean;
   benimActigim: boolean;
+  /** Seçilmiş katılımcı sayısı (Aşama 6c). */
+  katilimciSayisi: number;
+  /** Etkinlik bitti mi — rapor etiketi yalnızca bitmişlerde anlamlı. */
+  bittiMi: boolean;
+  /** Bitmiş etkinliğin raporu yazılmış mı (Aşama 6d). */
+  raporYazildi: boolean;
 }
 
 /**
@@ -309,6 +319,15 @@ function IlDisiBasvurular({
   );
 }
 
+function RaporYazildiRozeti() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-olumlu-zemin px-2.5 py-0.5 text-xs font-medium text-olumlu-metin">
+      <FileText size={12} aria-hidden />
+      Rapor yazıldı
+    </span>
+  );
+}
+
 function RaporRozeti() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-uyari-zemin px-2.5 py-0.5 text-xs font-medium text-uyari-metin">
@@ -335,6 +354,7 @@ function Rozetler({ kart }: { kart: EtkinlikKarti }) {
         (koşul kartı hazırlarken uygulandı).
       */}
       {kart.raporBekliyor && <RaporRozeti />}
+      {kart.raporYazildi && <RaporYazildiRozeti />}
     </>
   );
 }
@@ -488,6 +508,12 @@ function IzgaraListesi({ kartlar }: { kartlar: EtkinlikKarti[] }) {
                   <Users size={13} aria-hidden />
                   {kart.kontenjan.aktifBasvuru}/{kart.kontenjan.kontenjan}
                 </span>
+                {kart.bittiMi && (
+                  <span className="inline-flex items-center gap-1">
+                    <UserCheck size={13} aria-hidden />
+                    {kart.katilimciSayisi}
+                  </span>
+                )}
                 {kart.benimActigim && <span>· sizin açtığınız</span>}
               </div>
             </div>
@@ -570,6 +596,20 @@ function ListeGorunumu({ kartlar }: { kartlar: EtkinlikKarti[] }) {
                   {kart.kontenjan.aktifBasvuru}/{kart.kontenjan.kontenjan}{" "}
                   kontenjan
                 </span>
+                {/*
+                  KATILIMCI SAYISI YALNIZCA BİTMİŞ ETKİNLİKTE (Aşama 6c).
+
+                  Kontenjan sayacı "kaç kişi başvurdu" diyor; bu ise "kaç kişiye
+                  yer verildi". Başlamamış etkinlikte ikincisi henüz kararlaşmadı
+                  ve iki sayıyı yan yana göstermek, başvuru penceresi açıkken
+                  "0 katılımcı" gibi yanıltıcı bir satır üretirdi.
+                */}
+                {kart.bittiMi && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserCheck size={15} aria-hidden />
+                    {kart.katilimciSayisi} katılımcı
+                  </span>
+                )}
               </div>
 
               {kart.calismaGruplari.length > 0 && (
@@ -606,10 +646,27 @@ export default async function FaaliyetlerSayfasi({
   const simdi = new Date();
   const nerede = faaliyetListeFiltresi(kullanici, filtreler, simdi);
 
-  const [faaliyetler, gruplar] = await Promise.all([
+  /*
+   * SAYFALAMA (15 Ağustos 2026 · Aşama 6a — DEFEKT DÜZELTMESİ).
+   *
+   * Bu ekran kapsamdaki BÜTÜN etkinlikleri tek sorguyla çekip tek sayfaya
+   * basıyordu; dosyada ne `skip` ne `take` vardı. Öğrenci envanterinde iş
+   * çoktan doğru yapılmış (`SAYFA_BOYUTU = 50`), etkinlikler ekranı o desenden
+   * geride kalmıştı. Ulusal ölçekte hem sayfa ağırlığı hem sorgu süresi sorun
+   * çıkarır; küçük veride görünmediği için de fark edilmemiş.
+   */
+  const sayfaNo = Math.max(
+    1,
+    Number.parseInt(tekil(parametreler.sayfa) ?? "1", 10) || 1,
+  );
+
+  const [toplam, faaliyetler, gruplar] = await Promise.all([
+    prisma.faaliyet.count({ where: nerede }),
     prisma.faaliyet.findMany({
       where: nerede,
       orderBy: [{ tarih: "asc" }],
+      skip: (sayfaNo - 1) * SAYFA_BOYUTU,
+      take: SAYFA_BOYUTU,
       select: {
         id: true,
         ad: true,
@@ -635,6 +692,9 @@ export default async function FaaliyetlerSayfasi({
           select: { calismaGrubu: { select: { id: true, ad: true } } },
         },
         basvurular: { select: { durum: true } },
+        // Katılımcı sütunu (Aşama 6c): "kaç kişiye yer verildi" sorusunun
+        // cevabı seçilen başvurulardır, toplam başvuru değil.
+        _count: { select: { basvurular: { where: { durum: "SECILDI" } } } },
         // Rapor durumu listede gösteriliyor (J3): "raporu bekleyenler"
         // filtresi açıkken hangi kaydın neden listelendiği görünmeli.
         rapor: { select: { faaliyetId: true } },
@@ -722,10 +782,26 @@ export default async function FaaliyetlerSayfasi({
    * "Filtreleri temizle" bağlantısını tetiklememeli. Bu yüzden
    * faaliyetFiltreleriniCoz'a girmez, sorgudan da elenir.
    */
-  const disaAktarmaSorgusu = sorguMetni(parametreler, ["gorunum"]);
+  const disaAktarmaSorgusu = sorguMetni(parametreler, ["gorunum", "sayfa"]);
   const disaAktarmaBaglantisi = disaAktarmaSorgusu
     ? `/panel/etkinlikler/disa-aktar?${disaAktarmaSorgusu}`
     : "/panel/etkinlikler/disa-aktar";
+
+  const sonSayfa = Math.max(1, Math.ceil(toplam / SAYFA_BOYUTU));
+
+  /** Sayfa bağlantısı: süzgeçleri, sekmeyi ve görünümü korur. */
+  const sayfaSorgusu = (yeniSayfa: number) => {
+    const sorgu = new URLSearchParams(sorguMetni(parametreler, ["sayfa"]));
+    sorgu.set("sayfa", String(yeniSayfa));
+    return sorgu.toString();
+  };
+
+  /** Sekme bağlantısı: süzgeçleri ve görünümü korur, sayfayı düşürür. */
+  const sekmeSorgusu = (zaman: FaaliyetFiltreleri["zaman"]) => {
+    const sorgu = new URLSearchParams(sorguMetni(parametreler, ["zaman", "sayfa"]));
+    if (zaman !== "hepsi") sorgu.set("zaman", zaman);
+    return sorgu.toString();
+  };
 
   const listeGorunumu = tekil(parametreler.gorunum) === "liste";
   const izgaraBaglantisi = disaAktarmaSorgusu
@@ -736,6 +812,8 @@ export default async function FaaliyetlerSayfasi({
   }gorunum=liste`;
 
   const kartlar: EtkinlikKarti[] = faaliyetler.map((faaliyet) => ({
+    katilimciSayisi: faaliyet._count.basvurular,
+    bittiMi: (faaliyet.bitisTarihi ?? faaliyet.tarih) <= simdi,
     id: faaliyet.id,
     ad: faaliyet.ad,
     aciklama: faaliyet.aciklama,
@@ -760,6 +838,20 @@ export default async function FaaliyetlerSayfasi({
       faaliyet.rapor === null &&
       faaliyet.durum === "AKTIF" &&
       (faaliyet.bitisTarihi ?? faaliyet.tarih) < simdi,
+    /*
+     * OLUMLU GÖSTERGE (Aşama 6d). "Raporu bekliyor" rozeti zaten vardı;
+     * eksik olan, raporu YAZILMIŞ etkinliğin de listede görünmesiydi. Manisa
+     * panelinde bu iş renkli/soluk bir ikonla yapılıyor; burada ETİKET, çünkü
+     * renk tek başına bilgi taşımamalı (ekran okuyucu ve renk körlüğü).
+     *
+     * Yalnızca bitmiş etkinlikte basılır: başlamamış bir etkinliğin raporunun
+     * olmaması bir eksiklik değil, olağan durum.
+     */
+    raporYazildi:
+      raporYazabilir &&
+      faaliyet.rapor !== null &&
+      faaliyet.durum === "AKTIF" &&
+      (faaliyet.bitisTarihi ?? faaliyet.tarih) < simdi,
     benimActigim: faaliyet.duzenleyenKullaniciId === kullanici.id,
   }));
 
@@ -768,7 +860,9 @@ export default async function FaaliyetlerSayfasi({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SayfaBasligi
           baslik="Etkinlikler"
-          aciklama={`Kapsamınızdaki etkinlikler · ${faaliyetler.length} kayıt`}
+          aciklama={`Kapsamınızdaki etkinlikler · ${toplam} kayıt${
+            toplam > SAYFA_BOYUTU ? ` · ${sayfaNo}. sayfa` : ""
+          }`}
         />
         {/*
           İKİ DÜĞME TEK KAPTA (10 Ağustos 2026 · istek: "ikisini de sağa al,
@@ -950,14 +1044,13 @@ export default async function FaaliyetlerSayfasi({
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             Filtrele
           </button>
-          {disaAktarabilir && faaliyetler.length > 0 && (
-            <Link
-              href={disaAktarmaBaglantisi}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin"
-            >
-              <Download size={15} aria-hidden />
-              CSV indir ({faaliyetler.length} kayıt)
-            </Link>
+          {disaAktarabilir && toplam > 0 && (
+            /*
+             * DOSYA SAYFAYI DEĞİL KÜMENİN TAMAMINI taşır: bağlantı sayfa
+             * numarasını içermiyor (`sorguMetni` ondan eleniyor). Sayfa da
+             * taşınsaydı indirilen dosya sessizce 50 satırdan ibaret kalırdı.
+             */
+            <DisaAktarmaBagi yol={disaAktarmaBaglantisi} kayitSayisi={toplam} />
           )}
         </div>
       </form>
@@ -974,6 +1067,39 @@ export default async function FaaliyetlerSayfasi({
         geliyor ve bölüm hiç basılmıyor.
       */}
       {onaylayabilir && <IlDisiBasvurular basvurular={ilDisiBasvurular} />}
+
+      {/*
+        ZAMAN SEKMELERİ (Aşama 6b). Manisa'da "Devam Eden / Tamamlanan" ayrı
+        sekmeler; bizde durum rozeti vardı ama tek tıkla daraltma yoktu.
+
+        SEKME İLE GÖRÜNÜM AYRI EKSEN: Manisa'da ikisi iç içe (Etkinlikler
+        sekmesi kart, diğerleri tablo) ve bu, "tamamlananları kart olarak
+        görmek" isteyeni çıkmaza sokuyor. Sekme değişince görünüm tercihi ve
+        süzgeçler korunuyor, yalnızca sayfa numarası düşüyor — üçüncü sayfadayken
+        sekme değiştiren kişi yeni listenin başında olmalı.
+      */}
+      <nav className="flex flex-wrap gap-2" aria-label="Zaman durumu">
+        {(
+          [
+            ["hepsi", "Tüm etkinlikler"],
+            ["devam", "Devam eden"],
+            ["tamamlanan", "Tamamlanan"],
+          ] as const
+        ).map(([deger, etiket]) => (
+          <Link
+            key={deger}
+            href={`/panel/etkinlikler?${sekmeSorgusu(deger)}`}
+            aria-current={filtreler.zaman === deger ? "page" : undefined}
+            className={
+              filtreler.zaman === deger
+                ? "rounded-kart bg-vurgu-zemin px-3 py-2 text-sm font-medium text-vurgu-metin"
+                : "rounded-kart border border-cizgi px-3 py-2 text-sm text-metin-yumusak"
+            }
+          >
+            {etiket}
+          </Link>
+        ))}
+      </nav>
 
       {faaliyetler.length === 0 ? (
         <Kart className="text-metin-yumusak">
@@ -1021,6 +1147,39 @@ export default async function FaaliyetlerSayfasi({
             <ListeGorunumu kartlar={kartlar} />
           ) : (
             <IzgaraGorunumu kartlar={kartlar} />
+          )}
+
+          {/*
+            SAYFALAMA (Aşama 6a). Öğrenci envanterindeki düzenin aynısı:
+            solda "kaçıncı kayıtlar", sağda gezinme. Sayfa numarası adres
+            çubuğunda taşınıyor ki bağlantı paylaşılabilsin; dışa aktarma
+            bağlantısından ise eleniyor (dosya kümenin tamamı).
+          */}
+          {sonSayfa > 1 && (
+            <div className="flex items-center justify-between text-sm text-metin-yumusak">
+              <span>
+                {(sayfaNo - 1) * SAYFA_BOYUTU + 1}–
+                {Math.min(sayfaNo * SAYFA_BOYUTU, toplam)} / {toplam} kayıt
+              </span>
+              <span className="flex gap-2">
+                {sayfaNo > 1 && (
+                  <Link
+                    href={`/panel/etkinlikler?${sayfaSorgusu(sayfaNo - 1)}`}
+                    className="rounded-kart border border-cizgi px-3 py-1"
+                  >
+                    Önceki
+                  </Link>
+                )}
+                {sayfaNo < sonSayfa && (
+                  <Link
+                    href={`/panel/etkinlikler?${sayfaSorgusu(sayfaNo + 1)}`}
+                    className="rounded-kart border border-cizgi px-3 py-1"
+                  >
+                    Sonraki
+                  </Link>
+                )}
+              </span>
+            </div>
           )}
         </div>
       )}

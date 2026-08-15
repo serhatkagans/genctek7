@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   BilgiKutusu,
@@ -260,6 +261,21 @@ export default async function TaleplerSayfasi({
         baslik="Pano"
         aciklama="Teknik destek, duyuru, ekip arkadaşı ve mentör ilanları. Pano ekosistem dışına açık değildir; ilanları yalnızca sisteme girmiş kullanıcılar görür."
       />
+
+      {/*
+        Dosya panoyu MODERE EDENE (merkez) veriliyor, panoyu gören herkese
+        değil: ekranda süzülerek akan ilanlar dosyada ilan sahiplerinin
+        ad-okul-il bilgisini toplu hâle getiriyor. Gerekçenin tamamı rotanın
+        başında.
+      */}
+      {panoIlaniOnaylayabilirMi(kullanici) && (
+        <p>
+          <DisaAktarmaBagi
+            yol="/panel/talepler/disa-aktar"
+            etiket="Tüm ilanları Excel indir"
+          />
+        </p>
+      )}
 
       {durum && DURUM_MESAJLARI[durum] && (
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>

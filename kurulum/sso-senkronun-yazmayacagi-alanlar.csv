@@ -1,0 +1,18 @@
+﻿Alan Grubu;Sutun;Gerekce
+Iletisim;eposta;Kisinin kendi girdigi e-posta adresi.
+Iletisim;telefon;Kisinin kendi girdigi telefon.
+Profil;foto_depolama_yolu;Kisinin yukledigi profil fotografi.
+Profil;foto_mime_tipi;Fotografin dosya turu.
+Profil;hakkinda;Kisinin kendi yazdigi tanitim metni.
+Mesleki baglanti;github_url;Kisinin kendi girdigi adres.
+Mesleki baglanti;linkedin_url;Kisinin kendi girdigi adres.
+Mesleki baglanti;kisisel_site_url;Kisinin kendi girdigi adres.
+Ozgecmis;cv_dosya_adi;Kisinin yukledigi CV.
+Ozgecmis;cv_depolama_yolu;Kisinin yukledigi CV.
+Ozgecmis;cv_mime_tipi;Kisinin yukledigi CV.
+Ozgecmis;cv_boyut_bayt;Kisinin yukledigi CV.
+Ogretmen isareti;danisman_olmak_istiyor;Ogretmen kendisi isaretler.
+Ogretmen isareti;yegitek_okul_sorumlusu;Ogretmen kendisi isaretler.
+Kisisel gelisim;kullanici_kazanim;"Kazanim beyanlari; yalnizca sahibi ekler/siler."
+Kisisel gelisim;kullanici_hedefi;"Rotam hedefleri; yalnizca sahibi gorur."
+Kisisel gelisim;envanter_uygulamasi;"Algoritmam envanteri; yalnizca sahibi gorur."

@@ -1,11 +1,11 @@
 import {
   ChevronLeft,
   ChevronRight,
-  Download,
   Filter,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   Kart,
@@ -371,13 +371,7 @@ export default async function OgretmenlerSayfasi({
             Filtrele
           </button>
           {toplam > 0 && (
-            <Link
-              href={disaAktarmaBaglantisi}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin"
-            >
-              <Download size={15} aria-hidden />
-              CSV indir ({toplam} kayıt)
-            </Link>
+            <DisaAktarmaBagi yol={disaAktarmaBaglantisi} kayitSayisi={toplam} />
           )}
         </div>
       </form>

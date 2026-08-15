@@ -33,9 +33,33 @@ function veriSatiriSayisi(icerik) {
   return icerik.trim().split("\r\n").length - 1;
 }
 
+/**
+ * CSV indirir.
+ *
+ * `bicim=csv` ZORUNLU (15 Ağustos 2026): rotaların varsayılanı artık XLSX ve
+ * bu betik dosyayı METİN olarak ayrıştırıyor. Parametre eklenmeseydi satır
+ * sayımı ikili veriyi ayrıştırmaya çalışır, sayı tutmaz ve betik kapsam
+ * sızıntısı varmış gibi rapor verirdi — ya da daha kötüsü, olmayan bir
+ * eşleşme üretirdi. CSV yolunun korunmasının sebebi de tam olarak bu betik
+ * (bkz. src/lib/rapor/disa-aktarma.ts).
+ */
 async function csvIndir(sayfa, yol) {
-  const yanit = await sayfa.request.get(`${kok}${yol}`);
+  const ayrac = yol.includes("?") ? "&" : "?";
+  const yanit = await sayfa.request.get(`${kok}${yol}${ayrac}bicim=csv`);
   return { durum: yanit.status(), govde: await yanit.text() };
+}
+
+/** XLSX indirir; içerik ayrıştırılmaz, yalnızca biçim ve boyut sınanır. */
+async function xlsxIndir(sayfa, yol) {
+  const yanit = await sayfa.request.get(`${kok}${yol}`);
+  const govde = await yanit.body();
+  return {
+    durum: yanit.status(),
+    tip: yanit.headers()["content-type"] ?? "",
+    boyut: govde.length,
+    // XLSX bir ZIP arşividir; her geçerli dosya "PK" ile başlar.
+    zipMi: govde.subarray(0, 2).toString("latin1") === "PK",
+  };
 }
 
 for (const [kisi, etiket] of [
@@ -47,16 +71,30 @@ for (const [kisi, etiket] of [
 
   await sayfa.goto(`${kok}/panel/ogrenciler`, { waitUntil: "networkidle" });
   const baslikMetni = await sayfa.locator("main h1 + p").first().innerText();
-  const ekrandaki = Number(baslikMetni.match(/(\d+) kayıt/)?.[1] ?? "0");
+  const eslesme = baslikMetni.match(/(\d+) kayıt/);
 
   const csv = await csvIndir(sayfa, "/panel/ogrenciler/disa-aktar");
   const dosyadaki = csv.durum === 200 ? veriSatiriSayisi(csv.govde) : -1;
 
-  rapor.push(
-    `${etiket} · öğrenci CSV: HTTP ${csv.durum} · ekranda ${ekrandaki} kayıt, dosyada ${dosyadaki} satır → ${
-      ekrandaki === dosyadaki ? "eşleşiyor" : "*** FARKLI ***"
-    }`,
-  );
+  /*
+   * ÖLÇÜLEMEDİ ≠ FARKLI (15 Ağustos 2026). KVKK onayını henüz vermemiş kişi
+   * listeye değil onay ekranına düşüyor; orada "N kayıt" yazmıyor. Eskiden
+   * bu durumda ekran sayısı 0 varsayılıyor ve rapor "*** FARKLI ***" diyordu —
+   * yani kapsam sızıntısı gibi görünen bir yanlış alarm. Güvenlik betiğinde
+   * yanlış alarm, gerçek alarmı da görünmez kılar.
+   */
+  if (eslesme === null) {
+    rapor.push(
+      `${etiket} · öğrenci CSV: HTTP ${csv.durum} · dosyada ${dosyadaki} satır → ekran sayısı OKUNAMADI (onay/yönlendirme ekranı), karşılaştırılmadı`,
+    );
+  } else {
+    const ekrandaki = Number(eslesme[1]);
+    rapor.push(
+      `${etiket} · öğrenci CSV: HTTP ${csv.durum} · ekranda ${ekrandaki} kayıt, dosyada ${dosyadaki} satır → ${
+        ekrandaki === dosyadaki ? "eşleşiyor" : "*** FARKLI ***"
+      }`,
+    );
+  }
 
   await baglam.close();
 }
@@ -117,6 +155,153 @@ for (const [kisi, etiket] of [
   const ilkSatir = daraltilmis.govde.split("\r\n")[1] ?? "";
   rapor.push(`         · örnek satır: ${ilkSatir}`);
   await baglam.close();
+}
+
+{
+  /*
+   * VARSAYILAN BİÇİM XLSX (15 Ağustos 2026 · Aşama 2b). Parametresiz istek
+   * artık elektronik tablo döndürmeli; CSV yalnızca açıkça istendiğinde gelir.
+   */
+  const { baglam, sayfa } = await girisYap("Burcu Yılmaz");
+  const xlsx = await xlsxIndir(sayfa, "/panel/ogrenciler/disa-aktar");
+  rapor.push(
+    `YEĞİTEK · öğrenci varsayılan biçim: HTTP ${xlsx.durum} · ${xlsx.boyut} bayt · ${
+      xlsx.zipMi && xlsx.tip.includes("spreadsheetml")
+        ? "geçerli XLSX (beklenen)"
+        : `*** XLSX DEĞİL (${xlsx.tip}) ***`
+    }`,
+  );
+  await baglam.close();
+}
+
+{
+  /*
+   * AŞAMA 2c'DE AÇILAN ROTALAR. Her biri için sorulan iki soru aynı: yetkili
+   * dosyayı alabiliyor mu, yetkisiz 404 alıyor mu. Kapı ekranda kapalı olsa
+   * bile rotanın kendi kapısı olmalı (references/permissions.md · Bölüm 4).
+   */
+  const yeniRotalar = [
+    ["/panel/erisim-loglari/disa-aktar", "erişim kayıtları"],
+    ["/panel/okul-sorumlulari/disa-aktar", "okul sorumluları"],
+    ["/panel/dis-basvurular/disa-aktar", "dış başvurular"],
+    ["/panel/gorev-rolleri/disa-aktar", "görev rolleri"],
+    ["/panel/okul-eksikleri/disa-aktar", "okul eksik durumları"],
+    ["/panel/okullar/disa-aktar?il=34", "okullar"],
+    ["/panel/ekip-yonetimi/disa-aktar", "ekipler"],
+    ["/panel/mentorluk/disa-aktar", "mentörlük"],
+    ["/panel/rol-envanteri/disa-aktar", "rol envanteri (il)"],
+    ["/panel/rol-envanteri/disa-aktar?kirilim=okul", "rol envanteri (okul)"],
+    ["/panel/talepler/disa-aktar", "pano ilanları"],
+    ["/panel/urunler/disa-aktar", "market ürünleri"],
+    /*
+     * ÖNCEDEN AÇILMIŞ AMA BETİĞE GİRMEMİŞ ROTALAR (15 Ağustos 2026).
+     * Betik yalnızca öğrenci ve etkinlik listesini sınıyordu; kapı kontrolü
+     * olmayan bir rota, açıldığı gün değil ancak birinin fark ettiği gün
+     * görünür olurdu. On sekiz rotanın tamamı artık burada.
+     */
+    ["/panel/raporlar/dokum", "etkinlik rapor dökümü"],
+    ["/panel/ogretmenler/disa-aktar", "öğretmenler"],
+    ["/panel/paydaslar/disa-aktar", "paydaşlar"],
+    ["/panel/yonetim/disa-aktar", "yönetim kırılımı"],
+  ];
+
+  const { baglam: merkezBaglam, sayfa: merkezSayfa } =
+    await girisYap("Burcu Yılmaz");
+  for (const [yol, ad] of yeniRotalar) {
+    const csv = await csvIndir(merkezSayfa, yol);
+    rapor.push(
+      `YEĞİTEK · ${ad}: HTTP ${csv.durum} · ${
+        csv.durum === 200
+          ? `${veriSatiriSayisi(csv.govde)} satır`
+          : csv.durum === 413
+            ? "üst sınır aşıldı (süzgeç gerekiyor — beklenen)"
+            : "*** ALINAMADI ***"
+      }`,
+    );
+  }
+  await merkezBaglam.close();
+
+  const { baglam: ogrenciBaglam, sayfa: ogrenciSayfa } =
+    await girisYap("Yusuf Demir");
+  for (const [yol, ad] of yeniRotalar) {
+    const csv = await csvIndir(ogrenciSayfa, yol);
+    rapor.push(
+      `Öğrenci · ${ad}: HTTP ${csv.durum} → ${
+        csv.durum === 404 ? "engellendi (beklenen)" : "*** ERİŞTİ ***"
+      }`,
+    );
+  }
+  await ogrenciBaglam.close();
+}
+
+{
+  /*
+   * SATIR BAZLI ROTALAR (15 Ağustos 2026). İkisi de kayıt kimliği istiyor, o
+   * yüzden sabit yolla sınanamıyor: kimlik önce listeden bulunuyor.
+   *
+   * `ekipler/[id]/uyeler` KAYIT SEVİYESİNDE kapılı (`buEkibiYonetebilirMi`) —
+   * koordinatör yalnızca kendi ilinin ekibini indirebilmeli. Rol seviyesinde
+   * kapılı olsaydı başka ilin ekibi de açılırdı; senaryo bunu sınıyor.
+   */
+  const { baglam, sayfa } = await girisYap("Burcu Yılmaz");
+
+  await sayfa.goto(`${kok}/panel/ekip-yonetimi`, { waitUntil: "networkidle" });
+  const ekipYolu = await sayfa
+    .locator('main table tbody a[href*="/panel/ekipler/"]')
+    .first()
+    .getAttribute("href");
+
+  if (ekipYolu) {
+    const csv = await csvIndir(sayfa, `${ekipYolu}/uyeler/disa-aktar`);
+    rapor.push(
+      `YEĞİTEK · ekip üye listesi: HTTP ${csv.durum} · ${
+        csv.durum === 200 ? `${veriSatiriSayisi(csv.govde)} satır` : "*** ALINAMADI ***"
+      }`,
+    );
+  } else {
+    rapor.push("YEĞİTEK · ekip üye listesi: ekip bulunamadı, sınanmadı");
+  }
+
+  await sayfa.goto(`${kok}/panel/etkinlikler`, { waitUntil: "networkidle" });
+  /*
+   * Sayfadaki İLK etkinlik bağlantısı "/panel/etkinlikler/yeni" ya da
+   * ".../disa-aktar" olabiliyor; kayıt bağlantısı yalnızca sayı ile bitendir.
+   */
+  const faaliyetYollari = await sayfa
+    .locator('main a[href^="/panel/etkinlikler/"]')
+    .evaluateAll((baglar) => baglar.map((b) => b.getAttribute("href")));
+  const faaliyetYolu = faaliyetYollari.find((yol) =>
+    /^\/panel\/etkinlikler\/\d+$/.test(yol ?? ""),
+  );
+
+  if (faaliyetYolu) {
+    const csv = await csvIndir(sayfa, `${faaliyetYolu}/basvurular/disa-aktar`);
+    rapor.push(
+      `YEĞİTEK · etkinlik başvuruları: HTTP ${csv.durum} · ${
+        csv.durum === 200 ? `${veriSatiriSayisi(csv.govde)} satır` : "*** ALINAMADI ***"
+      }`,
+    );
+  } else {
+    rapor.push("YEĞİTEK · etkinlik başvuruları: etkinlik bulunamadı, sınanmadı");
+  }
+
+  await baglam.close();
+
+  // Aynı iki rota öğrenciye kapalı olmalı.
+  const ogrenci = await girisYap("Yusuf Demir");
+  for (const [yol, ad] of [
+    ["/panel/ekipler/1/uyeler/disa-aktar", "ekip üye listesi"],
+    ["/panel/etkinlikler/1/basvurular/disa-aktar", "etkinlik başvuruları"],
+    ["/panel/raporlar/dokum", "etkinlik rapor dökümü"],
+  ]) {
+    const csv = await csvIndir(ogrenci.sayfa, yol);
+    rapor.push(
+      `Öğrenci · ${ad}: HTTP ${csv.durum} → ${
+        csv.durum === 404 ? "engellendi (beklenen)" : "*** ERİŞTİ ***"
+      }`,
+    );
+  }
+  await ogrenci.baglam.close();
 }
 
 await tarayici.close();

@@ -1,6 +1,5 @@
 import {
   Building2,
-  Download,
   Filter,
   Handshake,
   Mail,
@@ -12,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   BilgiKutusu,
   Kart,
@@ -305,13 +305,7 @@ export default async function PaydaslarSayfasi({
             Filtrele
           </button>
           {paydaslar.length > 0 && (
-            <Link
-              href={disaAktarmaBaglantisi}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin"
-            >
-              <Download size={15} aria-hidden />
-              CSV indir ({paydaslar.length} kayıt)
-            </Link>
+            <DisaAktarmaBagi yol={disaAktarmaBaglantisi} kayitSayisi={paydaslar.length} />
           )}
         </div>
       </form>

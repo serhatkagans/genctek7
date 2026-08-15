@@ -11,6 +11,8 @@
     "test:duman": "tsx scripts/duman-testi.ts",
     "test:eposta": "tsx scripts/eposta-dogrula.ts",
     "skill:paketle": "node scripts/skill-paketle.mjs",
+    "sartname:uret": "node scripts/sartname-uret.mjs",
+    "sso:csv": "node scripts/sso-csv-uret.mjs",
     "senaryo:goruntu": "node scripts/senaryo-goruntuleri.mjs",
     "hata:goruntu": "node scripts/hata-sayfasi-goruntu.mjs",
     "disaaktarma:dogrula": "node scripts/disa-aktarma-dogrula.mjs",

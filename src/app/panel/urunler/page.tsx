@@ -1,4 +1,6 @@
 import { Eye, ExternalLink, Info, Package, ScrollText, Users } from "lucide-react";
+import { projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import Link from "next/link";
 import { BilgiKutusu, Kart, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
@@ -90,6 +92,17 @@ export default async function MarketSayfasi({
         baslik="Ürünlerim · GençTek Market"
         aciklama="GençTek ekosisteminde üretilen ürünler."
       />
+
+      {/*
+        Dosya YALNIZCA MERKEZE ve yalnızca markette PAYLAŞILAN ürünleri taşıyor
+        (gerekçe rotanın başında): paylaşılmamış ürün sahibinin kendine
+        sakladığı kayıttır.
+      */}
+      {projeYoneticisiMi(kullanici) && urunler.length > 0 && (
+        <p>
+          <DisaAktarmaBagi yol="/panel/urunler/disa-aktar" />
+        </p>
+      )}
 
       {/*
         "ÜRÜN EKLE" DÜĞMESİ DEĞİL, NOT. İstekte yazan bu: ekleme başka bir

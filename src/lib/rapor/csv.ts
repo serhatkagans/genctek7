@@ -92,6 +92,15 @@ export function csvAdParcasi(metin: string, yedek: string): string {
 }
 
 /**
+ * `csvAdParcasi` ile aynı işlev, biçimden bağımsız ad.
+ *
+ * XLSX yazıcısı da aynı temizliğe ihtiyaç duyuyor (bkz. lib/rapor/xlsx.ts) ama
+ * oradan "csv" adıyla bir şey çağırmak yanıltıcı olurdu. İşlev tek yerde
+ * duruyor; iki ad aynı gövdeyi gösteriyor.
+ */
+export const adParcasi = csvAdParcasi;
+
+/**
  * İndirme yanıtı.
  *
  * Dosya adına tarih yazılır: aynı raporun iki farklı gündeki hâli aynı adı

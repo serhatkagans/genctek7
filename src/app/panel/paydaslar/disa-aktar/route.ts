@@ -6,7 +6,12 @@ import {
 } from "@/lib/ayar";
 import { prisma } from "@/lib/db";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
-import { csvBelgesi, csvYaniti } from "@/lib/rapor/csv";
+import {
+  altBaslikYaz,
+  bicimCoz,
+  disaAktarmaYaniti,
+} from "@/lib/rapor/disa-aktarma";
+import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { paydasGorebilirMi } from "@/lib/yetki/izinler";
 import { paydasListeFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -16,7 +21,7 @@ import { paydasFiltreleriniCoz } from "../filtreler";
 export const dynamic = "force-dynamic";
 
 /**
- * Paydaş envanterinin CSV çıktısı.
+ * Paydaş envanterinin dosya çıktısı (varsayılan XLSX, `?bicim=csv` ile CSV).
  *
  * Dosya, ekranda görünen listenin AYNISIDIR: aynı kapsam ve aynı ekran
  * filtrelerinden geçer. İletişim bilgisi ekranda da göründüğü için dosyada da
@@ -24,19 +29,19 @@ export const dynamic = "force-dynamic";
  * kopyasıdır.
  */
 
-const BASLIKLAR = [
-  "Kurum",
-  "Tür",
-  "İl",
-  "Yetkili kişi",
-  "Telefon",
-  "E-posta",
-  "Adres",
-  "İş birliği alanı",
-  "Notlar",
-  "Durum",
-  "Bağlı etkinlik sayısı",
-] as const;
+const SUTUNLAR: readonly XlsxSutun[] = [
+  { baslik: "Kurum", genislik: 34 },
+  { baslik: "Tür", genislik: 22 },
+  { baslik: "İl", genislik: 14 },
+  { baslik: "Yetkili kişi", genislik: 22 },
+  { baslik: "Telefon", genislik: 16 },
+  { baslik: "E-posta", genislik: 28 },
+  { baslik: "Adres", genislik: 40 },
+  { baslik: "İş birliği alanı", genislik: 34 },
+  { baslik: "Notlar", genislik: 40 },
+  { baslik: "Durum", genislik: 10 },
+  { baslik: "Bağlı etkinlik sayısı", genislik: 16 },
+];
 
 export async function GET(istek: Request) {
   const kullanici = await oturumKullanicisi();
@@ -90,13 +95,15 @@ export async function GET(istek: Request) {
     },
   });
 
+  const bicim = bicimCoz(adres);
+
   await erisimLoglaCoklu(
     paydaslar.map((paydas) => ({
       kullaniciId: kullanici.id,
       islem: "GORUNTULEME" as const,
       hedefTip: "PAYDAS" as const,
       hedefId: paydas.id,
-      detay: "Paydaş listesi CSV olarak dışa aktarıldı",
+      detay: `Paydaş listesi ${bicim.toUpperCase()} olarak dışa aktarıldı`,
     })),
   );
 
@@ -114,5 +121,12 @@ export async function GET(istek: Request) {
     paydas._count.faaliyetler,
   ]);
 
-  return csvYaniti("genctek-paydaslar", csvBelgesi(BASLIKLAR, satirlar));
+  return disaAktarmaYaniti({
+    bicim,
+    dosyaAdi: "genctek-paydaslar",
+    baslik: "GençTek Ekosistemi",
+    altBaslik: altBaslikYaz("Paydaş envanteri", satirlar.length),
+    sutunlar: SUTUNLAR,
+    satirlar,
+  });
 }

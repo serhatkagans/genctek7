@@ -1,6 +1,8 @@
 import { prisma } from "../db";
 import { egitimOgretimYili, egitimOgretimYiliAraligi } from "../ogretmen/gorev-yillari";
 import { OGRETMEN } from "../yetki/kapsam";
+import { okulKosulu, type OkulSuzgeci } from "./yonetim-kurallari";
+import { SAYIMDA_DANISMAN, SAYIMDA_OGRENCI } from "./sayim-kosullari";
 import { bitmisFaaliyetKosulu } from "./istatistik";
 import type { YonetimYeri } from "./yonetim-kurallari";
 
@@ -42,18 +44,6 @@ function sayimHaritasi<A extends string>(
   return harita;
 }
 
-/** Aktif öğrenci koşulu — rol geçmişli tutulduğu için bitiş tarihi aranır. */
-const AKTIF_OGRENCI = {
-  aktif: true,
-  roller: { some: { rolKodu: "OGRENCI" as const, bitisTarihi: null } },
-};
-
-/** Aktif danışman öğretmen (danışman öğretmen) koşulu. */
-const AKTIF_DANISMAN = {
-  aktif: true,
-  roller: { some: { rolKodu: "DANISMAN" as const, bitisTarihi: null } },
-};
-
 /**
  * Öğretmen kümesi ENVANTERLE AYNI TANIMDAN gelir (bkz. lib/yetki/kapsam.ts ·
  * OGRETMEN): öğrenci, merkez ve dış kullanıcı rolü olmayan herkes. Görev almamış
@@ -78,7 +68,7 @@ const AKTIF_OGRETMEN = { aktif: true, ...OGRETMEN };
  */
 const DANISMANSIZ_OKUL = {
   aktif: true,
-  kullanicilar: { none: AKTIF_DANISMAN },
+  kullanicilar: { none: SAYIMDA_DANISMAN },
 };
 
 /**
@@ -90,7 +80,7 @@ const DANISMANSIZ_OKUL = {
  * buraya da iniyor.
  */
 const DANISMANSIZ_OGRENCI = {
-  ...AKTIF_OGRENCI,
+  ...SAYIMDA_OGRENCI,
   ogrenciAtamalari: { none: { bitisTarihi: null } },
 };
 
@@ -182,12 +172,12 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
     }),
     prisma.kullanici.groupBy({
       by: ["ilKodu"],
-      where: AKTIF_DANISMAN,
+      where: SAYIMDA_DANISMAN,
       _count: { _all: true },
     }),
     prisma.kullanici.groupBy({
       by: ["ilKodu"],
-      where: AKTIF_OGRENCI,
+      where: SAYIMDA_OGRENCI,
       _count: { _all: true },
     }),
     prisma.kullanici.groupBy({
@@ -314,12 +304,12 @@ export async function ilceOzetleriniGetir(ilKodu: string): Promise<IlceOzeti[]> 
       }),
       prisma.kullanici.groupBy({
         by: ["ilceKodu"],
-        where: { ilKodu, ...AKTIF_DANISMAN },
+        where: { ilKodu, ...SAYIMDA_DANISMAN },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
         by: ["ilceKodu"],
-        where: { ilKodu, ...AKTIF_OGRENCI },
+        where: { ilKodu, ...SAYIMDA_OGRENCI },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
@@ -352,26 +342,46 @@ export interface OkulOzeti {
   kurumKodu: number;
   ad: string;
   okulTuru: string;
+  /** Düz listede gösterilebilsin diye; kırılım ekranında zaten belli. */
+  ilAdi: string;
+  ilceAdi: string;
   ogretmenSayisi: number;
   danismanOgretmenSayisi: number;
   ogrenciSayisi: number;
   danismansizOgrenciSayisi: number;
+  /** Okula bağlı AÇIK okul takımı sayısı (Aşama 5). */
+  ekipSayisi: number;
 }
 
 /**
- * Bir ilçenin okul özetleri — kırılımın son basamağı.
+ * Okul özetleri — kırılımın son basamağı ve Okullar ekranının ortak sorgusu.
  *
- * Kişi sayıları burada KURUM KODUNDAN gelir; okul düzeyinde ilçe kodu değil
- * kurum kodu tek doğruluk kaynağıdır ve envanter ekranlarının okul süzgeci de
- * bu alanı kullanıyor.
+ * Kişi sayıları KURUM KODUNDAN gelir; okul düzeyinde ilçe kodu değil kurum kodu
+ * tek doğruluk kaynağıdır ve envanter ekranlarının okul süzgeci de bu alanı
+ * kullanıyor.
+ *
+ * SAYIMLAR YALNIZCA GETİRİLEN OKULLAR İÇİN hesaplanıyor (`in: kodlar`). İlçe
+ * ölçeğinde bu 30-50 okul; ulusal ölçekte sayfa boyutuyla sınırlanması ŞART,
+ * yoksa dört `groupBy` on binlerce satır üzerinde çalışır. Sayfalama bu yüzden
+ * isteğe bağlı bir iyileştirme değil, sorgunun ön koşulu.
  */
 export async function okulOzetleriniGetir(
-  ilceKodu: string,
+  suzgec: OkulSuzgeci,
 ): Promise<OkulOzeti[]> {
   const okullar = await prisma.kurum.findMany({
-    where: { ilceKodu, aktif: true },
-    orderBy: { ad: "asc" },
-    select: { kurumKodu: true, ad: true, okulTuru: true },
+    where: okulKosulu(suzgec),
+    orderBy: [{ ilce: { ad: "asc" } }, { ad: "asc" }],
+    ...(suzgec.atla === undefined ? {} : { skip: suzgec.atla }),
+    ...(suzgec.al === undefined ? {} : { take: suzgec.al }),
+    select: {
+      kurumKodu: true,
+      ad: true,
+      okulTuru: true,
+      il: { select: { ad: true } },
+      ilce: { select: { ad: true } },
+      // Kapalı ekip sayılmaz: "bu okulun ekibi var mı" sorusu açık ekibi sorar.
+      _count: { select: { ekipler: { where: { aktif: true } } } },
+    },
   });
 
   if (okullar.length === 0) return [];
@@ -386,12 +396,12 @@ export async function okulOzetleriniGetir(
       }),
       prisma.kullanici.groupBy({
         by: ["kurumKodu"],
-        where: { kurumKodu: { in: kodlar }, ...AKTIF_DANISMAN },
+        where: { kurumKodu: { in: kodlar }, ...SAYIMDA_DANISMAN },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
         by: ["kurumKodu"],
-        where: { kurumKodu: { in: kodlar }, ...AKTIF_OGRENCI },
+        where: { kurumKodu: { in: kodlar }, ...SAYIMDA_OGRENCI },
         _count: { _all: true },
       }),
       prisma.kullanici.groupBy({
@@ -416,12 +426,15 @@ export async function okulOzetleriniGetir(
     kurumKodu: okul.kurumKodu,
     ad: okul.ad,
     okulTuru: okul.okulTuru,
+    ilAdi: okul.il?.ad ?? "",
+    ilceAdi: okul.ilce?.ad ?? "",
     ogretmenSayisi: ogretmenSayilari.get(String(okul.kurumKodu)) ?? 0,
     danismanOgretmenSayisi:
       danismanSayilari.get(String(okul.kurumKodu)) ?? 0,
     ogrenciSayisi: ogrenciSayilari.get(String(okul.kurumKodu)) ?? 0,
     danismansizOgrenciSayisi:
       danismansizSayilari.get(String(okul.kurumKodu)) ?? 0,
+    ekipSayisi: okul._count.ekipler,
   }));
 }
 

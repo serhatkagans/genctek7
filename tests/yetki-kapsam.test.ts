@@ -362,3 +362,54 @@ describe("öğrenci liste filtreleri: okul türü ve eğitim-öğretim yılı", 
     expect(filtre).toContain('"ilKodu":"34"');
   });
 });
+
+describe("ogrenciListeFiltresi · deneyim süzgeci (Aşama 8)", () => {
+  it("tip ve metni TEK kazanım kaydında arar", () => {
+    /*
+     * Ayrı iki `some` yazılsaydı, tipi eşleşen BİR kaydı ve metni eşleşen
+     * BAŞKA bir kaydı olan öğrenci de listeye girerdi. "TEKNOFEST'e katılmış"
+     * ile "bir yarışması ve ayrıca bir sertifikası var" farklı şeyler.
+     */
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
+      kazanimTipi: "DIS_ETKINLIK",
+      kazanimAra: "teknofest",
+    });
+
+    const metin = JSON.stringify(kosul);
+    const someSayisi = (metin.match(/"kazanimlar"/g) ?? []).length;
+
+    expect(someSayisi).toBe(1);
+    expect(metin).toContain("DIS_ETKINLIK");
+    expect(metin).toContain("teknofest");
+  });
+
+  it("yalnızca tip verildiğinde metin koşulu koymaz", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
+      kazanimTipi: "YARISMA_DERECESI",
+    });
+
+    expect(JSON.stringify(kosul)).toContain("YARISMA_DERECESI");
+    expect(JSON.stringify(kosul)).not.toContain("baslik");
+  });
+
+  it("yalnızca metin verildiğinde tip koşulu koymaz", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
+      kazanimAra: "tübitak",
+    });
+
+    expect(JSON.stringify(kosul)).toContain("tübitak");
+    expect(JSON.stringify(kosul)).not.toContain('"tip"');
+  });
+
+  it("boşluktan ibaret aramayı süzgeç saymaz", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), { kazanimAra: "   " });
+
+    expect(JSON.stringify(kosul)).not.toContain("kazanimlar");
+  });
+
+  it("hiç deneyim süzgeci yokken kazanım koşulu eklemez", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {});
+
+    expect(JSON.stringify(kosul)).not.toContain("kazanimlar");
+  });
+});

@@ -1,3 +1,4 @@
+import type { EkipTuru } from "@/generated/prisma/enums";
 import {
   ilKoordinatoruMu,
   koordinatorIlKodu,
@@ -149,3 +150,83 @@ export function ekipMesajiniCoz(
  */
 export const EKIP_SOHBET_UYARISI =
   "Ekip sohbeti gizli değildir: ekibi kuran il koordinatörü ve proje yöneticisi mesajları okuyabilir. Telefon, adres gibi iletişim bilgilerinizi yazmayın.";
+
+// ---------------------------------------------------------------------------
+// Ekip türü ve kapsamı (15 Ağustos 2026 · manisa-farklari-plani.md · Aşama 5)
+// ---------------------------------------------------------------------------
+
+export const EKIP_TURU_ETIKETLERI: Record<EkipTuru, string> = {
+  OKUL_TAKIMI: "Okul Takımı",
+  CALISMA_GRUBU: "Çalışma Grubu",
+  IL_GENCTEK_EKIBI: "İl GençTek Ekibi",
+};
+
+export const EKIP_TURLERI: readonly EkipTuru[] = [
+  "OKUL_TAKIMI",
+  "CALISMA_GRUBU",
+  "IL_GENCTEK_EKIBI",
+];
+
+export function ekipTuruGecerliMi(deger: string): deger is EkipTuru {
+  return (EKIP_TURLERI as readonly string[]).includes(deger);
+}
+
+export type EkipKapsamKarari =
+  | { olurMu: true; tur: EkipTuru; kurumKodu: number | null }
+  | { olurMu: false; neden: string };
+
+/**
+ * Ekibin türü ve okul bağı.
+ *
+ * ============================================================================
+ * KURAL VERİTABANINDAKİ KISITIN AYNISI
+ * ============================================================================
+ * `ck_ekip_okul_takimi_kurum`: OKUL_TAKIMI'nda kurum ZORUNLU, diğer ikisinde
+ * BOŞ. Kural iki yerde birden duruyor ve bu bilinçli — veritabanı kısıtı son
+ * savunma hattı, buradaki kontrol ise kullanıcıya anlaşılır bir cümle
+ * söyleyebilen tek yer. Yalnızca kısıt bırakılsaydı form ham bir veritabanı
+ * hatasıyla patlardı.
+ *
+ * OKUL DIŞI TÜRLERDE KURUM SESSİZCE DÜŞÜRÜLÜR, hata verilmez: formda tür
+ * değiştiren kullanıcının tarayıcısında eski okul seçimi kalabiliyor ve bu
+ * onun hatası değil. Ama OKUL_TAKIMI'nda okul yoksa hata verilir — orada
+ * eksik olan şey kullanıcının vermesi gereken bir bilgi.
+ */
+export function ekipKapsaminiCoz(girdi: {
+  tur: string;
+  kurumKodu: string | null;
+}): EkipKapsamKarari {
+  if (!ekipTuruGecerliMi(girdi.tur)) {
+    return { olurMu: false, neden: "Geçerli bir ekip türü seçin." };
+  }
+
+  if (girdi.tur !== "OKUL_TAKIMI") {
+    return { olurMu: true, tur: girdi.tur, kurumKodu: null };
+  }
+
+  const kod = Number.parseInt((girdi.kurumKodu ?? "").trim(), 10);
+  if (!Number.isInteger(kod)) {
+    return {
+      olurMu: false,
+      neden: "Okul takımı için okul seçilmesi zorunludur.",
+    };
+  }
+
+  return { olurMu: true, tur: girdi.tur, kurumKodu: kod };
+}
+
+/**
+ * Ekip danışmansız mı?
+ *
+ * PASİF DANIŞMAN DA DANIŞMANSIZ SAYILIR. Manisa panelindeki ekranın başlığı da
+ * böyle diyor ("danışman öğretmeni olmayan VEYA pasif danışmana sahip"):
+ * görevden ayrılmış ya da hesabı kapatılmış bir öğretmen ekipte yazılı kalmaya
+ * devam eder ve ekip, kimsenin bakmadığı bir ekip olur. Yalnızca alanın boş
+ * olmasına bakılsaydı bu ekipler listede hiç görünmezdi — üstelik en çok
+ * onların görünmesi gerekiyor.
+ */
+export function ekipDanismansizMi(ekip: {
+  danisman: { aktif: boolean } | null;
+}): boolean {
+  return ekip.danisman === null || !ekip.danisman.aktif;
+}
