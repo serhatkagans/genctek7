@@ -17,6 +17,43 @@ const GELISTIRME_ANAHTARI = "gelistirme-ortami-icin-gecici-anahtar-degistirin";
 const semaOrtam = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL tanımlı değil"),
   AUTH_PROVIDER: z.enum(["mock", "eba"]).default("mock"),
+
+  /**
+   * Üretimde mock girişe bilinçli onay.
+   *
+   * `AUTH_PROVIDER` varsayılanı "mock"tur ve mock sağlayıcı ŞİFRESİZDİR:
+   * katalogdan kimlik seçmek girişin tamamıdır (bkz. auth/mock-provider.ts).
+   * Değişkeni set etmeden üretime çıkan bir kurulumda herkes il koordinatörü
+   * olarak girebilirdi — güvenliğin unutulmuş bir ortam değişkenine bağlı
+   * olması kabul edilemez.
+   *
+   * NİYE YASAK DEĞİL DE ONAYA TABİ: EBA sağlayıcısı henüz `throw` ediyor
+   * (auth/eba-provider.ts). Mock'u üretimde tamamen yasaklamak, sistemin hiç
+   * ayağa kalkmaması demekti. Bu yüzden tehlikeli durum engellenmiyor, YALNIZCA
+   * BİLİNÇLİ HÂLE GETİRİLİYOR: kuran kişi riski üstlendiğini açıkça yazmalı.
+   * EBA entegrasyonu tamamlandığında bu değişken de kalkmalıdır.
+   */
+  URETIMDE_MOCK_GIRISE_IZIN_VER: z.enum(["evet", "hayir"]).default("hayir"),
+
+  /**
+   * Uygulamanın hizmet verdiği host adları (virgülle ayrık, ör.
+   * "genctek.meb.gov.tr,www.genctek.meb.gov.tr").
+   *
+   * NİYE VAR: parola sıfırlama bağlantısının adresi istek başlıklarından
+   * türetilir (bkz. app/sifre-sifirlama/eylemler.ts) ve `Host` /
+   * `X-Forwarded-Host` başlıklarını İSTEMCİ belirler. Ters vekil bu başlığı
+   * ezmiyorsa, saldırgan kurbanın e-postasına kendi alan adına giden bir
+   * sıfırlama bağlantısı göndertebilir; kurban tıkladığında jeton saldırgana
+   * ulaşır. Liste, türetilen host'un doğrulanacağı tek referanstır.
+   *
+   * BU, "UYGULAMA ADRESİ" AYARI DEĞİLDİR: yol bilgisi hâlâ TEMEL_YOL'dan
+   * (uygulamaYolu) gelir, burada yalnızca host doğrulanır. İkisi ayrı kaldığı
+   * için alt dizin kurulumunda çift yapılandırma riski doğmaz.
+   *
+   * Boş bırakılırsa doğrulama yapılmaz — geliştirmede localhost'un portu sık
+   * değişir. Üretimde ZORUNLUDUR.
+   */
+  IZINLI_HOSTLAR: z.string().default(""),
   OTURUM_GIZLI_ANAHTARI: z
     .string()
     .min(16, "OTURUM_GIZLI_ANAHTARI en az 16 karakter olmalı"),
@@ -110,6 +147,31 @@ if (uretimMi && veri.OTURUM_GIZLI_ANAHTARI === GELISTIRME_ANAHTARI) {
   );
 }
 
+if (
+  uretimMi &&
+  veri.AUTH_PROVIDER === "mock" &&
+  veri.URETIMDE_MOCK_GIRISE_IZIN_VER !== "evet"
+) {
+  yapilandirmaHatalari.push(
+    'AUTH_PROVIDER="mock" ile üretime çıkılıyor. Mock giriş ŞİFRESİZDİR:\n' +
+      "      giriş ekranındaki listeden herhangi bir kimlik seçen herkes o kişi\n" +
+      "      olarak (il koordinatörü dahil) sisteme girer.\n" +
+      '      Çözüm: EBA erişimi geldiyse AUTH_PROVIDER="eba" yapın.\n' +
+      "      Kapalı bir ağda bilerek mock ile çalışıyorsanız riski üstlendiğinizi\n" +
+      '      yazın: URETIMDE_MOCK_GIRISE_IZIN_VER="evet"',
+  );
+}
+
+if (uretimMi && veri.IZINLI_HOSTLAR.trim() === "") {
+  yapilandirmaHatalari.push(
+    "IZINLI_HOSTLAR tanımlı değil (üretimde zorunlu). Uygulamanın hizmet\n" +
+      "      verdiği host adlarını virgülle ayırarak yazın:\n" +
+      '      IZINLI_HOSTLAR="genctek.meb.gov.tr"\n' +
+      "      Bu liste olmadan parola sıfırlama bağlantısı, isteği yapanın\n" +
+      "      belirlediği bir alan adına üretilebilir.",
+  );
+}
+
 if (veri.DEPOLAMA_SAGLAYICI === "s3") {
   for (const anahtar of [
     "S3_UC_NOKTASI",
@@ -177,6 +239,18 @@ export const ortam = veri;
  * GençTek oturum çerezini de alır — oturum jetonu ilgisiz yazılımlara sızar.
  */
 export const CEREZ_YOLU = veri.TEMEL_YOL === "" ? "/" : veri.TEMEL_YOL;
+
+/**
+ * İzin verilen host adları, karşılaştırmaya hazır hâlde.
+ *
+ * Küçük harfe çevrilir: host başlığında büyük/küçük harf ayrımı yoktur ve
+ * "GencTek.meb.gov.tr" yazan bir istek doğrulamayı geçmeliydi.
+ */
+export const IZINLI_HOST_LISTESI: readonly string[] = veri.IZINLI_HOSTLAR.split(
+  ",",
+)
+  .map((host) => host.trim().toLowerCase())
+  .filter((host) => host !== "");
 
 /**
  * Uygulama içi mutlak bir yolu, alt dizin kurulumuna göre düzeltir.

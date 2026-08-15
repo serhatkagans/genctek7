@@ -175,6 +175,7 @@ Doldurulması **zorunlu** olanlar:
 | `DATABASE_URL` | `postgresql://genctek:SIFRE@localhost:5432/genctek?schema=public` |
 | `OTURUM_GIZLI_ANAHTARI` | Aşağıdaki komutun ürettiği 64 karakter |
 | `DEPOLAMA_YEREL_DIZIN` | `/opt/genctek/depolama` |
+| `IZINLI_HOSTLAR` | Uygulamanın alan adı, ör. `genctek.meb.gov.tr` |
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -184,7 +185,28 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 > reddeder**. Bu bir arıza değil, kasıtlı bir korumadır: imza anahtarı tahmin
 > edilebilir olursa herkes kendine oturum çerezi üretebilir.
 
-Şimdilik `AUTH_PROVIDER="mock"` kalır (EBA SSO erişimi gelene kadar) ve
+`IZINLI_HOSTLAR`, uygulamanın hizmet verdiği alan adlarının virgülle ayrılmış
+listesidir (birden çok ad varsa: `genctek.meb.gov.tr,www.genctek.meb.gov.tr`).
+Parola sıfırlama bağlantısının adresi istek başlıklarından türetilir; bu
+başlıkları isteği yapan belirlediği için türetilen alan adı bu listeye karşı
+sınanır. Liste olmadan, kötü niyetli bir istek kurbanın e-postasına saldırganın
+alan adına giden bir sıfırlama bağlantısı göndertebilir. Tanımlanmazsa uygulama
+üretimde **açılmaz**.
+
+### `AUTH_PROVIDER` — dikkat
+
+EBA SSO erişimi gelene kadar `AUTH_PROVIDER="mock"` kullanılır. **Mock giriş
+şifresizdir**: giriş ekranındaki listeden bir kimlik seçen herkes o kişi olarak
+(il koordinatörü dahil) sisteme girer. Bu yüzden `NODE_ENV=production` altında
+`mock` ile açılış **reddedilir**.
+
+- EBA erişimi geldiyse: `AUTH_PROVIDER="eba"` yapın ve `EBA_*` değişkenlerini
+  doldurun.
+- Dışarıya kapalı bir ağda (kurum içi tanıtım/pilot) bilerek mock ile
+  çalışıyorsanız, riski üstlendiğinizi açıkça yazın:
+  `URETIMDE_MOCK_GIRISE_IZIN_VER="evet"`. **İnternete açık bir sunucuda bunu
+  yapmayın.**
+
 `EPOSTA_SAGLAYICI="gunluk"` bırakılır — kurum posta sunucusu bağlanana kadar
 gerçek öğrencilere e-posta gitmez, bildirimler yalnızca panelde görünür.
 
@@ -373,6 +395,9 @@ komutunu yazar.
 |---|---|
 | nginx **502 Bad Gateway** | SELinux (`setsebool -P httpd_can_network_connect 1`) ya da servis çalışmıyor (`systemctl status genctek`) |
 | Açılışta `OTURUM_GIZLI_ANAHTARI hâlâ örnek değerde` | `.env` içindeki anahtar değiştirilmemiş (Bölüm 5) |
+| Açılışta `AUTH_PROVIDER="mock" ile üretime çıkılıyor` | Şifresiz giriş açık kalmış; EBA'ya geçin ya da riski üstlendiğinizi yazın (Bölüm 5) |
+| Açılışta `IZINLI_HOSTLAR tanımlı değil` | Uygulamanın alan adı `.env`'e yazılmamış (Bölüm 5) |
+| Güncellemeden sonra herkes giriş ekranına düştü | Beklenen: oturum çerezine son kullanma alanı eklendi, eski çerezler geçersiz. Kullanıcılar bir kez yeniden girer |
 | `P1001: Can't reach database server` | PostgreSQL kapalı ya da `pg_hba.conf` `scram-sha-256` yapılmamış (Bölüm 3) |
 | Sayfalar stilsiz geliyor | `.next/static` standalone çıktısına kopyalanmamış (Bölüm 6) |
 | Dosya yükleme başarısız | `depolama` dizini yok ya da `genctek` kullanıcısına ait değil |

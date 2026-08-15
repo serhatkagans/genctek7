@@ -18,6 +18,40 @@ const guvenlikBasliklari = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   },
+  /*
+   * İçerik Güvenliği Politikası — XSS için son savunma hattı.
+   *
+   * Uygulama hiçbir yerde `dangerouslySetInnerHTML` kullanmıyor (kullanıcı
+   * metni React tarafından kaçırılarak basılır, bkz. lib/metin/baglanti.ts),
+   * yani bugün bilinen bir enjeksiyon yolu YOK. CSP o yüzden var: yarın
+   * eklenecek bir bileşenin açtığı deliği, kimse fark etmeden kapalı tutar.
+   *
+   * 'unsafe-inline' SCRIPT İÇİN NİYE AÇIK: Next.js sunucu tarafında ürettiği
+   * sayfayı istemcide canlandırmak için satır içi script yazar (RSC yükü,
+   * __NEXT_DATA__). Bunları kapatmak, her isteğe nonce üreten bir ara katman
+   * (middleware) gerektirir; uygulamada hiç middleware yok ve yalnızca bunun
+   * için eklemek, korumanın getirdiğinden fazla kırılganlık getirirdi.
+   * Yine de kalan kısıtlar değerli: dış kaynaktan script çekilemez
+   * (script-src 'self'), sayfa çerçevelenemez, form başka bir siteye
+   * gönderilemez ve veri dışarı sızdıracak bir bağlantı açılamaz.
+   *
+   * img-src'de data: VAR: belge/rozet üretiminde gömülü görseller kullanılıyor.
+   */
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  },
 ];
 
 /*

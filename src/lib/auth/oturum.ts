@@ -4,11 +4,20 @@ import { redirect } from "next/navigation";
 import { prisma } from "../db";
 import { CEREZ_YOLU, ortam } from "../ortam";
 import type { OturumKullanicisi } from "../yetki/tipler";
+import { oturumGovdesiCoz, oturumGovdesiUret } from "./oturum-govde";
 
 /**
- * Oturum, imzalı bir çerezde yalnızca AuthProvider kimliğini taşır. Rol ve
- * kapsam bilgisi her istekte veritabanından okunur; çereze yazılmaz, aksi
- * halde rolü geri alınan bir kullanıcı oturumu bitene kadar yetkili kalır.
+ * Oturum, imzalı bir çerezde AuthProvider kimliğini ve SON KULLANMA ANINI
+ * taşır. Rol ve kapsam bilgisi her istekte veritabanından okunur; çereze
+ * yazılmaz, aksi halde rolü geri alınan bir kullanıcı oturumu bitene kadar
+ * yetkili kalır.
+ *
+ * SON KULLANMA NİYE GÖVDENİN İÇİNDE: çerezin `maxAge` alanını TARAYICI uygular,
+ * sunucu değil. Gövde yalnızca kimliği taşısaydı, çerez değerini bir kez
+ * kopyalayan (tarayıcı geliştirici araçları, paylaşılan makinedeki yedek,
+ * günlüğe düşmüş bir istek) kişi onu SÜRESİZ kullanabilirdi — 8 saatlik ömür
+ * yalnızca dürüst istemci için geçerli olurdu. İmza gövdenin tamamını
+ * kapsadığı için süre de kurcalanamaz.
  */
 
 const CEREZ_ADI = "genctek_oturum";
@@ -28,7 +37,10 @@ function imzaDogrula(veri: string, imza: string): boolean {
 }
 
 export async function oturumAc(authProviderId: string): Promise<void> {
-  const govde = Buffer.from(authProviderId, "utf8").toString("base64url");
+  const govde = oturumGovdesiUret(
+    authProviderId,
+    Date.now() + CEREZ_OMRU_SANIYE * 1000,
+  );
   const cerezDeposu = await cookies();
   cerezDeposu.set(CEREZ_ADI, `${govde}.${imzala(govde)}`, {
     httpOnly: true,
@@ -48,6 +60,18 @@ export async function oturumKapat(): Promise<void> {
   cerezDeposu.set(CEREZ_ADI, "", { path: CEREZ_YOLU, maxAge: 0 });
 }
 
+/**
+ * Çerezi doğrulayıp AuthProvider kimliğini döndürür.
+ *
+ * İmzası tutmayan, biçimi bozuk veya süresi dolmuş çerez için `null` döner ve
+ * çağıran taraf kişiyi giriş ekranına gönderir. Bu üç durum arasında AYRIM
+ * YAPILMAZ: hepsinin doğru cevabı "yeniden giriş yapın"dır.
+ *
+ * ESKİ BİÇİMDEKİ ÇEREZLER (son kullanma alanı eklenmeden önce açılmış
+ * oturumlar) ayraç içermedikleri için geçersiz sayılır. Bu sürüm yayına
+ * alındığında açık oturumlar bir kez giriş ekranına düşer; süresiz yaşayan bir
+ * jetonu geriye dönük uyumluluk uğruna kabul etmektense yeğlenen sonuç budur.
+ */
 async function cerezdenKimlikOku(): Promise<string | null> {
   const cerezDeposu = await cookies();
   const deger = cerezDeposu.get(CEREZ_ADI)?.value;
@@ -56,7 +80,7 @@ async function cerezdenKimlikOku(): Promise<string | null> {
   const [govde, imza] = deger.split(".");
   if (!govde || !imza || !imzaDogrula(govde, imza)) return null;
 
-  return Buffer.from(govde, "base64url").toString("utf8");
+  return oturumGovdesiCoz(govde);
 }
 
 /**

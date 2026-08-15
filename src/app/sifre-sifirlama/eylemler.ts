@@ -3,22 +3,29 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { sifirlamayiTamamla, sifirlamaIste } from "@/lib/dis-kimlik/sifirlama";
-import { uygulamaYolu } from "@/lib/ortam";
+import { sifirlamaHostuSec } from "@/lib/dis-kimlik/sifirlama-adresi";
+import { IZINLI_HOST_LISTESI, uygulamaYolu } from "@/lib/ortam";
 
 /**
  * Parola sıfırlama eylemleri (yalnızca dış kullanıcılar).
  *
- * SIFIRLAMA BAĞLANTISININ ADRESİ İSTEKTEN ÜRETİLİR, ortam değişkeninden değil.
+ * SIFIRLAMA BAĞLANTISININ YOLU İSTEKTEN ÜRETİLİR, ortam değişkeninden değil.
  * Ayrı bir "uygulama adresi" ayarı, alt dizin kurulumunda (TEMEL_YOL) ikinci
  * bir yanlış yapılandırma kaynağı olurdu: biri güncellenip diğeri unutulunca
  * e-postadaki bağlantı sessizce 404'e giderdi. Uygulama ters vekil arkasında
  * çalıştığı için şema `x-forwarded-proto`dan okunur.
+ *
+ * HOST İSE DOĞRULANIR. `Host` ve `X-Forwarded-Host` başlıklarını isteği yapan
+ * belirler; ters vekil bu başlığı ezmiyorsa, saldırgan kurbanın e-postasına
+ * KENDİ alan adına giden bir sıfırlama bağlantısı göndertebilir ve kurban
+ * tıkladığında jeton saldırgana ulaşır. Bu yüzden türetilen host
+ * IZINLI_HOSTLAR listesine karşı sınanır (bkz. lib/ortam.ts).
  */
 async function istekKoku(): Promise<string> {
   const basliklar = await headers();
   const host = basliklar.get("x-forwarded-host") ?? basliklar.get("host") ?? "";
   const sema = basliklar.get("x-forwarded-proto") ?? "https";
-  return `${sema}://${host}`;
+  return `${sema}://${sifirlamaHostuSec(host, IZINLI_HOST_LISTESI)}`;
 }
 
 export async function sifirlamaIsteEylemi(veri: FormData): Promise<void> {
