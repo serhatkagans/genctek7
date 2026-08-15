@@ -343,6 +343,10 @@ model Ilce {
   ogrenciGorevleri OgrenciGorevRolu[]
 
   @@index([ilKodu])
+  /// İlçe adı araması: aynı arama kutusu okul ve ilçe adına birlikte bakıyor
+  /// (bkz. lib/rapor/okul-eksikleri.ts · ortakKosul), o yüzden ilçe tablosu
+  /// küçük olsa da indekssiz kalması okul aramasını da yavaşlatır.
+  @@index([ad(ops: raw("gin_trgm_ops"))], map: "ix_ilce_ad_trgm", type: Gin)
   @@map("ilce")
 }
 
@@ -365,6 +369,11 @@ model Kurum {
 
   @@index([ilKodu])
   @@index([ilceKodu])
+  /// Okul adı araması (bkz. migrations/20260815120000_kurum_ad_arama_indeksi).
+  /// B-tree DEĞİL trigram: okul adlarının başında ilçe adı durduğu için
+  /// ("Akhisar Şeyh İsa Anadolu Lisesi") baştan eşleşme pratikte ilçe araması
+  /// olurdu. gin_trgm_ops, ILIKE '%...%' sorgularını kapsar.
+  @@index([ad(ops: raw("gin_trgm_ops"))], map: "ix_kurum_ad_trgm", type: Gin)
   @@map("kurum")
 }
 
@@ -503,13 +512,13 @@ model Kullanici {
   gonderiYorumlari    GonderiYorumu[] @relation("GonderiYorumuYazan")
   gizledigiYorumlar   GonderiYorumu[] @relation("GonderiYorumuGizleyen")
 
-  talepCevaplari        TalepCevabi[] @relation("TalepCevabiYazan")
+  talepCevaplari          TalepCevabi[] @relation("TalepCevabiYazan")
   gizledigiTalepCevaplari TalepCevabi[] @relation("TalepCevabiGizleyen")
 
-  kurduguEkipler      Ekip[]       @relation("EkipKuran")
+  kurduguEkipler         Ekip[]       @relation("EkipKuran")
   danismanOlduguEkipler  Ekip[]       @relation("EkipDanismani")
-  ekipUyelikleri      EkipUyesi[]  @relation("EkipUyesi")
-  ekipMesajlari       EkipMesaji[] @relation("EkipMesajiYazan")
+  ekipUyelikleri         EkipUyesi[]  @relation("EkipUyesi")
+  ekipMesajlari          EkipMesaji[] @relation("EkipMesajiYazan")
   gizledigiEkipMesajlari EkipMesaji[] @relation("EkipMesajiGizleyen")
 
   @@index([kurumKodu])
@@ -753,7 +762,7 @@ model OgretmenProfil {
   /// idaresi ile YEĞİTEK arasında zaten verilmiş bir görevdir, sistem onu
   /// kaydeder. Merkez listeyi yönetim panosundan görür ve yanlışını
   /// öğretmenle konuşur.
-  yegitekOkulSorumlusu Boolean   @default(false) @map("yegitek_okul_sorumlusu")
+  yegitekOkulSorumlusu    Boolean   @default(false) @map("yegitek_okul_sorumlusu")
   /// İşaretin konduğu an; kaldırıldığında null'a döner (isaretlemeTarihi ile
   /// aynı desen). Merkez listesinde "ne zamandır sorumlu" sütununu besler.
   yegitekIsaretlemeTarihi DateTime? @map("yegitek_isaretleme_tarihi") @db.Timestamptz(6)
@@ -762,8 +771,8 @@ model OgretmenProfil {
   /// kullanıcılar (mezun, paydaş temsilcisi) aynı tabloyu kullanır — iletişim
   /// bilgisi role bağlı bir alan değildir. Tablonun adı tarihseldir: içeriği
   /// "öğrenci OLMAYAN kullanıcının iletişim bilgisi"dir.
-  eposta               String?   @db.VarChar(150)
-  telefon              String?   @db.VarChar(20)
+  eposta                  String?   @db.VarChar(150)
+  telefon                 String?   @db.VarChar(20)
 
   /// ÖZGEÇMİŞ (7 Ağustos 2026 · istek: öğretmen profilinde "Özgeçmiş").
   ///
@@ -1018,6 +1027,7 @@ model OgrenciGorevRolu {
   calismaGrubu CalismaGrubu? @relation(fields: [calismaGrubuId], references: [id])
 
   @@index([ogrenciId])
+  @@index([ilceKodu])
   @@map("ogrenci_gorev_rolu")
 }
 
@@ -1099,6 +1109,7 @@ model KullaniciKazanim {
   baglantilar           KazanimBaglanti[]
 
   @@index([kullaniciId])
+  @@index([temelEtkinlikProgramiId])
   @@map("kullanici_kazanim")
 }
 
@@ -1311,6 +1322,7 @@ model Faaliyet {
   @@index([kurumKodu])
   @@index([ilKodu])
   @@index([duzenleyenKullaniciId])
+  @@index([durum])
   @@map("faaliyet")
 }
 
@@ -1727,18 +1739,18 @@ enum TalepTuru {
 }
 
 model Talep {
-  id              Int        @id @default(autoincrement())
-  acanKullaniciId Int        @map("acan_kullanici_id")
-  tur             TalepTuru?
+  id                   Int        @id @default(autoincrement())
+  acanKullaniciId      Int        @map("acan_kullanici_id")
+  tur                  TalepTuru?
   /// İlanın ilgili olduğu çalışma alanı. Boş olabilir: her ilan bir gruba
   /// girmeyebilir ve zorlamak kullanıcıyı yanlış grup seçmeye iter.
-  calismaGrubuId  Int?       @map("calisma_grubu_id")
-  baslik          String     @db.VarChar(200)
-  icerik          String     @db.Text
+  calismaGrubuId       Int?       @map("calisma_grubu_id")
+  baslik               String     @db.VarChar(200)
+  icerik               String     @db.Text
   /// Panonun çürümemesi için son gün. Süresi dolan ilan listelenmez ama
   /// SİLİNMEZ — kimin ne aradığı geçmiş kaydıdır.
-  sonGecerlilik   DateTime   @map("son_gecerlilik") @db.Timestamptz(6)
-  kapatildiMi     Boolean    @default(false) @map("kapatildi_mi")
+  sonGecerlilik        DateTime   @map("son_gecerlilik") @db.Timestamptz(6)
+  kapatildiMi          Boolean    @default(false) @map("kapatildi_mi")
   /// ÖĞRENCİ İLANI ÖNCE ONAYA DÜŞER (14 Ağustos 2026 · istek: "panodaki
   /// öğrenci ilanları şimdilik proje yöneticilerine düşsün oradan onay
   /// versin"). Kararı proje yöneticisi verir; onaylanana kadar ilan panoda
@@ -1756,7 +1768,7 @@ model Talep {
   /// görmeden yeniden yazıp yazmayacağına karar veremez (emsali
   /// baglanti_istegi.ret_gerekcesi).
   retGerekcesi         String?    @map("ret_gerekcesi") @db.Text
-  olusturmaTarihi DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi      DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   acan         Kullanici        @relation("TalepAcan", fields: [acanKullaniciId], references: [id])
   onaylayan    Kullanici?       @relation("TalepOnaylayan", fields: [onaylayanKullaniciId], references: [id])
@@ -1827,10 +1839,10 @@ model Ekip {
   aktif               Boolean  @default(true)
   olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
-  il       Il          @relation(fields: [ilKodu], references: [ilKodu])
-  kurum    Kurum?      @relation(fields: [kurumKodu], references: [kurumKodu])
-  danisman Kullanici?  @relation("EkipDanismani", fields: [danismanKullaniciId], references: [id])
-  kuran    Kullanici   @relation("EkipKuran", fields: [kuranKullaniciId], references: [id])
+  il       Il           @relation(fields: [ilKodu], references: [ilKodu])
+  kurum    Kurum?       @relation(fields: [kurumKodu], references: [kurumKodu])
+  danisman Kullanici?   @relation("EkipDanismani", fields: [danismanKullaniciId], references: [id])
+  kuran    Kullanici    @relation("EkipKuran", fields: [kuranKullaniciId], references: [id])
   uyeler   EkipUyesi[]
   mesajlar EkipMesaji[]
 
@@ -1847,9 +1859,9 @@ model Ekip {
 /// üyelik bir görev değil bir katılımdır ve geçmişi rapor edilmiyor. Kişinin
 /// yazdığı mesajlar kalır — onlar kaydın kendisidir.
 model EkipUyesi {
-  ekipId          Int      @map("ekip_id")
-  kullaniciId     Int      @map("kullanici_id")
-  eklenmeTarihi   DateTime @default(now()) @map("eklenme_tarihi") @db.Timestamptz(6)
+  ekipId        Int      @map("ekip_id")
+  kullaniciId   Int      @map("kullanici_id")
+  eklenmeTarihi DateTime @default(now()) @map("eklenme_tarihi") @db.Timestamptz(6)
 
   ekip      Ekip      @relation(fields: [ekipId], references: [id], onDelete: Cascade)
   kullanici Kullanici @relation("EkipUyesi", fields: [kullaniciId], references: [id])

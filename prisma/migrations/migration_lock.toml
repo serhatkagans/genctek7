@@ -1,0 +1,4 @@
+# Bu dosya Prisma tarafından üretilir; elle düzenlemeyin.
+# Migrasyonların hangi veritabanı için yazıldığını sabitler: sağlayıcı
+# değiştiğinde Prisma uyarır ve "prisma migrate diff" bağlayıcıyı buradan okur.
+provider = "postgresql"
