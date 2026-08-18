@@ -568,21 +568,29 @@ geri yükleme için yetmez:
 şifreleri hiçbir yerde paylaşmamak.
 
 ```
-Yerel makine ──git push (HTTPS)──▶ github.com/serhatkagans/genctek5
+Yerel makine ──git push (HTTPS)──▶ github.com/serhatkagans/genctek7
                                             │
                                             │ git pull
                                             ▼
    ssh genctek genctek-yayinla ─────▶ /opt/genctek → derle → migrate → restart
 ```
 
-> **Depo 7 Ağustos 2026'da genctek4'ten genctek5'e taşındı.** Sunucudaki
-> `origin` zaten `genctek5`i gösteriyor; bu bölüm bir tur boyunca `genctek4`
-> yazmaya devam etmişti. Yerel `origin` de aynı gün genctek5'e çevrildi —
-> ikisi ayrışırsa `yayinla.ps1` eski depoya gönderir, sunucu yenisinden çeker
-> ve **hiçbir şeyi değiştirmeyen "başarılı" bir yayın** olur.
+> **Depo 18 Ağustos 2026'da genctek6'dan genctek7'ye taşındı.** Bu bölüm
+> taşımaların gerisinde kalmayı alışkanlık hâline getirmişti: bir tur boyunca
+> `genctek4`, sonra iki tur boyunca `genctek5` yazdı; sunucu ise sırayla
+> genctek5 ve genctek6'dan çekiyordu. Yazılanla çalışan ayrışınca `yayinla.ps1`
+> eski depoya gönderir, sunucu yenisinden çeker ve **hiçbir şeyi değiştirmeyen
+> "başarılı" bir yayın** olur.
 >
-> Depodaki eski uzak sunucular (`eski`, `genctek1`, `genctek2`, `genctek4`)
-> silinmedi ama **geride kaldılar**; yayın akışında kullanılmıyorlar.
+> Taşımada DEĞİŞECEK ÜÇ YER VARDIR ve üçü birden değişmelidir:
+> yerel `origin`, sunucudaki `/opt/genctek` deposunun `origin`'i ve GitHub'daki
+> dağıtım anahtarı kaydı. Bir dağıtım anahtarı aynı anda TEK depoda geçerlidir;
+> yeni depoya eklenmeden adres çevrilirse yayın `Permission denied (publickey)`
+> ile düşer.
+>
+> Depodaki eski uzak sunucular (`eski`, `genctek1`, `genctek2`, `genctek4`,
+> `genctek5`, `genctek6`) silinmedi ama **geride kaldılar**; yayın akışında
+> kullanılmıyorlar.
 
 ### Tek komut
 
@@ -606,26 +614,27 @@ ssh genctek genctek-yayinla
 |---|---|
 | Yerel → GitHub | HTTPS + Git Credential Manager (Windows'ta kayıtlı) |
 | Yerel → sunucu | `~/.ssh/genctek` anahtarı, `~/.ssh/config` içinde `Host genctek` |
-| Sunucu → GitHub | Bugün **HTTPS ve anonim** (genctek5 açık depo). Depo kapatılırsa dağıtım anahtarına dönülmeli — aşağıya bakın |
+| Sunucu → GitHub | **SSH dağıtım anahtarı** (`/opt/genctek/.ssh/id_ed25519`, salt okunur). Anahtarın hangi depoda tanımlı olduğu önemlidir — aşağıya bakın |
 
-> **DEPOYU ÖZELE ÇEVİRİRSENİZ YAYIN DURUR.** Sunucudaki `origin` bugün
-> `https://github.com/serhatkagans/genctek5.git` ve kimlik doğrulamadan
-> çekiyor; depo kapandığı anda `git pull` "Authentication failed" ile düşer.
-> Sunucuda dağıtım anahtarı hazır duruyor (`/opt/genctek/.ssh/id_ed25519`,
-> 31 Temmuz'dan beri) ama genctek5 deposunda **tanımlı değil**. İki adım:
+> **DEPO TAŞIMASINDA SIRA ÖNEMLİ.** Sunucu SSH dağıtım anahtarıyla çekiyor ve
+> bir anahtar aynı anda tek depoda geçerli. genctek7'ye geçişte:
 >
-> 1. GitHub → `serhatkagans/genctek5` → Settings → Deploy keys → Add deploy key.
->    Anahtar (yazma yetkisi VERMEYİN, salt okunur yeter):
+> 1. GitHub → `serhatkagans/genctek6` → Settings → Deploy keys → aşağıdaki
+>    anahtarı **sil**.
+> 2. GitHub → `serhatkagans/genctek7` → Settings → Deploy keys → Add deploy key.
+>    Aynı anahtar (yazma yetkisi VERMEYİN, salt okunur yeter):
 >    ```
 >    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP10DkXWh+JLUo5JZBAcRd91Zyt37Izge4PFVI17g+BP genctek-deploy@aiotechs
 >    ```
-> 2. Sunucuda uzak adresi SSH'a çevirin ve doğrulayın:
+> 3. Sunucuda uzak adresi çevirin ve ÇEKMEYİ DOĞRULAYIN:
 >    ```bash
->    ssh genctek "cd /opt/genctek && sudo -u genctek git remote set-url origin git@github.com:serhatkagans/genctek5.git && sudo -u genctek git ls-remote origin HEAD"
+>    ssh genctek "cd /opt/genctek && sudo -u genctek git remote set-url origin git@github.com:serhatkagans/genctek7.git && sudo -u genctek git ls-remote origin HEAD"
 >    ```
 >
-> Sıra önemli: anahtar tanımlanmadan adres değiştirilirse yayın
-> `Permission denied (publickey)` ile ve **hiçbir şeye dokunmadan** düşer.
+> Anahtar taşınmadan adres değiştirilirse yayın `Permission denied (publickey)`
+> ile ve **hiçbir şeye dokunmadan** düşer — bu iyi haber: yarım kalmış bir
+> kurulum bırakmaz. Doğrulama komutu bir commit karması basıyorsa geçiş
+> tamamdır.
 
 Root **yalnızca anahtarla** girer; şifreyle SSH kapalıdır
 (`/etc/ssh/sshd_config.d/50-genctek-anahtar.conf`). Global
