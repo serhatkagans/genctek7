@@ -36,12 +36,20 @@ const guvenlikBasliklari = [
    * gönderilemez ve veri dışarı sızdıracak bir bağlantı açılamaz.
    *
    * img-src'de data: VAR: belge/rozet üretiminde gömülü görseller kullanılıyor.
+   *
+   * 'unsafe-eval' YALNIZCA GELİŞTİRMEDE: React ve Next'in geliştirme kipi
+   * eval() kullanır (sıcak yenileme, kaynak haritası, hata yığınını yeniden
+   * kurma). Politika bunu kapattığında konsol "eval() is not supported"
+   * hatasıyla dolar. Üretim derlemesinde React eval() kullanmaz, o yüzden
+   * izin oraya taşınmaz — sıkı politika üretimde aynen kalır.
    */
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      process.env.NODE_ENV === "development"
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+        : "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",

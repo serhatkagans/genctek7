@@ -48,10 +48,10 @@ export default async function AcilisSayfasi() {
   const mockMu = ortam.AUTH_PROVIDER === "mock";
 
   return (
-    <div className="flex min-h-screen flex-col bg-ust-bar">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-        <p className="text-[11px] font-semibold tracking-widest text-ust-bar-metin-yumusak uppercase">
-          MEB · YEĞİTEK
+    <div className="vitrin flex min-h-screen flex-col">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
+        <p className="text-[11px] font-semibold tracking-widest text-vitrin-metin-yumusak uppercase">
+          T.C. Millî Eğitim Bakanlığı · YEĞİTEK
         </p>
         <TemaSecici aktif={tema} />
       </header>
@@ -68,7 +68,7 @@ export default async function AcilisSayfasi() {
             uygulamaYolu()'ndan geçiyor çünkü uygulama alt dizine kurulu
             (/genctek) ve ham src öneki kendiliğinden almaz.
           */}
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white p-2.5 shadow-sm">
+          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-kart bg-white p-3 shadow-yuksek">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={uygulamaYolu("/genc.png")}
@@ -77,22 +77,22 @@ export default async function AcilisSayfasi() {
             />
           </div>
 
-          <h1 className="mb-1 text-2xl font-semibold text-ust-bar-metin">
+          <h1 className="mb-2 text-4xl font-extrabold text-vitrin-metin">
             GençTek
           </h1>
-          <p className="mb-8 text-sm text-ust-bar-metin-yumusak">
+          <p className="mb-9 text-vitrin-metin-yumusak">
             Genç Bilişim Ekosistemi
           </p>
 
           <Link
             href="/giris"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-ust-bar-secili-zemin py-3 text-sm font-medium text-ust-bar-secili-metin transition hover:opacity-90"
+            className="flex w-full items-center justify-center gap-2 rounded-kutu bg-vitrin-secili-zemin py-3.5 font-semibold text-vitrin-secili-metin shadow-yuksek transition hover:opacity-90"
           >
             <LogIn size={16} aria-hidden />
             EBA ile Giriş Yap
           </Link>
 
-          <p className="mt-4 text-xs text-ust-bar-metin-yumusak">
+          <p className="mt-4 text-xs text-vitrin-metin-yumusak">
             Öğrenci ve öğretmen kimlik bilgileri EBA üzerinden alınır.
           </p>
 
@@ -109,15 +109,15 @@ export default async function AcilisSayfasi() {
             gösterilecek kapı bu ve entegrasyon geldiğinde değişecek tek yer
             `AuthProvider` uygulaması olacak — bu ekran değil.
           */}
-          <div className="mt-6 border-t border-ust-bar-cizgi pt-6">
+          <div className="mt-7 border-t border-vitrin-cizgi/60 pt-7">
             <Link
               href="/dis-giris"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-ust-bar-cizgi py-2.5 text-sm font-medium text-ust-bar-metin transition hover:bg-ust-bar-cizgi/30"
+              className="flex w-full items-center justify-center gap-2 rounded-kutu border border-vitrin-cizgi bg-white/10 py-3 text-sm font-semibold text-vitrin-metin transition hover:bg-white/20"
             >
               <Users size={16} aria-hidden />
               E-Devlet ile Giriş
             </Link>
-            <p className="mt-2 text-xs text-ust-bar-metin-yumusak">
+            <p className="mt-2.5 text-xs text-vitrin-metin-yumusak">
               Mezun öğrenci/Paydaş/Mentör girişleri için tıklayınız.
             </p>
             {/*
@@ -133,8 +133,8 @@ export default async function AcilisSayfasi() {
           </div>
 
           {mockMu && (
-            <div className="mt-10 rounded-xl border border-ust-bar-cizgi bg-ust-bar-cizgi/25 p-4 text-left">
-              <p className="text-xs text-ust-bar-metin-yumusak">
+            <div className="mt-10 rounded-kutu border border-vitrin-cizgi bg-white/10 p-4 text-left">
+              <p className="text-xs text-vitrin-metin-yumusak">
                 <Info size={12} className="mr-1 mb-0.5 inline" aria-hidden />
                 EBA SSO erişimi henüz sağlanmadı. Bu düğme sizi geliştirme
                 senaryolarının bulunduğu giriş ekranına götürür; yetki ve kapsam
@@ -145,7 +145,7 @@ export default async function AcilisSayfasi() {
         </div>
       </main>
 
-      <footer className="mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-ust-bar-metin-yumusak">
+      <footer className="mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-vitrin-metin-yumusak">
         T.C. Millî Eğitim Bakanlığı · Yenilik ve Eğitim Teknolojileri Genel
         Müdürlüğü
       </footer>

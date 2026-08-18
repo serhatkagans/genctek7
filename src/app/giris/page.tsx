@@ -220,9 +220,9 @@ export default async function GirisSayfasi({
 
   return (
     <div className="min-h-screen">
-      <div className="bg-ust-bar">
+      <div className="bg-serit text-serit-metin">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <p className="text-[11px] font-semibold tracking-widest text-ust-bar-metin-yumusak uppercase">
+          <p className="text-[11px] font-semibold tracking-widest uppercase">
             MEB · YEĞİTEK
           </p>
           <TemaSecici aktif={tema} />

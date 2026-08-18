@@ -140,7 +140,7 @@ export default async function EkiplerSayfasi({
                 */}
                 <Link
                   href={`/panel/ekipler/${ekip.id}`}
-                  className="flex h-full flex-col rounded-kart border border-cizgi bg-kart p-4 transition hover:border-vurgu"
+                  className="flex h-full flex-col rounded-kart border border-cizgi bg-kart p-4 shadow-kart transition hover:border-vurgu hover:shadow-yuksek"
                 >
                   <span className="font-semibold text-baslik">{ekip.ad}</span>
                   {ekip.aciklama && (

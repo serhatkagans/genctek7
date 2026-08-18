@@ -94,7 +94,7 @@ export default async function IlkGirisOnaySayfasi({
           {durumlar.map((durum) => (
             <section
               key={durum.tanim.belge}
-              className="rounded-kart border border-cizgi bg-kart p-6"
+              className="rounded-kart border border-cizgi bg-kart p-6 shadow-kart"
             >
               <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
                 <FileText size={18} className="text-vurgu-metin" aria-hidden />

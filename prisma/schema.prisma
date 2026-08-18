@@ -634,7 +634,7 @@ model DisKullaniciBasvurusu {
   retGerekcesi          String?    @map("ret_gerekcesi") @db.Text
 
   /// Onayla açılan kullanıcı. Başvuru ile kullanıcı arasındaki tek bağ budur.
-  olusanKullaniciId Int?     @unique @map("olusan_kullanici_id")
+  olusanKullaniciId Int?     @unique(map: "dis_basvuru_olusan_kullanici_key") @map("olusan_kullanici_id")
   olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   il              Il         @relation(fields: [ilKodu], references: [ilKodu])
@@ -643,9 +643,9 @@ model DisKullaniciBasvurusu {
   kararVeren      Kullanici? @relation("DisBasvuruKararVeren", fields: [kararVerenKullaniciId], references: [id])
   olusanKullanici Kullanici? @relation("DisBasvuruKullanicisi", fields: [olusanKullaniciId], references: [id])
 
-  @@index([durum, olusturmaTarihi])
-  @@index([ilKodu])
-  @@index([paydasId])
+  @@index([durum, olusturmaTarihi], map: "dis_basvuru_durum_idx")
+  @@index([ilKodu], map: "dis_basvuru_il_idx")
+  @@index([paydasId], map: "dis_basvuru_paydas_idx")
   /// Aynı e-posta için aynı anda tek BEKLEYEN başvuru olur; kısıt kısmi unique
   /// index olduğu için migration'da durur (ux_dis_basvuru_bekleyen_eposta).
   @@map("dis_kullanici_basvurusu")
@@ -704,7 +704,7 @@ model MentorlukCalismaGrubu {
   calismaGrubu CalismaGrubu @relation(fields: [calismaGrubuId], references: [id])
 
   @@id([mentorlukKullaniciId, calismaGrubuId])
-  @@index([calismaGrubuId])
+  @@index([calismaGrubuId], map: "mentorluk_calisma_grubu_grup_idx")
   @@map("mentorluk_calisma_grubu")
 }
 
@@ -1215,7 +1215,7 @@ model EnvanterUygulamasi {
   kullanici Kullanici        @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
   cevaplar  EnvanterCevabi[]
 
-  @@index([kullaniciId, envanterKodu])
+  @@index([kullaniciId, envanterKodu], map: "envanter_uygulamasi_kullanici_idx")
   @@map("envanter_uygulamasi")
 }
 
@@ -1235,7 +1235,7 @@ model EnvanterCevabi {
   uygulama EnvanterUygulamasi @relation(fields: [uygulamaId], references: [id], onDelete: Cascade)
 
   @@unique([uygulamaId, maddeKodu], map: "envanter_cevabi_tekil")
-  @@index([uygulamaId])
+  @@index([uygulamaId], map: "envanter_cevabi_uygulama_idx")
   @@map("envanter_cevabi")
 }
 

@@ -5,14 +5,20 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { Cizgi } from "@/components/grafik/Cizgi";
+import { DikeyBar } from "@/components/grafik/DikeyBar";
 import { YatayBar } from "@/components/grafik/YatayBar";
 import {
   BilgiKutusu,
+  IlerlemeCubugu,
   Kart,
   KartBasligi,
+  OlcuKarti,
+  OlcuSeridi,
   SayfaBasligi,
   SINIF_GIRDI,
   SINIF_IKINCIL_BUTON,
@@ -172,12 +178,125 @@ export default async function RaporlarSayfasi() {
   const eksikler = bitmisler.filter((faaliyet) => faaliyet.rapor === null);
   const yazilanlar = bitmisler.filter((faaliyet) => faaliyet.rapor !== null);
 
+  /*
+   * Bitmiş etkinliklerin toplam başvurusu. `_count.basvurular` SEÇİLMİŞ değil
+   * TÜM başvuruları sayıyor (etkinlikler ekranındaki katılımcı sayacından
+   * farkı bu) — burada sorulan "kaç kişi bu etkinliklere başvurdu", "kaçı
+   * kabul edildi" değil. Ölçünün etiketi de bunu söylüyor.
+   */
+  const toplamKatilimci = bitmisler.reduce(
+    (toplam, faaliyet) => toplam + faaliyet._count.basvurular,
+    0,
+  );
+
+  /*
+   * KAPSAM ŞERİDİNİN METNİ. `raporlanabilirFaaliyetFiltresi`nin üç dalıyla
+   * BİREBİR aynı olmak zorunda (bkz. lib/yetki/kapsam.ts): şerit ekrandaki
+   * sayının neyin toplamı olduğunu söylüyor ve filtre değişip metin
+   * değişmezse, ekran kendi kapsamı hakkında yanlış bilgi verir.
+   */
+  const kapsamAdi = projeYoneticisiMi(kullanici)
+    ? "Proje yöneticisi"
+    : ilKoordinatoruMu(kullanici)
+      ? "İl koordinatörü"
+      : "Danışman öğretmen";
+
+  const kapsamAciklamasi = projeYoneticisiMi(kullanici)
+    ? "Tüm iller · tüm etkinlikler"
+    : ilKoordinatoruMu(kullanici)
+      ? "İliniz · ilinizdeki kurum ve öğretmenlerin etkinlikleri · kendi açtıklarınız"
+      : "Yalnızca kendi açtığınız etkinlikler";
+
   return (
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Etkinlik raporları"
-        aciklama={`Biten etkinlikler ve rapor durumları · ${eksikler.length} rapor bekliyor`}
+        aciklama="Ekranda görüntüle, Excel olarak dışa aktar. Her rol yalnızca kendi kapsamındaki raporu görür."
       />
+
+      {/*
+        KAPSAM ŞERİDİ (18 Ağustos 2026 · istek: "raporlama görsel olarak zayıf,
+        görsellerdeki gibi zenginleştir" — şablondaki "Görüntülenen kayıtlar …
+        yetki kapsamıyla sınırlıdır" satırının karşılığı).
+
+        SÜSLEME DEĞİL, DÜZELTME: bu ekrandaki her sayı `raporlanabilirFaaliyet-
+        Filtresi`nden geçiyor ve iki farklı rol aynı ekranda farklı sayılar
+        görüyor. Bunu hiçbir yerde yazmıyorduk; il koordinatörü "toplam 40
+        etkinlik" görüp bunu ülke geneli sanabilirdi. Şerit, sayının neyin
+        toplamı olduğunu söylüyor.
+      */}
+      <BilgiKutusu>
+        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <ShieldCheck size={15} aria-hidden className="text-vurgu-metin" />
+          Görüntülenen kayıtlar
+          <b>{kapsamAdi}</b>
+          yetki kapsamıyla sınırlıdır.
+          <span className="text-metin-yumusak">{kapsamAciklamasi}</span>
+        </span>
+      </BilgiKutusu>
+
+      {/*
+        ÖLÇÜ ŞERİDİ. Ekran bugüne kadar doğrudan listelerle açılıyordu ve
+        "kaç rapor eksik" sorusunun cevabı yalnızca sayfa başlığındaki bir
+        cümlecikte vardı; geri kalan üç sayı hiç yoktu, listeler sayılarak
+        bulunuyordu.
+
+        DÖRT ÖLÇÜ BİRBİRİNİN TEKRARI DEĞİL: ilki iş hacmi, ikincisi bekleyen
+        iş, üçüncüsü biten iş, dördüncüsü ikisinin oranı. Oran ayrı bir kutuyu
+        hak ediyor çünkü 3/4 ile 300/400 aynı yüzde ama aynı durum değil —
+        kutular yan yana okunduğunda ikisi de görünüyor.
+
+        YÖN RENGİ ANLAMDAN GELİYOR, çağıran seçmiyor: bekleyen iş uyarı sarısı,
+        biten iş olumlu yeşil. Aynı anlamın iki ekranda iki renge düşmemesi
+        için karar OlcuKarti'nın içinde (bkz. components/ui.tsx).
+      */}
+      <OlcuSeridi>
+        <OlcuKarti
+          etiket="Biten etkinlik"
+          deger={bitmisler.length}
+          altBilgi="Kapsamınızda, iptal edilmemiş"
+          Ikon={CalendarCheck}
+        />
+        <OlcuKarti
+          etiket="Raporu bekleyen"
+          deger={eksikler.length}
+          altBilgi={eksikler.length > 0 ? "İşlem bekliyor" : "Eksik yok"}
+          yon={eksikler.length > 0 ? "uyari" : "olumlu"}
+          Ikon={CircleAlert}
+        />
+        <OlcuKarti
+          etiket="Raporu yazılan"
+          deger={yazilanlar.length}
+          altBilgi="Tamamlandı"
+          yon="olumlu"
+          Ikon={FileText}
+        />
+        <OlcuKarti
+          etiket="Toplam katılımcı"
+          deger={toplamKatilimci.toLocaleString("tr-TR")}
+          altBilgi="Biten etkinliklerin başvuruları"
+          Ikon={Users}
+        />
+      </OlcuSeridi>
+
+      {/*
+        TAMAMLANMA ORANI ÖLÇÜ KUTUSU DEĞİL ÇUBUK: yüzde tek başına bir sayı
+        ama sorulan şey "ne kadarı bitti" — bu bir ilerleme, bir ölçüm değil.
+        Çubuk kalanı da gösteriyor, kutu göstermezdi.
+
+        Hiç bitmiş etkinlik yokken BASILMAZ: 0/0'ın yüzdesi yok ve "%0
+        tamamlandı" demek, yapılmamış bir işi yapılmamış göstermek olurdu —
+        oysa ortada iş yok.
+      */}
+      {bitmisler.length > 0 && (
+        <Kart>
+          <IlerlemeCubugu
+            deger={yazilanlar.length}
+            toplam={bitmisler.length}
+            etiket={`Rapor tamamlanma · ${yazilanlar.length} / ${bitmisler.length} etkinlik`}
+          />
+        </Kart>
+      )}
 
       {/*
         GRAFİKLER (Aşama 7). Panel bugüne kadar tamamen sayılarla çalışıyordu;
@@ -193,58 +312,74 @@ export default async function RaporlarSayfasi() {
         "eğilim" iddiası taşır ama eğilim yoktur (bileşen iki noktadan azında
         null döner), boş grup listesinde de bar grafiği anlamsızdır.
       */}
+      {/*
+        GRAFİKLER (Aşama 7; 18 Ağustos 2026'da iki sütuna alındı).
+
+        ESKİDEN TEK KART, ALT ALTA İKİ GRAFİKTİ ve ekranın üst yarısı boyunca
+        tek bir sütun uzuyordu; geniş ekranda sağ taraf tamamen boştu. İki
+        grafik AYNI ANDA okunacak şeyler — "ne zaman" ve "hangi grupta" — yan
+        yana durunca gözün ikisi arasında gidip gelmesi bir kaydırma değil bir
+        bakış oluyor.
+
+        İKİSİ DE TEK SERİ: her bar bir dönem ya da bir kategori, ayrı seri
+        değil. Bu yüzden LEJANT YOK — seriyi başlık adlandırıyor (dataviz
+        kuralı) — ve her bara ayrı renk verilmiyor; kategoriyi zaten etiket
+        söylüyor.
+
+        Grafikler yalnızca VERİ VARSA basılıyor; biri yoksa öbürü tüm genişliği
+        alır (`lg:col-span-2` yerine tek çocuk kalır ve ızgara kendiliğinden
+        toparlar).
+      */}
       {(yillik.length >= 2 || grupDagilimi.length > 0) && (
-        <Kart>
-          <KartBasligi baslik="Genel görünüm" Ikon={ChartColumn} />
-          <div className="space-y-8">
-            {/*
-              AZ YILDA ÇİZGİ DEĞİL BAR (15 Ağustos 2026 · geri bildirim:
-              "üstteki grafik anlaşılır değil").
+        <div className="grid gap-5 lg:grid-cols-2">
+          {/*
+            ZAMAN SERİSİ DİKEY, KATEGORİ YATAY (18 Ağustos 2026).
 
-              İlk hâl her durumda çizgiydi ve iki dönemlik veride ortaya
-              kocaman bir kutunun içinden geçen tek bir çapraz çıkıyordu:
-              okunacak bir eğilim yok, yalnızca iki sayı var.
+            Yıl etiketleri kısa ve sıralı; soldan sağa okunan yön zamanın
+            yönüdür. Yatay bara yatırıldığında "sonra" aşağı doğru okunuyordu.
+            Çalışma grubu ise tam tersi: adları uzun ve sırasız, yatayda
+            sarıyorlar. Seçim veri türünün kararı, yer darlığının değil
+            (gerekçe DikeyBar'ın başındaki notta).
 
-              Daha önemlisi ÇİZGİ YANLIŞ ŞEY SÖYLÜYORDU. Çizgi iki nokta
-              arasını doldurur, yani "aradaki bir anda değer 2,5'ti" ima eder.
-              Eğitim-öğretim yılı kesikli bir kova; iki dönem arasında ara
-              değer diye bir şey yok. Bar bunu iddia etmiyor, yalnızca iki
-              uzunluğu yan yana koyuyor — kıyaslama da zaten istenen şey.
+            ÇOK DÖNEMDE ÇİZGİ (15 Ağustos 2026 · geri bildirim: "üstteki grafik
+            anlaşılır değil"). Eşik beş: dört dönem ve altında kıyas okunuyor,
+            beşten sonra eğilim başlıyor ve çizgi asıl işini yapıyor. Az
+            dönemde çizgi, iki nokta arasını doldurup "aradaki bir anda değer
+            2,5'ti" ima ediyordu — eğitim-öğretim yılı kesikli bir kova.
+          */}
+          {yillik.length >= 2 && (
+            <Kart>
+              <KartBasligi baslik="Zaman içinde" Ikon={ChartColumn} />
+              {yillik.length < 5 ? (
+                <DikeyBar
+                  baslik="Eğitim-öğretim yılına göre etkinlik sayısı"
+                  aciklama="Kapsamınızdaki iptal edilmemiş etkinlikler."
+                  sutunlar={yillik}
+                  birim="etkinlik"
+                />
+              ) : (
+                <Cizgi
+                  baslik="Eğitim-öğretim yılına göre etkinlik sayısı"
+                  aciklama="Kapsamınızdaki iptal edilmemiş etkinlikler."
+                  noktalar={yillik}
+                  birim="etkinlik"
+                />
+              )}
+            </Kart>
+          )}
 
-              EŞİK BEŞ: dört dönem ve altında kıyas, beşten sonra eğilim
-              okunuyor ve çizgi asıl işini yapmaya başlıyor.
-            */}
-            {/*
-              TEK DÖNEMDE GRAFİK YOK. Bir barlık bar grafiği bir sayıdır;
-              o sayı sayfanın kendi başlığında zaten yazıyor. Çizgi bileşeni
-              de aynı gerekçeyle iki noktadan azında null dönüyor.
-            */}
-            {yillik.length >= 2 &&
-              (yillik.length < 5 ? (
-              <YatayBar
-                baslik="Eğitim-öğretim yılına göre etkinlik sayısı"
-                aciklama="Kapsamınızdaki iptal edilmemiş etkinlikler."
-                satirlar={yillik}
-                birim="etkinlik"
-              />
-            ) : (
-              <Cizgi
-                baslik="Eğitim-öğretim yılına göre etkinlik sayısı"
-                aciklama="Kapsamınızdaki iptal edilmemiş etkinlikler."
-                noktalar={yillik}
-                birim="etkinlik"
-              />
-              ))}
-            {grupDagilimi.length > 0 && (
+          {grupDagilimi.length > 0 && (
+            <Kart>
+              <KartBasligi baslik="Çalışma grubu kırılımı" Ikon={ChartColumn} />
               <YatayBar
                 baslik="Çalışma grubuna göre etkinlik"
                 aciklama="Bir etkinlik bağlı olduğu her grupta sayılır; barların toplamı etkinlik sayısını aşar."
                 satirlar={grupDagilimi}
                 birim="etkinlik"
               />
-            )}
-          </div>
-        </Kart>
+            </Kart>
+          )}
+        </div>
       )}
 
       {/*

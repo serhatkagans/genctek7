@@ -210,7 +210,7 @@ export default async function OgretmenlerSayfasi({
         }
       />
 
-      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5">
+      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -383,7 +383,7 @@ export default async function OgretmenlerSayfasi({
             : "Kapsamınızda görüntülenecek öğretmen yok."}
         </Kart>
       ) : (
-        <div className="overflow-x-auto rounded-kart border border-cizgi bg-kart">
+        <div className="overflow-x-auto rounded-kart border border-cizgi bg-kart shadow-kart">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-cizgi bg-zemin text-metin-yumusak">
               <tr>

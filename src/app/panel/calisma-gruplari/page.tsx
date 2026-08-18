@@ -53,7 +53,7 @@ export default async function CalismaGruplariSayfasi({
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
-      <div className="rounded-kart border border-cizgi bg-kart p-6">
+      <div className="rounded-kart border border-cizgi bg-kart p-6 shadow-kart">
         <CalismaGrubuSecimi
           gruplar={gruplar}
           seciliIdler={seciliIdler}

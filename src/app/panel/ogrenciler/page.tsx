@@ -648,7 +648,7 @@ export default async function OgrencilerSayfasi({
 
       <form
         method="get"
-        className="rounded-kart border border-cizgi bg-kart p-5"
+        className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
@@ -975,7 +975,7 @@ export default async function OgrencilerSayfasi({
             : "Kapsamınızda görüntülenecek öğrenci yok."}
         </Kart>
       ) : (
-        <div className="overflow-x-auto rounded-kart border border-cizgi bg-kart">
+        <div className="overflow-x-auto rounded-kart border border-cizgi bg-kart shadow-kart">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-cizgi bg-zemin text-metin-yumusak">
               <tr>

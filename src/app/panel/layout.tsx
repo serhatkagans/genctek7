@@ -1,4 +1,7 @@
-import { LogOut, ShieldAlert } from "lucide-react";
+import {
+  LogOut,
+  ShieldAlert,
+} from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cikisEylemi } from "@/app/giris/eylemler";
@@ -11,6 +14,7 @@ import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { ilkGirisKilidiVarMi, onayDurumlari } from "@/lib/kvkk/onay";
 import { onayliMentorMu } from "@/lib/mentor/veri";
+import { uygulamaYolu } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
 import {
   disKullaniciMi,
@@ -78,9 +82,16 @@ export default async function PanelDuzeni({
    * kaldırmak, koordinatörün ilindeki öğrenciye ulaşacağı hiçbir giriş
    * bırakmazdı.
    */
+  /*
+   * GRUP ADLARI (18 Ağustos 2026 · kenar çubuğuna geçiş). Menü dizisi değişmedi
+   * — sıra ve kimin neyi gördüğü aynı; her satıra yalnızca hangi başlığın
+   * altında duracağı ve ikonu eklendi. Dört başlık var: Genel (kişinin
+   * kendisi), Çalışma (işin yapıldığı ekranlar), İletişim (başkasıyla temas),
+   * Ekosistem (vitrin).
+   */
   const baglantilar: GezinmeBaglantisi[] = [
-    { yol: "/panel/profil", etiket: "Profil" },
-    { yol: "/panel", etiket: "Panel" },
+    { yol: "/panel/profil", etiket: "Profil", grup: "Genel", ikon: "UserRound" },
+    { yol: "/panel", etiket: "Panel", grup: "Genel", ikon: "LayoutGrid" },
   ];
 
   /*
@@ -128,21 +139,48 @@ export default async function PanelDuzeni({
    * Mentör olabilen herkeste basılıyor: dış kullanıcı da (mezun, paydaş,
    * mentör) onaylı mentör olabiliyor, bu yüzden kontrol erken dönüşten ÖNCE.
    */
-  const mentorSekmesi = (await onayliMentorMu(kullanici.id))
-    ? [{ yol: "/panel/mentorlugum", etiket: "Mentörlüğüm" }]
+  const mentorSekmesi: GezinmeBaglantisi[] = (await onayliMentorMu(kullanici.id))
+    ? [
+        {
+          yol: "/panel/mentorlugum",
+          etiket: "Mentörlüğüm",
+          grup: "Çalışma",
+          ikon: "Handshake",
+        },
+      ]
     : [];
 
   if (disKullaniciMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
+    baglantilar.push({
+      yol: "/panel/etkinlikler",
+      etiket: "Etkinlikler",
+      grup: "Çalışma",
+      ikon: "CalendarDays",
+    });
     // Sıra iç kullanıcı menüsüyle aynı: aynı sekmenin iki rolde farklı yerde
     // durması, ekranı birine anlatırken "sende kaçıncı sırada?" sorusunu
     // doğururdu.
     // Akış 14 Ağustos 2026'da Bağlantılarım'ın içine girdi; ayrı sekmesi yok
     // (bkz. aşağıdaki not ve akis/AkisBolumu.tsx).
-    baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
-    baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
+    baglantilar.push({
+      yol: "/panel/yazismalar",
+      etiket: "Bağlantılarım",
+      grup: "İletişim",
+      ikon: "MessagesSquare",
+    });
+    baglantilar.push({
+      yol: "/panel/talepler",
+      etiket: "Pano",
+      grup: "İletişim",
+      ikon: "ClipboardList",
+    });
     baglantilar.push(...mentorSekmesi);
-    baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });
+    baglantilar.push({
+      yol: "/panel/urunler",
+      etiket: "Market",
+      grup: "Ekosistem",
+      ikon: "Store",
+    });
     return (
       <PanelCercevesi
         kullanici={kullanici}
@@ -169,7 +207,12 @@ export default async function PanelDuzeni({
    * işi bu sekmede başlıyor.
    */
   if (yonetimPanosuGorebilirMi(kullanici)) {
-    baglantilar.push({ yol: "/panel/yonetim", etiket: "Yönetim Paneli" });
+    baglantilar.push({
+      yol: "/panel/yonetim",
+      etiket: "Yönetim Paneli",
+      grup: "Çalışma",
+      ikon: "ShieldCheck",
+    });
   }
 
   /*
@@ -214,7 +257,12 @@ export default async function PanelDuzeni({
   // Görev almamış öğretmen de okulunun ve ulusal faaliyetleri görür; mezun ve
   // paydaş temsilcisi ulusal ve kendi ilindeki etkinlikleri takvim olarak görür
   // ama başvuramaz (bkz. basvuruYapabilirMi).
-  baglantilar.push({ yol: "/panel/etkinlikler", etiket: "Etkinlikler" });
+  baglantilar.push({
+    yol: "/panel/etkinlikler",
+    etiket: "Etkinlikler",
+    grup: "Çalışma",
+    ikon: "CalendarDays",
+  });
 
   /*
    * "Bağlantılarım" (eski adı Yazışmalar) herkese açık; kimin ne göreceğini
@@ -225,7 +273,12 @@ export default async function PanelDuzeni({
    * bağlantı onayları bu ekranın içinde; **Sohbet (grup) HENÜZ YOK** — G
    * maddesi S19/S20 cevaplarını bekliyor.
    */
-  baglantilar.push({ yol: "/panel/yazismalar", etiket: "Bağlantılarım" });
+  baglantilar.push({
+    yol: "/panel/yazismalar",
+    etiket: "Bağlantılarım",
+    grup: "İletişim",
+    ikon: "MessagesSquare",
+  });
 
   /*
    * "AKIŞ" SEKMESİ KALKTI (14 Ağustos 2026 · istek: "akış bağlantılarım içine
@@ -270,7 +323,12 @@ export default async function PanelDuzeni({
    * dışarıya açık bir ilan sayfası istenirse bu ayrı bir karardır ve KVKK
    * tarafı yeniden değerlendirilmelidir (ilanı açan çoğunlukla 18 yaş altı).
    */
-  baglantilar.push({ yol: "/panel/talepler", etiket: "Pano" });
+  baglantilar.push({
+    yol: "/panel/talepler",
+    etiket: "Pano",
+    grup: "İletişim",
+    ikon: "ClipboardList",
+  });
 
   /*
    * MENTÖRLÜĞÜM SEKMESİ YÖNETİM PANELİ GÖRENLERDE YOK (15 Ağustos 2026 ·
@@ -306,7 +364,12 @@ export default async function PanelDuzeni({
    * karşılık gelen tek ekran. Vitrin ekosistem içine kapalı; dışarıya açık
    * bir ürün sayfası ayrı bir karardır (pano ile aynı ilke · S21).
    */
-  baglantilar.push({ yol: "/panel/urunler", etiket: "Market" });
+  baglantilar.push({
+    yol: "/panel/urunler",
+    etiket: "Market",
+    grup: "Ekosistem",
+    ikon: "Store",
+  });
 
   /*
    * PAYDAŞLAR, GÖREV ROLLERİ ve MENTÖRLÜK SEKMELERİ KALKTI (11 Ağustos 2026);
@@ -409,38 +472,64 @@ function PanelCercevesi({
 }) {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-ust-bar-cizgi bg-ust-bar">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div>
-            <p className="text-[11px] font-semibold tracking-widest text-ust-bar-metin-yumusak uppercase">
-              MEB · YEĞİTEK
+      {/*
+        İNCE KOYU ŞERİT. Kurum kimliği ve tema seçimi buraya indi: ikisi de
+        günlük işin parçası değil, sayfanın her yerinde aynı duran künye
+        bilgisi. Beyaz menü barında yer kapladıklarında kullanıcının adını ve
+        çıkış düğmesini sıkıştırıyorlardı.
+      */}
+      <div className="bg-serit text-serit-metin">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-6 py-2">
+          <p className="text-[11px] font-semibold tracking-widest uppercase">
+            T.C. Millî Eğitim Bakanlığı · YEĞİTEK
+          </p>
+          <TemaSecici aktif={tema} />
+        </div>
+      </div>
+
+      {/*
+        BEYAZ MENÜ BARI. `sticky`: kenar çubuğuna geçince sayfalar uzadı ve
+        aşağı inen kullanıcının kimliğini/çıkışını görecek yeri kalmıyordu.
+      */}
+      <header className="sticky top-0 z-30 border-b border-ust-bar-cizgi bg-ust-bar">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-6 py-3">
+          <Link href="/panel" className="flex items-center gap-3">
+            {/*
+              Logo artık beyaz kutu İÇİNDE DEĞİL: bar beyaza döndüğü için
+              kırmızı logo doğrudan zemine oturuyor (açılış ekranında durum
+              tersi — orada zemin kırmızı ve kutu şart).
+
+              next/image kullanılmıyor: dosya public dizininde, boyutu sabit.
+              Yol uygulamaYolu()'ndan geçiyor çünkü uygulama alt dizine kurulu.
+            */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={uygulamaYolu("/genc.png")}
+              alt=""
+              aria-hidden
+              className="size-10 object-contain"
+            />
+            <span>
+              <span className="block text-[10px] font-bold tracking-widest text-vurgu-metin uppercase">
+                MEB · YEĞİTEK
+              </span>
+              <span className="block font-baslik text-lg leading-tight font-extrabold text-ust-bar-metin">
+                GençTek
+              </span>
+              <span className="block text-xs text-ust-bar-metin-yumusak">
+                Genç Bilişim Ekosistemi
+              </span>
+            </span>
+          </Link>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-semibold text-ust-bar-metin">
+              {kullanici.ad} {kullanici.soyad}
             </p>
-            <p className="text-lg font-bold text-ust-bar-metin">GençTek</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <TemaSecici aktif={tema} />
-            <div className="text-right">
-              <p className="font-medium text-ust-bar-metin">
-                {kullanici.ad} {kullanici.soyad}
-              </p>
-              <div className="mt-1 flex flex-wrap justify-end gap-1">
-                {kullanici.roller.length === 0 ? (
-                  <RolsuzEtiketi />
-                ) : (
-                  kullanici.roller.map((rol) => (
-                    <RolEtiketi
-                      key={rol.rolKodu}
-                      rolKodu={rol.rolKodu}
-                      ekBilgi={rol.ilKodu}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
             <form action={cikisEylemi}>
               <button
                 type="submit"
-                className="inline-flex items-center gap-1.5 rounded-md border border-ust-bar-cizgi px-3 py-1.5 text-sm font-medium text-ust-bar-metin-yumusak transition hover:text-ust-bar-metin"
+                className="inline-flex items-center gap-1.5 rounded-kutu border border-cizgi-guclu px-3 py-2 text-sm font-medium text-ust-bar-metin-yumusak transition hover:border-vurgu hover:text-vurgu-metin"
               >
                 <LogOut size={15} aria-hidden />
                 Çıkış
@@ -448,7 +537,6 @@ function PanelCercevesi({
             </form>
           </div>
         </div>
-        <PanelGezinme baglantilar={baglantilar} />
       </header>
 
       {/*
@@ -458,14 +546,12 @@ function PanelCercevesi({
       */}
       {bekleyenBelgeler.length > 0 && (
         <div className="border-b border-uyari-cizgi bg-uyari-zemin">
-          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-6 py-2.5 text-sm text-uyari-metin">
+          <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-6 py-2.5 text-sm text-uyari-metin">
             <ShieldAlert size={16} className="shrink-0" aria-hidden />
             <span>
               Onayınız bekleniyor:{" "}
-              {bekleyenBelgeler
-                .map((durum) => durum.tanim.baslik)
-                .join(" · ")}
-              . Metni güncellenen belgelerde önceki onayınız eski metne aitti.
+              {bekleyenBelgeler.map((durum) => durum.tanim.baslik).join(" · ")}.
+              Metni güncellenen belgelerde önceki onayınız eski metne aitti.
             </span>
             {/*
               Şerit, metin güncellendiğinde yeniden onayın alındığı TEK yoldur:
@@ -482,7 +568,47 @@ function PanelCercevesi({
         </div>
       )}
 
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+      {/*
+        GÖVDE: kenar çubuğu + içerik.
+
+        Kenar çubuğu dar ekranda GİZLENMİYOR, üste geçiyor: PanelGezinme 1024
+        pikselin altında kendini yatay kaydırılan bir rozet şeridine çeviriyor
+        (bkz. components/PanelGezinme.tsx). Bu yüzden `aside` iki durumda da
+        basılır — `hidden lg:block` verilseydi telefonda menü hiç görünmezdi.
+      */}
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-6 py-8 lg:flex-row">
+        <aside className="lg:w-56 lg:shrink-0">
+          <div className="lg:sticky lg:top-24">
+            {/*
+              KAPSAM KUTUSU. Rol etiketleri menü barından buraya taşındı:
+              kullanıcının hangi yetkiyle baktığı, menünün neden o uzunlukta
+              olduğunu açıklayan bilgidir — menünün başında durması gerekir.
+            */}
+            <div className="mb-6 rounded-kart border border-cizgi bg-kart p-4 shadow-kart">
+              <p className="text-[11px] font-bold tracking-widest text-metin-yumusak uppercase">
+                Yetkim
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {kullanici.roller.length === 0 ? (
+                  <RolsuzEtiketi />
+                ) : (
+                  kullanici.roller.map((rol) => (
+                    <RolEtiketi
+                      key={rol.rolKodu}
+                      rolKodu={rol.rolKodu}
+                      ekBilgi={rol.ilKodu}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            <PanelGezinme baglantilar={baglantilar} />
+          </div>
+        </aside>
+
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
     </div>
   );
 }

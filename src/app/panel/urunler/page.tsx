@@ -2,7 +2,13 @@ import { Eye, ExternalLink, Info, Package, ScrollText, Users } from "lucide-reac
 import { projeYoneticisiMi } from "@/lib/yetki/izinler";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import Link from "next/link";
-import { BilgiKutusu, Kart, SayfaBasligi } from "@/components/ui";
+import {
+  BilgiKutusu,
+  Kart,
+  Rozet,
+  RozetSeridi,
+  SayfaBasligi,
+} from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
@@ -91,6 +97,7 @@ export default async function MarketSayfasi({
       <SayfaBasligi
         baslik="Ürünlerim · GençTek Market"
         aciklama="GençTek ekosisteminde üretilen ürünler."
+        rozet={<Rozet cesit="vurgu">{gosterilecek.length} ürün</Rozet>}
       />
 
       {/*
@@ -186,41 +193,51 @@ export default async function MarketSayfasi({
         <ul className="grid gap-4 md:grid-cols-2">
           {gosterilecek.map((urun) => (
             <li key={urun.id}>
-              <Kart className="flex h-full flex-col gap-3">
+              {/*
+                Market bir VİTRİNDİR: kartlar tıklanabilir birer kutu ve
+                imlecin üstüne geldiği kart yükseliyor. Diğer ekranlardaki
+                kartlar bilgi taşıyan yüzeyler, buradakiler ürünün kendisi.
+              */}
+              <Kart className="flex h-full flex-col gap-3 transition hover:border-vurgu hover:shadow-yuksek">
                 <div>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-baslik">
-                      <Link
-                        href={`/panel/urunler/${urun.id}`}
-                        className="hover:underline"
-                      >
-                        {urun.baslik}
-                      </Link>
-                    </h2>
-                    {/*
-                      Paylaşım rozeti YALNIZCA sahibine gösterilir ve yalnızca
-                      paylaşılmamış üründe: başkasının gördüğü her ürün zaten
-                      paylaşılmış olduğu için rozet bilgi taşımazdı.
-                    */}
-                    {!urun.markettePaylasilsin && (
-                      <span className="shrink-0 rounded-full border border-cizgi px-2.5 py-0.5 text-xs text-metin-yumusak">
-                        Markette paylaşılmadı
-                      </span>
-                    )}
+                  <h2 className="text-lg font-bold text-baslik">
+                    <Link
+                      href={`/panel/urunler/${urun.id}`}
+                      className="hover:underline"
+                    >
+                      {urun.baslik}
+                    </Link>
+                  </h2>
+                  {/*
+                    18 Ağustos 2026: ürünün kümesi düz metinden rozete geçti.
+                    Izgarada yan yana duran kartlarda "Öğrenci ürünü / Öğretmen
+                    ürünü" ayrımı, geliştirici adının ardına iliştirilmiş gri
+                    bir cümle parçasıydı ve göz taramasıyla ayırt edilmiyordu —
+                    oysa vitrinde ilk aranan ayrım bu.
+
+                    Paylaşım rozeti YALNIZCA sahibine gösterilir ve yalnızca
+                    paylaşılmamış üründe: başkasının gördüğü her ürün zaten
+                    paylaşılmış olduğu için rozet bilgi taşımazdı.
+                  */}
+                  <div className="mt-2">
+                    <RozetSeridi>
+                      <Rozet cesit="vurgu">
+                        {urun.sahipKumesi === "OGRENCI"
+                          ? "Öğrenci ürünü"
+                          : urun.sahipKumesi === "OGRETMEN"
+                            ? "Öğretmen ürünü"
+                            : "Ekosistem ürünü"}
+                      </Rozet>
+                      {!urun.markettePaylasilsin && (
+                        <Rozet cesit="uyari">Markette paylaşılmadı</Rozet>
+                      )}
+                    </RozetSeridi>
                   </div>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-metin-yumusak">
+                  <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-metin-yumusak">
                     <span className="inline-flex items-center gap-1">
                       <Users size={13} aria-hidden />
                       {urun.gelistirenEkip ??
                         `${urun.kullanici.ad} ${urun.kullanici.soyad}`}
-                    </span>
-                    <span aria-hidden>·</span>
-                    <span>
-                      {urun.sahipKumesi === "OGRENCI"
-                        ? "Öğrenci ürünü"
-                        : urun.sahipKumesi === "OGRETMEN"
-                          ? "Öğretmen ürünü"
-                          : "Ekosistem ürünü"}
                     </span>
                   </p>
                 </div>

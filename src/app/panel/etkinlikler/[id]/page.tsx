@@ -38,6 +38,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -586,26 +587,48 @@ export default async function FaaliyetDetaySayfasi({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/panel/etkinlikler"
-        className="text-sm font-medium text-vurgu-metin"
-      >
-        ← Etkinlikler
-      </Link>
+      {/*
+        KIRINTI YOLU (18 Ağustos 2026 · tasarım yenilemesi). Yerinde eskiden
+        tek başına "← Etkinlikler" bağlantısı vardı: geri dönüşü veriyordu ama
+        bu ekranın listenin ALTINDA olduğunu söylemiyordu. Panelden gelen
+        bildirim bağlantısıyla doğrudan buraya düşen kullanıcı, hangi listenin
+        içinde durduğunu göremiyordu.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Etkinlikler", yol: "/panel/etkinlikler" },
+          { etiket: faaliyet.ad },
+        ]}
+      />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <KategoriRozeti kategori={faaliyet.etkinlikKategorisi} />
-        <KapsamRozeti kapsam={faaliyet.kapsam} />
-        <FaaliyetDurumuRozeti durum={faaliyet.durum} />
-        <OnayRozeti
-          onayDurumu={faaliyet.onayDurumu}
-          faaliyetDurumu={faaliyet.durum}
-        />
-        <PencereRozeti pencere={pencere} faaliyetDurumu={faaliyet.durum} />
-        {kendiBasvurum && <BasvuruRozeti durum={kendiBasvurum.durum} />}
-      </div>
+      {/*
+        ROZET ŞERİDİ BAŞLIĞIN İÇİNE GİRDİ. Eskiden başlığın üstünde ayrı bir
+        flex kabındaydı ve başlıkla arasındaki boşluk, sayfanın geri kalanının
+        boşluk ritmine (space-y-6) uyuyordu — yani rozetler başlığa değil,
+        kendinden önceki bağlantıya ait gibi duruyordu. `SayfaBasligi` artık
+        `rozet` alıyor ve aynı hizalamayı her sayfada tek yerden kuruyor.
 
-      <SayfaBasligi baslik={faaliyet.ad} aciklama={faaliyet.duzenleyenBirim} />
+        Rozetlerin SIRASI ve hangisinin basılacağı DEĞİŞMEDİ; iptal/onay/pencere
+        çelişkisini önleyen kararlar rozetlerin kendi içinde duruyor
+        (bkz. components/FaaliyetRozetleri.tsx).
+      */}
+      <SayfaBasligi
+        baslik={faaliyet.ad}
+        aciklama={faaliyet.duzenleyenBirim}
+        rozet={
+          <>
+            <KategoriRozeti kategori={faaliyet.etkinlikKategorisi} />
+            <KapsamRozeti kapsam={faaliyet.kapsam} />
+            <FaaliyetDurumuRozeti durum={faaliyet.durum} />
+            <OnayRozeti
+              onayDurumu={faaliyet.onayDurumu}
+              faaliyetDurumu={faaliyet.durum}
+            />
+            <PencereRozeti pencere={pencere} faaliyetDurumu={faaliyet.durum} />
+            {kendiBasvurum && <BasvuruRozeti durum={kendiBasvurum.durum} />}
+          </>
+        }
+      />
 
       {durum && DURUM_MESAJLARI[durum] && (
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>

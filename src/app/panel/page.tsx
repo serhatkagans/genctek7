@@ -32,6 +32,9 @@ import {
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
+  SINIF_VITRIN_BUTON,
+  SINIF_VITRIN_IKINCIL_BUTON,
+  Vitrin,
 } from "@/components/ui";
 import { MesajSeridi } from "@/components/MesajSeridi";
 import {
@@ -141,19 +144,35 @@ function OlcumKarti({
     <>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-metin-yumusak">{baslik}</p>
-        <Ikon size={18} className="text-vurgu-metin" />
+        {/*
+          İkon açık kırmızı bir kutunun içinde: yalın ikon kartın köşesinde
+          iliştirilmiş duruyordu ve ızgarada onlarca kart yan yana gelince
+          hiçbiri diğerinden ayrışmıyordu.
+        */}
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-kutu bg-vurgu-zemin text-vurgu-metin">
+          <Ikon size={16} />
+        </span>
       </div>
-      <p className="mt-1 text-2xl font-bold text-baslik">{deger}</p>
+      {/*
+        Sayı başlık yazısıyla ve büyük basılıyor: bir sayımın işlevi uzaktan
+        okunabilmesidir, gövde puntosunda etiketinden ayrışmıyordu.
+      */}
+      <p className="mt-2 font-baslik text-3xl font-extrabold text-baslik">
+        {deger}
+      </p>
       {aciklama && (
         <p className="mt-1 text-sm text-metin-yumusak">{aciklama}</p>
       )}
     </>
   );
 
-  const sinif = "rounded-kart border border-cizgi bg-kart p-5";
+  const sinif = "rounded-kart border border-cizgi bg-kart p-5 shadow-kart";
 
   return yol ? (
-    <Link href={yol} className={`${sinif} block transition hover:border-vurgu`}>
+    <Link
+      href={yol}
+      className={`${sinif} block transition hover:border-vurgu hover:shadow-yuksek`}
+    >
       {icerik}
     </Link>
   ) : (
@@ -664,9 +683,40 @@ export default async function PanelSayfasi({
 
   return (
     <div className="space-y-8">
-      <SayfaBasligi
+      {/*
+        VİTRİN (18 Ağustos 2026 · tasarım yenilemesi). Panel sistemin açılış
+        ekranı: kullanıcı giriş yaptıktan sonra buraya düşüyor ve rengi tam
+        güçte gördüğü tek yer burası olmalı — gövdenin geri kalanı beyaz
+        kartlardan oluşuyor, her sayfaya kırmızı blok koymak vurguyu değersiz
+        kılardı.
+
+        Düğmeler kenar çubuğundakilerin TEKRARI DEĞİL: kenar çubuğu nereye
+        gidilebileceğini sayar, buradaki iki düğme bugün ne yapılacağını söyler
+        — açık başvuru varsa etkinliklere, yoksa panoya.
+      */}
+      <Vitrin
+        ustBaslik={`${kullanici.egitimOgretimYili} eğitim-öğretim yılı`}
         baslik={`Hoş geldiniz, ${kullanici.ad}`}
-        aciklama={`${kullanici.egitimOgretimYili} eğitim-öğretim yılı`}
+        aciklama="Bugün sizi bekleyen işler, yaklaşan etkinlikleriniz ve kayıtlarınız aşağıda."
+        eylem={
+          <>
+            <Link href="/panel/etkinlikler" className={SINIF_VITRIN_BUTON}>
+              <CalendarDays size={16} aria-hidden />
+              Etkinlikler
+              {acikFaaliyetSayisi > 0 && (
+                <span className="rounded-full bg-vurgu-zemin px-2 py-0.5 text-xs font-bold">
+                  {acikFaaliyetSayisi} açık
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/panel/talepler"
+              className={SINIF_VITRIN_IKINCIL_BUTON}
+            >
+              Panoya git
+            </Link>
+          </>
+        }
       />
 
       {/* Başvurusu açık faaliyetler, takvimden ÖNCE ve akan şerit hâlinde:
@@ -693,7 +743,7 @@ export default async function PanelSayfasi({
         çalışmamalı.
       */}
       {disKullaniciMi(kullanici) && (
-        <div className="rounded-kart border border-cizgi bg-kart p-6">
+        <div className="rounded-kart border border-cizgi bg-kart p-6 shadow-kart">
           <h2 className="font-semibold text-baslik">
             {mezunMu(kullanici) ? "Mezun hesabınız" : "Paydaş temsilcisi hesabınız"}
           </h2>

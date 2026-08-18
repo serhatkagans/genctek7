@@ -5,7 +5,10 @@ import {
   Check,
   FileText,
   Filter,
+  Hourglass,
+  Landmark,
   LayoutGrid,
+  LayoutList,
   List,
   MapPin,
   Plus,
@@ -34,6 +37,9 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KartIzgarasi,
+  PosterKart,
+  Rozet,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -121,6 +127,8 @@ interface EtkinlikKarti {
   aciklama: string;
   tarih: Date;
   duzenleyenBirim: string;
+  /** Başvurunun son günü — kartın "37 gün kaldı" balonu bunu sayar. */
+  basvuruBitis: Date;
   kapsam: Kapsam;
   etkinlikKategorisi: EtkinlikKategorisi;
   durum: FaaliyetDurumu;
@@ -360,9 +368,238 @@ function Rozetler({ kart }: { kart: EtkinlikKarti }) {
 }
 
 /**
- * IZGARA GÖRÜNÜMÜ — varsayılan (10 Ağustos 2026 · istek: "etkinlikler
- * Instagram profilindeki gibi yan yana alt alta görünsün, üstüne gelince
- * yazısı açıklaması çıksın").
+ * KART GÖRÜNÜMÜ — varsayılan (18 Ağustos 2026 · istek: "etkinliklerin
+ * görünümü kötü, sablon/1.png'deki gibi yapalım").
+ *
+ * ÖNCEKİ IZGARANIN SORUNU BİLGİNİN SAKLI OLMASIYDI. Kare afiş kutusunda
+ * başlık dışında her şey — durum, düzenleyen birim, son başvuru, rozetler —
+ * yalnızca fareyle üstüne gelince açılan bir katmanda vardı. Dokunmatik
+ * cihazda o katman hiç açılmıyor; afişi olmayan etkinlikte kutu da boşa
+ * düşüyordu. Yeni kartta aynı bilgiler HER ZAMAN basılı ve sıra sabit:
+ *
+ *     poster (durum rozeti + kalan gün) → düzenleyen birim → başlık →
+ *     rozetler → son başvuru → İncele / Başvur
+ *
+ * IZGARA SİLİNMEDİ (istek: "ızgara düzeni de güzel o da kalsın"): afişleri
+ * yan yana taramak için hâlâ en iyi görünüm o ve `?gorunum=izgara` ile
+ * duruyor. Üç görünüm üç ayrı işi yapıyor — kart TANITIR, ızgara TARATIR,
+ * liste DENETLETİR.
+ */
+function KartGorunumu({ kartlar }: { kartlar: EtkinlikKarti[] }) {
+  /*
+   * Kendi açtıkları ayrı bölümde (11 Ağustos 2026 kararı, ızgaradan devralındı):
+   * sıralamayla ayırmak yetmiyor, kartlar birbirine benzediği için "nerede
+   * bitti" görünmüyor. Tek bölüm varsa başlık basılmaz — olmayan bir ayrımı
+   * anlatmak olurdu.
+   */
+  const benim = kartlar.filter((kart) => kart.benimActigim);
+  const digerleri = kartlar.filter((kart) => !kart.benimActigim);
+
+  if (benim.length === 0 || digerleri.length === 0) {
+    return <KartListesi kartlar={kartlar} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <h3 className="mb-3 text-sm font-semibold text-baslik">
+          Açtığım etkinlikler
+        </h3>
+        <KartListesi kartlar={benim} />
+      </section>
+      <section>
+        <h3 className="mb-3 text-sm font-semibold text-baslik">
+          Diğer etkinlikler
+        </h3>
+        <KartListesi kartlar={digerleri} />
+      </section>
+    </div>
+  );
+}
+
+/**
+ * Posterin rengi DURUMU anlatır, süsleme değildir:
+ *
+ *   yeşil  başvuru açık        amber  henüz açılmadı
+ *   gri    başvuru kapandı     kırmızı  iptal edildi
+ *
+ * KIRMIZI YALNIZCA İPTALE AYRILDI. İlk denemede "kapandı" kırmızıydı ve
+ * listedeki etkinliklerin çoğu kapalı olduğu için ekran baştan aşağı kocaman
+ * kırmızı bloklarla doluyordu; kurumsal renk uyarı anlamını yitiriyordu.
+ * Kapanmak olağan bir son, iptal ise bir kesinti — alarm rengini hak eden o.
+ *
+ * Renk TEK BAŞINA bilgi taşımıyor: aynı durum sol üstteki rozette yazıyla da
+ * yazılı (renk körlüğü ve ekran okuyucu).
+ *
+ * AFİŞİ OLAN KARTTA TON NÖTR: afişin kendisi çoğunlukla kurumsal kırmızı ve
+ * renkli bir bandın üstünde `object-contain` ile durunca ikisi birbirine
+ * karışıyor, afişin kenarı görünmez oluyor. Nötr gri bir paspas afişi bir
+ * nesne olarak ayırıyor; durumu zaten rozet söylüyor.
+ */
+function posterTonu(kart: EtkinlikKarti): "vurgu" | "olumlu" | "uyari" | "notr" {
+  if (kart.durum !== "AKTIF") return "vurgu";
+  if (kart.kapak) return "notr";
+  if (kart.pencere === "ACIK") return "olumlu";
+  if (kart.pencere === "ACILMADI") return "uyari";
+  return "notr";
+}
+
+/**
+ * "37 gün kaldı" balonu YALNIZCA başvurusu açık etkinlikte basılır.
+ *
+ * Kapanmış bir etkinlikte geri sayım göstermek yanıltıcı olurdu; açılmamışta
+ * ise sayılan şey başvurunun BAŞLAMASINA kalan süredir, bitişine değil — iki
+ * farklı sayıyı aynı balonda göstermek kişiye hangisini okuduğunu sordurur.
+ *
+ * Gün farkı takvim günü olarak hesaplanıyor: saat farkına bakılsaydı, son gün
+ * 23:00'te bakan kişi "0 gün kaldı" görürdü — oysa başvurusu hâlâ açık.
+ */
+function kalanGunSayisi(bitis: Date, simdi: Date): number {
+  const gun = 24 * 60 * 60 * 1000;
+  const bitisGunu = Date.UTC(
+    bitis.getFullYear(),
+    bitis.getMonth(),
+    bitis.getDate(),
+  );
+  const bugun = Date.UTC(
+    simdi.getFullYear(),
+    simdi.getMonth(),
+    simdi.getDate(),
+  );
+  return Math.round((bitisGunu - bugun) / gun);
+}
+
+/** Kartların kendisi; bölümlere ayrılmış hâlde iki kez basılır. */
+function KartListesi({ kartlar }: { kartlar: EtkinlikKarti[] }) {
+  const simdi = new Date();
+
+  return (
+    <KartIzgarasi>
+      {kartlar.map((kart) => {
+        const kalan =
+          kart.durum === "AKTIF" && kart.pencere === "ACIK"
+            ? kalanGunSayisi(kart.basvuruBitis, simdi)
+            : null;
+
+        return (
+          <li key={kart.id}>
+            <PosterKart
+              baslik={kart.ad}
+              yol={`/panel/etkinlikler/${kart.id}`}
+              ton={posterTonu(kart)}
+              Ikon={CalendarDays}
+              kapakYolu={
+                kart.kapak
+                  ? uygulamaYolu(
+                      `/panel/etkinlikler/${kart.id}/ekler/${kart.kapak.id}`,
+                    )
+                  : undefined
+              }
+              vurguluCerceve={kart.benimActigim}
+              durum={
+                <>
+                  <FaaliyetDurumuRozeti durum={kart.durum} />
+                  <PencereRozeti
+                    pencere={kart.pencere}
+                    faaliyetDurumu={kart.durum}
+                  />
+                </>
+              }
+              kalanGun={
+                kalan !== null ? (
+                  <>
+                    <Hourglass size={11} aria-hidden />
+                    {kalan <= 0 ? "Son gün" : `${kalan} gün kaldı`}
+                  </>
+                ) : undefined
+              }
+              ustSerit={
+                <span className="flex items-center gap-1.5">
+                  <Landmark size={13} aria-hidden className="shrink-0" />
+                  <span className="truncate">{kart.duzenleyenBirim}</span>
+                </span>
+              }
+              rozetler={
+                <>
+                  <KapsamRozeti kapsam={kart.kapsam} />
+                  <KategoriRozeti kategori={kart.etkinlikKategorisi} />
+                  <OnayRozeti
+                    onayDurumu={kart.onayDurumu}
+                    faaliyetDurumu={kart.durum}
+                  />
+                  {kart.benimBasvurum && (
+                    <BasvuruRozeti durum={kart.benimBasvurum} />
+                  )}
+                  {kart.raporBekliyor && <RaporRozeti />}
+                  {kart.raporYazildi && <RaporYazildiRozeti />}
+                </>
+              }
+              altBilgi={
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarDays size={13} aria-hidden />
+                    Son başvuru: {tarihYaz(kart.basvuruBitis)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Users size={13} aria-hidden />
+                    {kart.kontenjan.aktifBasvuru}/{kart.kontenjan.kontenjan}
+                  </span>
+                  {kart.bittiMi && (
+                    <span className="inline-flex items-center gap-1">
+                      <UserCheck size={13} aria-hidden />
+                      {kart.katilimciSayisi} katılımcı
+                    </span>
+                  )}
+                </span>
+              }
+              eylem={
+                <>
+                  <Link
+                    href={`/panel/etkinlikler/${kart.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-kutu border border-cizgi-guclu bg-kart px-3.5 py-2 text-sm font-medium text-metin transition hover:border-vurgu hover:bg-zemin focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vurgu"
+                  >
+                    İncele
+                  </Link>
+                  {/*
+                    BAŞVUR DÜĞMESİ BURADA FORM AÇMAZ, detaya götürür: başvuru
+                    şartname ve ek belgelerin okunmasını gerektiriyor ve kart
+                    üstünden tek tıkla başvurtmak, kişiyi görmediği bir metne
+                    taahhüt ettirmek olurdu. Prototipteki akış da aynı
+                    (A2 detay → A3 sihirbaz).
+
+                    Yalnızca başvurusu AÇIK ve kişinin HENÜZ BAŞVURMADIĞI
+                    etkinlikte basılır — başvurmuş kişiye "Başvur" demek,
+                    ikinci bir başvuru yapabileceğini ima ederdi.
+                  */}
+                  {kart.durum === "AKTIF" &&
+                    kart.pencere === "ACIK" &&
+                    !kart.benimBasvurum && (
+                      <Link
+                        href={`/panel/etkinlikler/${kart.id}`}
+                        className={SINIF_BIRINCIL_BUTON}
+                      >
+                        Başvur
+                      </Link>
+                    )}
+                </>
+              }
+            />
+          </li>
+        );
+      })}
+    </KartIzgarasi>
+  );
+}
+
+/**
+ * IZGARA GÖRÜNÜMÜ — afiş taraması, `?gorunum=izgara` ile açılır
+ * (10 Ağustos 2026 · istek: "etkinlikler Instagram profilindeki gibi yan yana
+ * alt alta görünsün, üstüne gelince yazısı açıklaması çıksın").
+ *
+ * 18 Ağustos'ta VARSAYILAN OLMAKTAN ÇIKTI, silinmedi (istek: "ızgara düzeni de
+ * güzel o da kalsın"): afişleri sıkışık biçimde taramak için hâlâ en iyi
+ * görünüm bu, ama bir etkinliği TANITMAK için kart görünümü daha iyi — orada
+ * bilgi üstüne gelmeyi beklemiyor.
  *
  * AFİŞ KIRPILMIYOR: kare kutunun içinde object-contain duruyor, object-cover
  * değil. Aynı gün alınmış "resim banner gibi görünmesin, afişin tamamı
@@ -539,7 +776,7 @@ function ListeGorunumu({ kartlar }: { kartlar: EtkinlikKarti[] }) {
         <li key={kart.id}>
           <Link
             href={`/panel/etkinlikler/${kart.id}`}
-            className="block overflow-hidden rounded-kart border border-cizgi bg-kart transition hover:border-vurgu"
+            className="block overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart transition hover:border-vurgu hover:shadow-yuksek"
           >
             {/*
               AFİŞ, BANNER DEĞİL (10 Ağustos 2026 · istek: "resim banner
@@ -803,13 +1040,36 @@ export default async function FaaliyetlerSayfasi({
     return sorgu.toString();
   };
 
-  const listeGorunumu = tekil(parametreler.gorunum) === "liste";
-  const izgaraBaglantisi = disaAktarmaSorgusu
-    ? `/panel/etkinlikler?${disaAktarmaSorgusu}`
-    : "/panel/etkinlikler";
-  const listeBaglantisi = `/panel/etkinlikler?${
-    disaAktarmaSorgusu ? `${disaAktarmaSorgusu}&` : ""
-  }gorunum=liste`;
+  /*
+   * ÜÇ GÖRÜNÜM, ÜÇ AYRI İŞ (18 Ağustos 2026):
+   *
+   *   kart    Etkinliği TANITIR. Durum, düzenleyen birim, son başvuru ve
+   *           düğmeler her zaman basılı. Varsayılan bu.
+   *   izgara  Afişleri TARATIR. Sıkışık kare kutular; bilgi üstüne gelince.
+   *   liste   DENETLETİR. "Hangisinin raporu eksik" tek ekranda okunur.
+   *
+   * Tercih adres çubuğunda taşınır, oturumda değil: sunucu bileşeni ek durum
+   * tutmaz ve kullanıcı istediği görünümün bağlantısını (filtreleriyle
+   * birlikte) paylaşabilir.
+   *
+   * VARSAYILAN ADRESTE YAZILMAZ: `gorunum=kart` parametresi eklenmiyor, çünkü
+   * varsayılanı adrese yazmak paylaşılan her bağlantıyı gereksiz uzatır ve
+   * yarın varsayılan değişirse eski bağlantılar yanlış görünümde donardı.
+   */
+  const gorunum = tekil(parametreler.gorunum);
+  const listeGorunumu = gorunum === "liste";
+  const izgaraGorunumu = gorunum === "izgara";
+  const kartGorunumu = !listeGorunumu && !izgaraGorunumu;
+
+  const gorunumBaglantisi = (deger: "kart" | "izgara" | "liste") => {
+    const onek = disaAktarmaSorgusu ? `${disaAktarmaSorgusu}&` : "";
+    if (deger === "kart") {
+      return disaAktarmaSorgusu
+        ? `/panel/etkinlikler?${disaAktarmaSorgusu}`
+        : "/panel/etkinlikler";
+    }
+    return `/panel/etkinlikler?${onek}gorunum=${deger}`;
+  };
 
   const kartlar: EtkinlikKarti[] = faaliyetler.map((faaliyet) => ({
     katilimciSayisi: faaliyet._count.basvurular,
@@ -819,6 +1079,7 @@ export default async function FaaliyetlerSayfasi({
     aciklama: faaliyet.aciklama,
     tarih: faaliyet.tarih,
     duzenleyenBirim: faaliyet.duzenleyenBirim,
+    basvuruBitis: faaliyet.basvuruBitis,
     kapsam: faaliyet.kapsam,
     etkinlikKategorisi: faaliyet.etkinlikKategorisi,
     durum: faaliyet.durum,
@@ -857,35 +1118,48 @@ export default async function FaaliyetlerSayfasi({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <SayfaBasligi
-          baslik="Etkinlikler"
-          aciklama={`Kapsamınızdaki etkinlikler · ${toplam} kayıt${
-            toplam > SAYFA_BOYUTU ? ` · ${sayfaNo}. sayfa` : ""
-          }`}
-        />
-        {/*
-          İKİ DÜĞME TEK KAPTA (10 Ağustos 2026 · istek: "ikisini de sağa al,
-          yeni etkinlik ortada kaldı"). Düğmeler doğrudan justify-between'in
-          çocuğu olduğunda üç öge aralarındaki boşluğu paylaşıyor ve "Yeni
-          etkinlik" başlıkla belge düğmesinin arasında asılı kalıyordu; sarmal
-          div ikisini tek öge yapıp sağ uca yaslıyor. Düğmelerden biri yetkiye
-          göre gizlenirse kalan tek başına sağda durur.
-        */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/*
+      {/*
+        BAŞLIK BLOĞU ARTIK SayfaBasligi'NIN KENDİ DÜZENİ (18 Ağustos 2026 ·
+        tasarım yenilemesi). Sarmalayan flex kabı kaldırıldı: bileşen artık
+        `rozet` ve `eylem` alıyor ve hizalamayı kendisi kuruyor, yani aynı
+        düzen her sayfada tek yerden geliyor.
+
+        10 Ağustos 2026'daki karar KORUNDU — iki düğme hâlâ tek kapta ve sağ
+        uca yaslı; `eylem` içeriğini kendi sarmalına alıyor, dolayısıyla
+        düğmelerden biri yetkiye göre gizlenirse kalan tek başına sağda durur.
+      */}
+      <SayfaBasligi
+        baslik="Etkinlikler"
+        aciklama="Kapsamınızdaki etkinlikler."
+        rozet={
+          /*
+            Sayım açıklamadan rozete taşındı: "· 143 kayıt · 2. sayfa" düz
+            cümlenin sonuna eklenince okunmuyordu, oysa listede kaç kayıt
+            olduğu bu ekranın en çok bakılan bilgisi.
+          */
+          <>
+            <Rozet cesit="vurgu">{toplam} kayıt</Rozet>
+            {toplam > SAYFA_BOYUTU && <Rozet>{sayfaNo}. sayfa</Rozet>}
+          </>
+        }
+        eylem={
+          <>
+            {/*
             DÜĞMENİN ADI HERKESTE AYNI (12 Ağustos 2026 · istek: "mentör/paydaş
             girişinde de MEB kullanıcılarındaki gibi 'Yeni etkinlik' yazsın").
             7 Ağustos'ta dış kullanıcıya "Etkinlik bildir" yazılmıştı; bildirimin
             onaya düştüğünü zaten kapsam uyarıları anlatıyor, düğmenin role göre
             ad değiştirmesi aynı işi iki adla gösteriyordu.
           */}
-          {acabilir && (
-            <Link href="/panel/etkinlikler/yeni" className={SINIF_KIRMIZI_BUTON}>
-              <Plus size={16} aria-hidden />
-              Yeni etkinlik
-            </Link>
-          )}
+            {acabilir && (
+              <Link
+                href="/panel/etkinlikler/yeni"
+                className={SINIF_KIRMIZI_BUTON}
+              >
+                <Plus size={16} aria-hidden />
+                Yeni etkinlik
+              </Link>
+            )}
           {/*
             BELGE OLUŞTUR menüden kalktı (J3); etkinlik seçim ekranına giden yol
             buradan açık kalıyor. Sayfa silinmedi, yalnızca menüden çıktı.
@@ -901,25 +1175,32 @@ export default async function FaaliyetlerSayfasi({
             roller. "Görünür olsun" bir yer ve vurgu isteğidir; öğrenciye belge
             üretme kapısı açmaz.
           */}
-          {raporYazabilir && (
-            <Link href="/panel/belgeler" className={SINIF_KIRMIZI_BUTON}>
-              <Award size={16} aria-hidden />
-              Belge oluştur
-            </Link>
-          )}
-        </div>
-      </div>
+            {raporYazabilir && (
+              <Link href="/panel/belgeler" className={SINIF_KIRMIZI_BUTON}>
+                <Award size={16} aria-hidden />
+                Belge oluştur
+              </Link>
+            )}
+          </>
+        }
+      />
 
       <form
         method="get"
-        className="rounded-kart border border-cizgi bg-kart p-5"
+        className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
       >
         {/*
           Görünüm tercihi filtrelemeden sonra da yaşasın: GET formu yalnızca
           kendi alanlarını gönderir, gizli alan olmasaydı her "Filtrele"
           tıklaması kullanıcıyı ızgaraya geri atardı.
         */}
-        {listeGorunumu && <input type="hidden" name="gorunum" value="liste" />}
+        {!kartGorunumu && (
+          <input
+            type="hidden"
+            name="gorunum"
+            value={listeGorunumu ? "liste" : "izgara"}
+          />
+        )}
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -1117,36 +1398,35 @@ export default async function FaaliyetlerSayfasi({
             bağlantısını (filtreleriyle birlikte) paylaşabilir.
           */}
           <div className="flex items-center justify-end gap-1">
-            <Link
-              href={izgaraBaglantisi}
-              aria-current={listeGorunumu ? undefined : "true"}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                listeGorunumu
-                  ? "text-metin-yumusak hover:bg-zemin"
-                  : "bg-secili-zemin text-secili-metin"
-              }`}
-            >
-              <LayoutGrid size={15} aria-hidden />
-              Izgara
-            </Link>
-            <Link
-              href={listeBaglantisi}
-              aria-current={listeGorunumu ? "true" : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                listeGorunumu
-                  ? "bg-secili-zemin text-secili-metin"
-                  : "text-metin-yumusak hover:bg-zemin"
-              }`}
-            >
-              <List size={15} aria-hidden />
-              Liste
-            </Link>
+            {(
+              [
+                { deger: "kart", etiket: "Kart", Ikon: LayoutList, secili: kartGorunumu },
+                { deger: "izgara", etiket: "Izgara", Ikon: LayoutGrid, secili: izgaraGorunumu },
+                { deger: "liste", etiket: "Liste", Ikon: List, secili: listeGorunumu },
+              ] as const
+            ).map((secenek) => (
+              <Link
+                key={secenek.deger}
+                href={gorunumBaglantisi(secenek.deger)}
+                aria-current={secenek.secili ? "true" : undefined}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  secenek.secili
+                    ? "bg-secili-zemin text-secili-metin"
+                    : "text-metin-yumusak hover:bg-zemin"
+                }`}
+              >
+                <secenek.Ikon size={15} aria-hidden />
+                {secenek.etiket}
+              </Link>
+            ))}
           </div>
 
           {listeGorunumu ? (
             <ListeGorunumu kartlar={kartlar} />
-          ) : (
+          ) : izgaraGorunumu ? (
             <IzgaraGorunumu kartlar={kartlar} />
+          ) : (
+            <KartGorunumu kartlar={kartlar} />
           )}
 
           {/*

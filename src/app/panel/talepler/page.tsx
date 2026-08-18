@@ -14,6 +14,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  Rozet,
   SayfaBasligi,
   SINIF_GIRDI,
   SINIF_IKINCIL_BUTON,
@@ -260,6 +261,12 @@ export default async function TaleplerSayfasi({
       <SayfaBasligi
         baslik="Pano"
         aciklama="Teknik destek, duyuru, ekip arkadaşı ve mentör ilanları. Pano ekosistem dışına açık değildir; ilanları yalnızca sisteme girmiş kullanıcılar görür."
+        rozet={
+          <>
+            <Rozet cesit="vurgu">{talepler.length} ilan</Rozet>
+            {filtreVar && <Rozet>filtreli</Rozet>}
+          </>
+        }
       />
 
       {/*
@@ -350,7 +357,7 @@ export default async function TaleplerSayfasi({
         )}
       </div>
 
-      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5">
+      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -599,14 +606,25 @@ export default async function TaleplerSayfasi({
                     <span className="text-metin">
                       {talep.baslik}
                       {durumEtiketi && (
-                        <span
-                          className={`ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            talep.onayDurumu === "REDDEDILDI"
-                              ? "bg-rol-ogrenci-zemin text-rol-ogrenci-metin"
-                              : "bg-vurgu-zemin text-vurgu-metin"
-                          }`}
-                        >
-                          {durumEtiketi}
+                        <span className="ml-2 inline-block align-middle">
+                          {/*
+                            18 Ağustos 2026: elle yazılmış hap, ortak `Rozet`e
+                            çevrildi. Bekleyen ilan artık UYARI rengine düşüyor,
+                            eskiden reddedilen dışındaki her durumla aynı
+                            kırmızı vurguyu paylaşıyordu — "onay bekliyor" ile
+                            "onaya gerek yok" tek renkte görünüyordu.
+                          */}
+                          <Rozet
+                            cesit={
+                              talep.onayDurumu === "REDDEDILDI"
+                                ? "hata"
+                                : talep.onayDurumu === "BEKLIYOR"
+                                  ? "uyari"
+                                  : "vurgu"
+                            }
+                          >
+                            {durumEtiketi}
+                          </Rozet>
                         </span>
                       )}
                       <span className="ml-2 text-sm text-metin-yumusak">

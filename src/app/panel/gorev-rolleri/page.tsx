@@ -353,7 +353,7 @@ export default async function GorevRolleriSayfasi({
         aynı sorgu adları: bu üç ekran arasında geçen kullanıcı her seferinde
         yeni bir arayüz öğrenmiyor.
       */}
-      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5">
+      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />

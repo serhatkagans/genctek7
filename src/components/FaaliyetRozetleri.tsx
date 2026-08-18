@@ -20,8 +20,21 @@ import {
  * iki tema da tek kaynaktan beslenir (bkz. globals.css).
  */
 
+/*
+ * Faaliyet rozetlerinin ortak biçimi.
+ *
+ * 18 Ağustos 2026'da ortak `Rozet` bileşeniyle AYNI ölçülere getirildi
+ * (px-2.5 py-1, font-semibold): iki rozet ailesi aynı satırda yan yana
+ * basılıyor (bkz. etkinlikler/[id] · başlık rozet şeridi) ve yarım piksellik
+ * yükseklik farkı satırı tırtıklı gösteriyordu.
+ *
+ * BİLEŞENLER BİRLEŞTİRİLMEDİ: buradaki rozetler renklerini alan değerinden
+ * kendileri seçiyor (kapsam, onay durumu, başvuru penceresi) ve o karar
+ * rozetin içinde kalmalı — çağıranın renk seçmesi, aynı durumun iki ekranda
+ * iki renge düşmesi demekti.
+ */
 const SINIF_ROZET =
-  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium";
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold";
 
 const KAPSAM_SINIFLARI: Record<Kapsam, string> = {
   OKUL: "bg-rol-danisman-zemin text-rol-danisman-metin",

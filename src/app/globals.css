@@ -1,36 +1,113 @@
 @import "tailwindcss";
 
 /*
-  İki tema desteklenir ve kullanıcı arayüzden değiştirir:
+  ============================================================================
+  GÖRSEL DİL — 18 Ağustos 2026'da yenilendi (istek: "tasarım demode ve sıkıcı,
+  komple değiştirip yarışma portalına benzetelim; rengimiz kırmızı kalacak").
+  ============================================================================
 
-    Tema D — "GençTek marka" (VARSAYILAN): kurumsal paletin kendisi — beyaz
-             zemin, nötr siyah metin, kırmızı vurgu. Palet üç renkten oluşur:
-             #c4161c (Pantone 7621 C), #414042 (Neutral Black U),
-             #939598 (Cool Gray 8 U).
-    Tema B — "Sade kurumsal": açık üst bar, mavi vurgu, düşük kontrastlı sade
-             görünüm.
+  Referans, MEB Yarışma Portalı prototipidir. Oradan ALINAN yapı şudur:
+
+    · ince koyu şerit (iletişim/dil satırı)
+    · altında BEYAZ ana menü barı — logo solda, sekmeler sağda
+    · sayfanın üstünde markanın renginde gradyanlı bir "vitrin" (hero)
+    · gövdede yumuşak çerçeveli, hafif gölgeli kartlar
+    · durum rozetleri, ölçü (KPI) kutuları, gruplu sol kenar çubuğu
+
+  Oradan ALINMAYAN tek şey renktir: prototip lacivert chrome + kırmızı vurgu
+  kullanıyor, biz kırmızı ailede kalıyoruz. Kurumsal palet değişmedi:
+
+    #c4161c  kırmızı        (Pantone 7621 C)
+    #414042  nötr siyah     (Neutral Black U)
+    #939598  soğuk gri      (Cool Gray 8 U)
+
+  ---------------------------------------------------------------------------
+  ÜÇ RENK AİLESİ — hangisi nerede
+  ---------------------------------------------------------------------------
+
+  Eskiden tek bir `ust-bar-*` ailesi vardı ve hem kırmızı açılış ekranını hem
+  panel barını o besliyordu. Yeni düzende bunlar aynı şey DEĞİL: biri beyaz
+  (menü barı), öbürü kırmızı (vitrin). Tek aileyle ikisini birden anlatmak,
+  açılış ekranının beyaza dönmesi demek olurdu. Bu yüzden aile üçe ayrıldı:
+
+    serit-*    İnce koyu üst şerit. Sayfanın en üstünde duran, marka
+               kırmızısının koyultulmuşu (#5e0d10). Bu tonda kırmızı neredeyse
+               nötr okunuyor — chrome'un ağırlığını taşır, gözü yormaz.
+
+    ust-bar-*  BEYAZ ana menü barı. Metin nötr siyah, seçili sekme açık
+               kırmızı zemin + koyu kırmızı metin. Prototipteki masthead'in
+               karşılığı.
+
+    vitrin-*   KIRMIZI gradyan yüzey. Açılış ekranı, giriş ekranları ve panel
+               sayfalarının üst bloğu. Üzerindeki her renk (metin, çerçeve,
+               ikincil metin) bu ailede tanımlıdır; kart yüzeyinin renkleri
+               kırmızı üstünde okunmaz.
+
+               18 Ağustos akşamı bir deneme yapıldı: chrome nötr kömür tonuna
+               çekilip kırmızı yalnızca düğme ve vurguda bırakıldı. GERİ
+               ALINDI (istek: "rengi tekrar kırmızı yap, siyah olmadı").
+               Prototipin lacivert chrome'u burada nötr griye çevrildiğinde
+               kurumsal kimliği taşıyan hiçbir şey kalmıyor — GençTek'in
+               tanınırlığı bu kırmızıda.
+
+  ---------------------------------------------------------------------------
+  ÇİZGİ İKİYE AYRILDI — eskimiş görünümün asıl sebebi buydu
+  ---------------------------------------------------------------------------
+
+  Eski `--renk-cizgi` #939598 idi ve HER kart bu orta griyle çerçeveleniyordu.
+  Ekranın "demode" durmasının tek en büyük sebebi buydu: beyaz zeminde onlarca
+  koyu gri dikdörtgen. Ama gri, gerekçesiz seçilmemişti — form denetimlerinin
+  sınırı WCAG 1.4.11'e göre zeminine karşı en az 3:1 olmalı ve #939598 bunu
+  sağlıyor (3.1:1).
+
+  İkisi de doğru; ayrımı yapmayan yaklaşım yanlıştı. Çizgi bu yüzden ikiye
+  bölündü:
+
+    --renk-cizgi         #e5e6e9 — DEKORATİF: kart çerçevesi, ayraç, tablo
+                         satırı. Bilgi taşımaz, kontrast şartı yoktur.
+    --renk-cizgi-guclu   #939598 — İŞLEVSEL: girdi, seçim kutusu, odak halkası.
+                         3:1 şartı burada geçerlidir ve korunmuştur.
+
+  Yeni bir yüzey eklerken hangisini kullandığınıza dikkat edin: kullanıcının
+  tıklayacağı bir sınır `cizgi-guclu` ister, kutunun kenarı istemez.
+
+  ---------------------------------------------------------------------------
+  YAZI TİPİ
+  ---------------------------------------------------------------------------
+
+  İki aile: başlıklarda Plus Jakarta Sans, gövdede Inter (bkz. app/layout.tsx).
+  Sistem fontuyla yetinen ekran, içeriği ne kadar iyi olursa olsun taslak gibi
+  duruyordu. İkisi de next/font ile KENDİ SUNUCUMUZDAN servis ediliyor — kamu
+  sistemi çalışmak için dış bir CDN'e bağlı olmamalı.
+
+  ---------------------------------------------------------------------------
+  DEĞİŞMEYEN İLKE
+  ---------------------------------------------------------------------------
+
+  Ekranlar renk adı KULLANMAZ, anlam adı kullanır (bg-zemin, text-baslik,
+  bg-birincil gibi). Yeni bir tema eklemek hâlâ yalnızca bu dosyaya bir değişken
+  bloğu eklemek demektir; sayfalara dokunulmaz. Gövde metni kendi zemininde en
+  az 4.5:1 olmalıdır — aşağıdaki iki blokta sağlanmıştır, yeni ton eklerken
+  kontrolü atlamayın.
 
   Daha önce iki tema daha vardı — A ("GençTek kurumsal", lacivert/amber) ve
   C ("MEB kırmızı", bordo/altın) — kullanıcı kararıyla kaldırıldılar.
   Bloklarını geri eklerseniz src/lib/tema.ts'teki Tema birleşimini de
   genişletmeniz gerekir; yalnızca CSS eklemek temayı seçilebilir yapmaz.
-
-  Ekranlar renk adı KULLANMAZ, anlam adı kullanır (bg-zemin, text-baslik,
-  bg-birincil gibi). Böylece yeni bir tema eklemek yalnızca bu dosyaya
-  değişken bloğu eklemek demektir; sayfalara dokunulmaz.
-
-  Renk seçerken kontrast oranı gözetilir: gövde metni kendi zemininde en az
-  4.5:1 olmalı. Aşağıdaki üç blokta bu sağlanmıştır; yeni bir ton eklerken
-  kontrolü atlamayın — hedef kitlenin bir kısmı düşük kontrastı okuyamaz.
 */
 
 @theme inline {
   --color-zemin: var(--renk-zemin);
   --color-kart: var(--renk-kart);
   --color-cizgi: var(--renk-cizgi);
+  --color-cizgi-guclu: var(--renk-cizgi-guclu);
   --color-metin: var(--renk-metin);
   --color-metin-yumusak: var(--renk-metin-yumusak);
   --color-baslik: var(--renk-baslik);
+
+  --color-serit: var(--renk-serit);
+  --color-serit-metin: var(--renk-serit-metin);
+  --color-serit-cizgi: var(--renk-serit-cizgi);
 
   --color-ust-bar: var(--renk-ust-bar);
   --color-ust-bar-metin: var(--renk-ust-bar-metin);
@@ -38,6 +115,15 @@
   --color-ust-bar-cizgi: var(--renk-ust-bar-cizgi);
   --color-ust-bar-secili-zemin: var(--renk-ust-bar-secili-zemin);
   --color-ust-bar-secili-metin: var(--renk-ust-bar-secili-metin);
+
+  --color-vitrin: var(--renk-vitrin);
+  --color-vitrin-koyu: var(--renk-vitrin-koyu);
+  --color-vitrin-isik: var(--renk-vitrin-isik);
+  --color-vitrin-metin: var(--renk-vitrin-metin);
+  --color-vitrin-metin-yumusak: var(--renk-vitrin-metin-yumusak);
+  --color-vitrin-cizgi: var(--renk-vitrin-cizgi);
+  --color-vitrin-secili-zemin: var(--renk-vitrin-secili-zemin);
+  --color-vitrin-secili-metin: var(--renk-vitrin-secili-metin);
 
   --color-birincil: var(--renk-birincil);
   --color-birincil-koyu: var(--renk-birincil-koyu);
@@ -72,58 +158,69 @@
   --color-rol-yonetici-metin: var(--renk-rol-yonetici-metin);
 
   --radius-kart: var(--yaricap-kart);
+  --radius-kutu: var(--yaricap-kutu);
+
+  --shadow-kart: var(--golge-kart);
+  --shadow-yuksek: var(--golge-yuksek);
+
+  --font-baslik: var(--yazi-baslik);
+  --font-govde: var(--yazi-govde);
 }
 
 /* --- Tema D: GençTek marka (varsayılan) ------------------------------------ */
 /*
-  Kurumsal paletin doğrudan karşılığı: beyaz zemin, kırmızı vurgu.
+  Kurumsal paletin doğrudan karşılığı. Üç renk de birebir kullanılır: kırmızı
+  (#c4161c) düğme, bağlantı, vitrin ve vurguda; nötr siyah (#414042) gövde
+  metni ve başlıkta; soğuk gri (#939598) işlevsel çizgide.
 
-    #c4161c  kırmızı        — düğme, bağlantı, seçili sekme, vurgu
-    #414042  nötr siyah     — gövde metni, üst bar metni
-    #939598  soğuk gri      — çizgi ve ikincil metnin türetildiği aile
+  İki nokta bilinçli:
 
-  Üst bar (menünün olduğu alan) tam kırmızı, sayfa gövdesi beyaz kalır.
-
-  Dört nokta bilinçli:
-
-  0. Kırmızı barda seçili menü sekmesi BEYAZ zemin + kırmızı metin. Sayfa
-     gövdesindeki seçim vurgusu (`secili-zemin`) kırmızı olmak zorunda — beyaz
-     kartta beyaz bir vurgu görünmezdi. Bu yüzden üst bar seçimi ayrı bir token
-     çiftinden okunur: `ust-bar-secili-zemin` / `ust-bar-secili-metin`. Tema
-     B'de bu çift kendi `secili-*` değerlerine eşit, yani görünümü değişmez.
-
-  1. Sayfa zemini saf beyaz DEĞİL, #f7f7f8. Ekranlar `bg-zemin`i yalnızca sayfa
+  1. Sayfa zemini saf beyaz DEĞİL, #f6f7f9. Ekranlar `bg-zemin`i yalnızca sayfa
      arka planı için değil, kart içinde ikincil yüzey olarak da kullanıyor
      (tablo başlığı, ikincil düğme hover'ı, dosya seçici, pasif rozet). Zemin
-     de kart da saf beyaz olsaydı bu yüzeyler görünmez olurdu. Kartlar beyaz
-     (#ffffff), zemin bir tık altında: göz beyaz görüyor, yüzeyler ayrışıyor.
+     de kart da saf beyaz olsaydı bu yüzeyler görünmez olurdu.
 
-  2. Paletin üç rengi de birebir kullanılır: kırmızı (#c4161c) üst bar, düğme,
-     bağlantı ve vurguda; nötr siyah (#414042) gövde metni ve başlıkta; soğuk
-     gri (#939598) çizgide. Gri yalnızca çizgide çünkü beyaz üstünde 3.1:1 —
-     metin için gereken 4.5:1'i geçmiyor, ama çizgi/kenarlık için gereken
-     3:1'i geçiyor. İkincil metin bu yüzden aynı aileden koyultuldu (#6d6e71,
-     5.1:1); zemin tonları da (#f7f7f8, rol rozetleri) bu üç renkten türetildi.
-
-  3. Hata rengi vurgu renginden AYRI: tema zaten kırmızı olduğu için hata
+  2. Hata rengi vurgu renginden AYRI: tema zaten kırmızı olduğu için hata
      kutusu daha doygun pembe zeminle ayrışır, aksi halde hata mesajı sıradan
      bir kırmızı etiketten ayırt edilemezdi.
+
+  Vitrin üstündeki tonlar #c4161c'ye karşı ölçüldü: ikincil metin #fadadb
+  4.6:1 (gövde eşiğini geçer), çerçeve #f0b4b6 3.4:1 (sınır eşiğini geçer).
+  Gradyanın koyu ucunda oranlar daha da yükselir; ölçüm açık uçtan yapılır.
+
+  `vitrin-isik` gradyanın en açık ucudur ve #c4161c'nin beyazla %22
+  karışımıdır — eskiden `.vitrin` içinde `color-mix` ile hesaplanıyordu, artık
+  temanın kendi değişkeni: her tema kendi vurgu noktasını seçebilsin diye.
 */
 :root,
 [data-tema="d"] {
-  --renk-zemin: #f7f7f8;
+  --renk-zemin: #f6f7f9;
   --renk-kart: #ffffff;
-  --renk-cizgi: #939598;
+  --renk-cizgi: #e5e6e9;
+  --renk-cizgi-guclu: #939598;
   --renk-metin: #414042;
   --renk-metin-yumusak: #6d6e71;
   --renk-baslik: #414042;
 
-  --renk-ust-bar: #c4161c;
-  --renk-ust-bar-metin: #ffffff;
-  --renk-ust-bar-metin-yumusak: #f8dcdc;
-  --renk-ust-bar-cizgi: #efb0b2;
-  --renk-ust-bar-secili-zemin: #ffffff;
-  --renk-ust-bar-secili-metin: #c4161c;
+  --renk-serit: #5e0d10;
+  --renk-serit-metin: #f3d3d4;
+  --renk-serit-cizgi: #7d1418;
+
+  --renk-ust-bar: #ffffff;
+  --renk-ust-bar-metin: #414042;
+  --renk-ust-bar-metin-yumusak: #6d6e71;
+  --renk-ust-bar-cizgi: #e5e6e9;
+  --renk-ust-bar-secili-zemin: #fdeceb;
+  --renk-ust-bar-secili-metin: #a01217;
+
+  --renk-vitrin: #c4161c;
+  --renk-vitrin-koyu: #7d0e12;
+  --renk-vitrin-isik: #d1494e;
+  --renk-vitrin-metin: #ffffff;
+  --renk-vitrin-metin-yumusak: #fadadb;
+  --renk-vitrin-cizgi: #f0b4b6;
+  --renk-vitrin-secili-zemin: #ffffff;
+  --renk-vitrin-secili-metin: #a01217;
 
   --renk-birincil: #c4161c;
   --renk-birincil-koyu: #9e1116;
@@ -157,24 +254,47 @@
   --renk-rol-yonetici-zemin: #fdf3dc;
   --renk-rol-yonetici-metin: #7a5504;
 
-  --yaricap-kart: 0.5rem;
+  --yaricap-kart: 0.875rem;
+  --yaricap-kutu: 0.625rem;
+
+  --golge-kart: 0 1px 2px rgba(65, 64, 66, 0.05), 0 6px 20px rgba(65, 64, 66, 0.05);
+  --golge-yuksek: 0 12px 34px rgba(65, 64, 66, 0.14);
 }
 
 /* --- Tema B: Sade kurumsal ------------------------------------------------- */
+/*
+  Aynı yapı, mavi ailede. Üç renk ailesi burada da ayrı: şerit lacivert, menü
+  barı beyaz, vitrin mavi gradyan. Böylece tema değişimi yalnızca rengi
+  değiştirir — düzen aynı kalır.
+*/
 [data-tema="b"] {
   --renk-zemin: #f8fafc;
   --renk-kart: #ffffff;
-  --renk-cizgi: #e2e8f0;
+  --renk-cizgi: #e6ebf1;
+  --renk-cizgi-guclu: #94a3b8;
   --renk-metin: #0f172a;
   --renk-metin-yumusak: #64748b;
   --renk-baslik: #12294a;
 
+  --renk-serit: #12294a;
+  --renk-serit-metin: #c7d7ea;
+  --renk-serit-cizgi: #1e3d68;
+
   --renk-ust-bar: #ffffff;
   --renk-ust-bar-metin: #0f172a;
   --renk-ust-bar-metin-yumusak: #64748b;
-  --renk-ust-bar-cizgi: #e2e8f0;
-  --renk-ust-bar-secili-zemin: #245a96;
-  --renk-ust-bar-secili-metin: #ffffff;
+  --renk-ust-bar-cizgi: #e6ebf1;
+  --renk-ust-bar-secili-zemin: #eef4fb;
+  --renk-ust-bar-secili-metin: #1c4576;
+
+  --renk-vitrin: #245a96;
+  --renk-vitrin-koyu: #14355c;
+  --renk-vitrin-isik: #3b7fc4;
+  --renk-vitrin-metin: #ffffff;
+  --renk-vitrin-metin-yumusak: #d3e3f5;
+  --renk-vitrin-cizgi: #7ea9d5;
+  --renk-vitrin-secili-zemin: #ffffff;
+  --renk-vitrin-secili-metin: #1c4576;
 
   --renk-birincil: #245a96;
   --renk-birincil-koyu: #1c4576;
@@ -208,7 +328,11 @@
   --renk-rol-yonetici-zemin: #f5f3ff;
   --renk-rol-yonetici-metin: #5b21b6;
 
-  --yaricap-kart: 0.5rem;
+  --yaricap-kart: 0.875rem;
+  --yaricap-kutu: 0.625rem;
+
+  --golge-kart: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 20px rgba(15, 23, 42, 0.05);
+  --golge-yuksek: 0 12px 34px rgba(15, 23, 42, 0.14);
 }
 
 :root {
@@ -218,7 +342,65 @@
 body {
   background-color: var(--renk-zemin);
   color: var(--renk-metin);
+  font-family: var(--yazi-govde), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+  Başlıklar gövdeden AYRI aile kullanır ve bu tek tek yazılmaz — h1..h4 burada
+  bir kez bağlanır. Bir başlığın gövde yazısıyla basılması istenirse
+  `font-govde` sınıfı bu kuralı ezer.
+
+  Harf aralığı hafif negatif: Plus Jakarta Sans büyük puntolarda açık dizilir,
+  başlık blokları -0.02em olmadan dağınık görünüyor.
+*/
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--yazi-baslik), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/*
+  VİTRİN — sayfaların üstündeki kırmızı gradyan blok.
+
+  Radyal gradyan tek düz renkten daha derin duruyor; üstüne ince bir ızgara
+  dokusu biniyor (prototipteki hero'nun aynısı). Doku `::after` ile basılıyor
+  ve maskeyle sağ üst köşede sönümleniyor — tüm yüzeye yayılsa metnin arkasında
+  gürültü yapardı.
+
+  `pointer-events: none` şart: doku katmanı içerikle aynı kutuda duruyor ve
+  altındaki düğmelerin tıklanmasını engellememeli.
+*/
+.vitrin {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      1100px 460px at 82% -25%,
+      var(--renk-vitrin-isik) 0%,
+      var(--renk-vitrin) 44%,
+      var(--renk-vitrin-koyu) 100%
+    );
+  color: var(--renk-vitrin-metin);
+}
+
+.vitrin::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask: radial-gradient(560px 380px at 80% 8%, #000, transparent 72%);
+  pointer-events: none;
+}
+
+.vitrin > * {
+  position: relative;
+  z-index: 1;
 }
 
 /*
@@ -255,4 +437,49 @@ body {
   .serit-akisi {
     animation: none;
   }
+}
+
+/*
+  POSTER — kart başlığındaki gradyanlı görsel alan (prototipte `.card .poster`).
+
+  Yarışma/etkinlik kartının üstünde duran renkli bant. Bir afiş görseli olmayan
+  kayıtta kartı yalnızca metinden ibaret olmaktan kurtarıyor; görsel varsa
+  zaten onun arkasına düşer.
+
+  Gradyan renkleri DURUM ailelerinden türetiliyor, yeni renk tanımlanmadı.
+  Açık zeminli `-zemin` tonları değil, doygun `-cizgi` ve koyu `-metin` tonları
+  kullanılıyor: poster koyu bir yüzeydir, üstüne beyaz rozet basılır.
+
+  Posterin üstüne ÇIPLAK METİN BASILMAZ. Amber ucu (#d99b06) beyaza karşı
+  2.2:1 ve gövde eşiğini geçmez; oraya konan her şey (durum rozeti, kalan gün
+  balonu) kendi zeminini taşır. Posterdeki ikon da bilinçli olarak yarı saydam
+  bir filigran — bilgi taşımaz, `aria-hidden`dır.
+*/
+.poster {
+  background: linear-gradient(135deg, var(--poster-a), var(--poster-b));
+}
+
+.poster-vurgu {
+  --poster-a: var(--renk-birincil);
+  --poster-b: var(--renk-birincil-koyu);
+}
+
+.poster-olumlu {
+  --poster-a: var(--renk-olumlu-cizgi);
+  --poster-b: var(--renk-olumlu-metin);
+}
+
+.poster-uyari {
+  --poster-a: var(--renk-uyari-cizgi);
+  --poster-b: var(--renk-uyari-metin);
+}
+
+/*
+  Nötr ton GERÇEKTEN nötr olmalı: `vitrin` ailesinden beslenseydi tema D'de
+  kırmızı çıkardı ve `poster-vurgu` ile ayırt edilemezdi. Dört tonun dördü de
+  birbirinden ayrı okunmalı, yoksa posterin rengi bilgi taşımaz.
+*/
+.poster-notr {
+  --poster-a: var(--renk-metin-yumusak);
+  --poster-b: var(--renk-metin);
 }

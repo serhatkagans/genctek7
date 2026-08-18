@@ -1,6 +1,5 @@
 import {
   BadgeCheck,
-  Camera,
   FileText,
   GraduationCap,
   Handshake,
@@ -33,7 +32,8 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
-  SayfaBasligi,
+  Rozet,
+  RozetSeridi,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
@@ -349,28 +349,73 @@ export default async function ProfilSayfasi({
 
   return (
     <div className="space-y-8">
-      <SayfaBasligi
-        baslik="Profilim"
-        aciklama="Bu ekran profilinizin görünen hâlidir. Bilgi girişi ve düzenleme Panelim ekranından yapılır."
-      />
+      {/*
+        KİMLİK BAŞLIĞI (18 Ağustos 2026 · tasarım yenilemesi).
+
+        Eskiden sayfa düz bir "Profilim" başlığıyla açılıyor, fotoğraf ise
+        hemen altında KENDİ KARTINDA tek başına duruyordu — başlığı "Profil
+        fotoğrafı" olan, içinde tek bir yuvarlak resim bulunan bir kutu. Kişinin
+        adı, rolü ve okulu ise üç kart aşağıdaki "Kimlik bilgileri" tablosunun
+        satırlarına dağılmıştı.
+
+        İkisi birleştirildi: profil ekranının ilk söylemesi gereken şey "bu
+        kimsin"dir. Fotoğraf, ad, rol ve okul artık tek bir bloktadır ve tablo
+        aşağıda ayrıntı olarak kalır.
+
+        VİTRİN (kırmızı gradyan blok) BİLİNÇLİ OLARAK KULLANILMADI: o blok
+        Panel'e ait — sistemin açılış ekranı orası ve rengin tam güçte
+        göründüğü tek yer olması, vurgunun değerini koruyor (bkz.
+        app/panel/page.tsx). Her sayfaya kırmızı bant koymak ikisini de
+        sıradanlaştırırdı.
+      */}
+      <Kart>
+        <div className="flex flex-wrap items-center gap-6">
+          <ProfilFotografi
+            ad={kayit.ad}
+            soyad={kayit.soyad}
+            adres={fotoAdresi}
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[26px] leading-tight font-extrabold text-baslik">
+              {kayit.ad} {kayit.soyad}
+            </h1>
+            <div className="mt-2.5">
+              <RozetSeridi>
+                <Rozet cesit="vurgu" Ikon={IdCard}>
+                  {kullaniciRolEtiketi(kullanici)}
+                </Rozet>
+                <Rozet>{kayit.egitimOgretimYili}</Rozet>
+              </RozetSeridi>
+            </div>
+            {/*
+              Okul satırı yalnızca okul kaydı olanda basılır: dış kullanıcının
+              (mezun, paydaş) okulu yoktur ve boş bir satır, eksik veri gibi
+              görünürdü.
+            */}
+            {okulBilgisiVar && (
+              <p className="mt-2.5 text-sm text-metin-yumusak">
+                {[kayit.kurum?.ad, kayit.ilce?.ad, kayit.il?.ad]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
+            <PaneldenDuzenleBaglantisi
+              capa="fotografim"
+              etiket="Fotoğrafımı Panelim'den değiştir →"
+            />
+          </div>
+        </div>
+      </Kart>
+
+      <BilgiKutusu>
+        Bu ekran profilinizin görünen hâlidir. Bilgi girişi ve düzenleme
+        Panelim ekranından yapılır.
+      </BilgiKutusu>
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
       {durum && DURUM_MESAJLARI[durum] && (
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
       )}
-
-      <Kart>
-        <KartBasligi baslik="Profil fotoğrafı" Ikon={Camera} />
-        <ProfilFotografi
-          ad={kayit.ad}
-          soyad={kayit.soyad}
-          adres={fotoAdresi}
-        />
-        <PaneldenDuzenleBaglantisi
-          capa="fotografim"
-          etiket="Fotoğrafımı Panelim'den değiştir →"
-        />
-      </Kart>
 
       <Kart>
         <KartBasligi

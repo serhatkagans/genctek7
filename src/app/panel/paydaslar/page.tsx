@@ -194,7 +194,7 @@ export default async function PaydaslarSayfasi({
       {disBasvuruYonetebilirMi(kullanici) && (
         <Link
           href="/panel/dis-basvurular"
-          className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 transition hover:border-vurgu"
+          className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 shadow-kart transition hover:border-vurgu hover:shadow-yuksek"
         >
           <UserPlus
             size={20}
@@ -226,7 +226,7 @@ export default async function PaydaslarSayfasi({
         </div>
       )}
 
-      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5">
+      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -319,7 +319,7 @@ export default async function PaydaslarSayfasi({
               : "İlinizde henüz paydaş kaydı yok. Kayıt açmayı il koordinatörünüzden isteyebilirsiniz."}
         </Kart>
       ) : (
-        <div className="overflow-x-auto rounded-kart border border-cizgi bg-kart">
+        <div className="overflow-x-auto rounded-kart border border-cizgi bg-kart shadow-kart">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-cizgi bg-zemin text-metin-yumusak">
               <tr>

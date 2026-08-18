@@ -15,7 +15,7 @@ export default function BulunamadiEkrani() {
       <p className="mb-4 text-sm font-semibold tracking-wide text-metin-yumusak">
         GençTek Bilgi Sistemi
       </p>
-      <div className="rounded-kart border border-cizgi bg-kart px-6 py-5">
+      <div className="rounded-kart border border-cizgi bg-kart px-6 py-5 shadow-kart">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-baslik">
           <FileQuestion size={20} className="text-vurgu-metin" aria-hidden />
           Sayfa bulunamadı

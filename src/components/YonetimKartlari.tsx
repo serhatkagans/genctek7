@@ -42,7 +42,7 @@ function OlcumSatiri({
     <div className="flex items-center gap-2">
       <Ikon size={14} className="shrink-0 text-vurgu-metin" aria-hidden />
       <dt className="flex-1 text-sm text-metin-yumusak">{etiket}</dt>
-      <dd className="text-lg font-bold text-baslik">{deger}</dd>
+      <dd className="font-baslik text-lg font-extrabold text-baslik">{deger}</dd>
     </div>
   );
 }
@@ -80,7 +80,9 @@ function Olcum({
         <Ikon size={13} className="shrink-0 text-vurgu-metin" aria-hidden />
         {etiket}
       </dt>
-      <dd className="mt-0.5 text-xl font-bold text-baslik">{deger}</dd>
+      <dd className="mt-1 font-baslik text-2xl font-extrabold text-baslik">
+        {deger}
+      </dd>
       {alt &&
         (altYol ? (
           <dd className={`mt-0.5 text-xs ${altSinif}`}>
@@ -216,7 +218,7 @@ export function BirimKarti({
     </>
   );
 
-  const sinif = "rounded-kart border border-cizgi bg-kart p-5";
+  const sinif = "rounded-kart border border-cizgi bg-kart p-5 shadow-kart";
 
   return yol ? (
     <Link href={yol} className={`${sinif} block transition hover:border-vurgu`}>
@@ -250,7 +252,7 @@ export function KisayolKarti({
   return (
     <Link
       href={yol}
-      className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 transition hover:border-vurgu"
+      className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 shadow-kart transition hover:border-vurgu hover:shadow-yuksek"
     >
       <Ikon size={20} className="mt-0.5 shrink-0 text-vurgu-metin" aria-hidden />
       <div className="min-w-0 flex-1">

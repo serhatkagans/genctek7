@@ -22,6 +22,7 @@ import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   Kart,
   KartBasligi,
+  Rozet,
   SayfaBasligi,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
@@ -143,6 +144,19 @@ export default async function YonetimSayfasi({
           merkezMi
             ? "Ülke genelindeki kırılım ve yönetim ekranları. Bir ile tıklayarak ilçelerine, ilçeye tıklayarak okullarına inebilirsiniz."
             : `${il?.ad ?? "İliniz"} ilindeki ilçeler ve yönetim ekranları. Bir ilçeye tıklayarak okullarını görebilirsiniz.`
+        }
+        rozet={
+          /*
+            KAPSAM ROZETİ (18 Ağustos 2026 · tasarım yenilemesi). Aynı ekran iki
+            bambaşka kapsamda açılıyor — merkez 81 ili, koordinatör tek ilini
+            görüyor — ve bu bilgi yalnızca açıklama cümlesinin içinde geçiyordu.
+            Ekran görüntüsü paylaşıldığında ya da iki rol yan yana konuşurken
+            "sen neye bakıyorsun" sorusunun cevabı bir cümle okumayı
+            gerektiriyordu; rozet onu başlığın hemen üstüne çıkarıyor.
+          */
+          <Rozet cesit="vurgu" Ikon={MapPin}>
+            {merkezMi ? "Ülke geneli" : `${il?.ad ?? "İliniz"} ili`}
+          </Rozet>
         }
       />
 
@@ -528,7 +542,7 @@ export default async function YonetimSayfasi({
           </form>
         )}
 
-        <div className="mb-5 rounded-kart border border-cizgi bg-zemin px-5 py-4">
+        <div className="mb-5 rounded-kart border border-cizgi bg-zemin px-5 py-5">
           <ToplamSeridi
             /*
              * İl sayısı ozetToplami'den gelmez, KART SAYISININ KENDİSİDİR:
