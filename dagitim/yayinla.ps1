@@ -16,17 +16,19 @@
     hata tekrarlanır.
 
     15 Ağustos 2026'da depo genctek5'ten genctek6'ya, 18 Ağustos 2026'da
-    genctek6'dan genctek7'ye taşındı. Her taşımada ÜÇ yer birden değişmeli:
-    yerel `origin`, sunucudaki `/opt/genctek` deposunun `origin`'i ve GitHub'da
-    dağıtım anahtarının kayıtlı olduğu depo. Biri unutulursa hata sessizdir,
-    yayın "başarılı" der. Bkz. DAGITIM.md Bölüm 14.
+    genctek6'dan genctek7'ye taşındı. Her taşımada İKİ yer birden değişmeli:
+    yerel `origin` ve sunucudaki `/opt/genctek` deposunun `origin`'i. Biri
+    unutulursa hata sessizdir, yayın "başarılı" der. Sunucu açık depodan
+    anonim HTTPS ile çeker; dağıtım anahtarı devrede değildir.
+    Bkz. DAGITIM.md Bölüm 14.
 
     Sunucu kodu GitHub'dan çeker (dağıtım anahtarıyla, salt okunur). Bu yüzden
     ÖNCE push, SONRA yayın: push atlanırsa sunucu eski kodu çeker ve "başarılı"
     bir yayın hiçbir şeyi değiştirmez.
 
-    Şifre sorulmaz: GitHub'da Credential Manager, sunucuda ~/.ssh/genctek
-    anahtarı kullanılır. Bkz. DAGITIM.md Bölüm 14.
+    Şifre sorulmaz: GitHub'a gönderirken Credential Manager, sunucuya
+    bağlanırken ~/.ssh/genctek anahtarı kullanılır. Sunucunun GitHub'dan
+    çekmesi ise anonimdir. Bkz. DAGITIM.md Bölüm 14.
 #>
 
 param(
