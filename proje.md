@@ -24,7 +24,7 @@ Bu belge tek başına **yeterli değildir.** Mimariyi, değişmezleri ve kabul k
 | [`kurulum/ek-c-baslangic-verisi.md`](kurulum/ek-c-baslangic-verisi.md) | Çalışma grupları, temel etkinlik programları, sistem ayarları, 34 bildirim şablonu | ~590 satır |
 | [`kurulum/ek-d-envanter-ve-bildirim.md`](kurulum/ek-d-envanter-ve-bildirim.md) | Algoritmam envanterinin maddeleri + bildirim gönderim katmanı | ~1.940 satır |
 | [`kurulum/ek-e-is-kurallari.md`](kurulum/ek-e-is-kurallari.md) | **36 modül** — testlerin içe aktardığı tüm saf kural yüzeyi | ~7.200 satır |
-| [`kurulum/ek-f-rota-envanteri.md`](kurulum/ek-f-rota-envanteri.md) | 57 sayfa, 16 route handler, 34 eylem dosyası, 23 bileşen, 48 test paketi | ~210 satır |
+| [`kurulum/ek-f-rota-envanteri.md`](kurulum/ek-f-rota-envanteri.md) | 61 sayfa, 29 route handler, 34 eylem dosyası, 24 bileşen, 57 test paketi | ~210 satır |
 
 Ayrıca [`kurulum/sso-veri-talebi.md`](kurulum/sso-veri-talebi.md): EBA/e-Okul, MEBBİS ve e-Devlet entegrasyonunda **hangi kaynaktan hangi alanın isteneceği** (10 kimlik alanı), SSO'dan gelmemesi gereken sütunlar ve karara bağlanacak 5 nokta. Bu dosya elle yazılır (üretilmez) — kurumlara verilecek talep belgesidir.
 
@@ -44,7 +44,7 @@ Bu sıra keyfî değildir; her adım bir öncekinin ürettiği sözleşmeye daya
 
 ### 0.2 Ekler Neyi Kapsamaz
 
-Dürüst sınır: eklerde **ekran içerikleri yoktur.** 57 sayfanın hangi alanı, sütunu, süzgeci, boş durum metnini göstereceği yalnızca §14.1'deki yol/amaç tanımı kadar belirlidir. Adım 6'da arayüz, bu şartnameye uyan ama görsel ayrıntıda farklı çıkabilir. Veri modeli, yetki, iş kuralları ve testler ise birebir yeniden üretilebilir.
+Dürüst sınır: eklerde **ekran içerikleri yoktur.** 61 sayfanın hangi alanı, sütunu, süzgeci, boş durum metnini göstereceği yalnızca §14.1'deki yol/amaç tanımı kadar belirlidir. Adım 6'da arayüz, bu şartnameye uyan ama görsel ayrıntıda farklı çıkabilir. Veri modeli, yetki, iş kuralları ve testler ise birebir yeniden üretilebilir.
 
 ---
 
@@ -159,7 +159,7 @@ Her modül kendi içinde saf kural dosyası (`kurallar.ts`), veri erişimi ve i�
 | `rol/` | Rol kararları ve rol envanteri | – |
 | `sms/` | HTTP / günlük / kapalı SMS sağlayıcıları | – |
 
-Altyapı tekil dosyaları: `ayar.ts`, `db.ts`, `db-havuz.ts`, `hata-kaydi.ts`, `ortam.ts`, `tarih.ts`, `tema.ts`, `zip.ts`.
+Altyapı tekil dosyaları: `ayar.ts`, `db.ts`, `db-havuz.ts`, `hata-kaydi.ts` (yazma), `hata-kurallar.ts` (saf çözümleme/gruplama), `hata-okuma.ts` (günlük okuma), `ortam.ts`, `tarih.ts`, `tema.ts`, `zip.ts`.
 
 ### 3.2 Yapılandırma Dosyaları (Zorunlu)
 
@@ -284,7 +284,7 @@ sequenceDiagram
 
 ---
 
-## 6. Eksiksiz Veri Modeli ve PostgreSQL Kısıtları (47 Model, 25 Enum)
+## 6. Eksiksiz Veri Modeli ve PostgreSQL Kısıtları (47 Model, 26 Enum)
 
 Sistem şeması `prisma/schema.prisma` dosyasında tanımlıdır.
 
@@ -299,8 +299,8 @@ Sistem şeması `prisma/schema.prisma` dosyasında tanımlıdır.
 > [!IMPORTANT]
 > Kabul ölçütü sayıdır: `grep -c "^model " prisma/schema.prisma` → **47**, `grep -c "^enum " prisma/schema.prisma` → **25**. Kategori toplamları da 6+9+9+9+9+5 = 47 vermelidir.
 
-### 6.2 Numaralandırmalar (25 Enum)
-`RolKodu`, `DisKullaniciTuru`, `MentorlukDurumu`, `AtamaTipi`, `KapanmaNedeni`, `GorevRolKodu`, `KazanimTipi`, `KatilimBicimi`, `HedefDurumu`, `EnvanterDurumu`, `Kapsam`, `EtkinlikKategorisi`, `TemelEtkinlikGrubu`, `FaaliyetDurumu`, `OnayDurumu`, `BasvuruDurumu`, `FaaliyetBelgeTuru`, `LogIslemi`, `LogHedefTip`, `GonderimKanali`, `GonderimDurumu`, `OnayBelgesi`, `PaydasTuru`, `BildirimHedefTipi`, `TalepTuru`.
+### 6.2 Numaralandırmalar (26 Enum)
+`RolKodu`, `DisKullaniciTuru`, `MentorlukDurumu`, `AtamaTipi`, `KapanmaNedeni`, `GorevRolKodu`, `KazanimTipi`, `KatilimBicimi`, `HedefDurumu`, `EnvanterDurumu`, `Kapsam`, `EtkinlikKategorisi`, `TemelEtkinlikGrubu`, `FaaliyetDurumu`, `OnayDurumu`, `BasvuruDurumu`, `FaaliyetBelgeTuru`, `LogIslemi`, `LogHedefTip`, `GonderimKanali`, `GonderimDurumu`, `OnayBelgesi`, `PaydasTuru`, `BildirimHedefTipi`, `TalepTuru`, `EkipTuru`.
 
 ### 6.3 Prisma Tarafından İfade Edilemeyen PostgreSQL Kısmi Tekil İndeksleri
 Bu indeksler `prisma/migrations/` altındaki SQL dosyalarında tanımlanır ve zorunludur:
@@ -462,7 +462,7 @@ stateDiagram-v2
 
 ### 14.1 Sayfa ve Rota Envanteri (`src/app/`)
 
-**57 sayfa (`page.tsx`) + 16 route handler (`route.ts`).** Yol adları birebir budur; rota grubu (`(auth)`) **kullanılmaz**, kimlik sayfaları kökte durur.
+**61 sayfa (`page.tsx`) + 29 route handler (`route.ts`).** Yol adları birebir budur; rota grubu (`(auth)`) **kullanılmaz**, kimlik sayfaları kökte durur.
 
 ```text
 src/app/
@@ -501,8 +501,10 @@ src/app/
 │   ├── mentorluk/               Mentörlük başvurusu ve durumu
 │   ├── mentorlugum/             Mentörlük panosu (MENTORE_SOR yanıtları)
 │   ├── mentorler/[id]/foto/route.ts  Mentör profil fotoğrafı akıtma
-│   ├── ekipler/                 İl ekipleri listesi
+│   ├── ekipler/                 İl ekipleri listesi (kişinin kendi ekipleri)
 │   │   └── [id]/                Ekip detay ve gözetimli sohbet
+│   │       └── uyeler/disa-aktar/route.ts  Ekip üye listesi XLSX
+│   ├── ekip-yonetimi/           Tüm ekiplerin merkezi envanteri (+ disa-aktar/route.ts)
 │   ├── urunler/                 Ürünler ve Market vitrini
 │   │   ├── [id]/                Ürün detayı
 │   │   └── [id]/git/[baglantiId]/route.ts  Dış bağlantı yönlendirme ve tıklama sayacı
@@ -536,7 +538,10 @@ src/app/
 │   ├── dis-kullanicilar/[id]/   Onaylı dış kullanıcı detayı (üst düzeyde liste sayfası YOK)
 │   ├── raporlar/                Faaliyet raporları ve eksik raporlar
 │   │   └── istatistik/route.ts  Program/Grup kırılımlı CSV istatistiği (page.tsx DEĞİL)
+│   ├── okullar/                 Okul arama (ad, ilçe, kurum kodu) (+ disa-aktar/route.ts)
+│   ├── okul-eksikleri/          Danışman/öğrenci/temsilci eksiği olan okullar (+ disa-aktar/route.ts)
 │   ├── erisim-loglari/          KVKK erişim denetim günlüğü
+│   ├── hata-kayitlari/          Sunucu hata günlüğü: kimlik araması ve hata özeti
 │   └── ayarlar/                 Sistem ayarları yönetimi
 └── instrumentation.ts           (src/ kökünde) onRequestError kancası
 ```
@@ -632,22 +637,22 @@ SMS_BASLIK=""
 
 ## 17. Test Stratejisi, Kabul Kapısı ve Son Kontrol Listesi
 
-Tüm iş akışları ve saf kurallar veri tabanından izole birim testlerle korunur. `tests/` altında **48 test paketi + 1 paylaşılan yardımcı dosya (`yardimcilar.ts`)**, toplam **936 test durumu** bulunur.
+Tüm iş akışları ve saf kurallar veri tabanından izole birim testlerle korunur. `tests/` altında **57 test paketi + 1 paylaşılan yardımcı dosya (`yardimcilar.ts`)**, toplam **1.097 test durumu** bulunur.
 
-### 17.0 Test Paketi Envanteri (48 Dosya)
+### 17.0 Test Paketi Envanteri (57 Dosya)
 
 | Alan | Paketler |
 |---|---|
-| Yetki & Rol | `yetki-izinler`, `yetki-kapsam`, `yetki-dis-kullanici`, `rol-karar`, `gorev-rol-etiketleri` |
+| Yetki & Rol | `yetki-izinler`, `yetki-kapsam`, `yetki-dis-kullanici`, `rol-karar`, `gorev-rol-etiketleri`, `oturum-govde` |
 | Danışmanlık | `danisman-karar` |
 | Etkinlik | `faaliyet-kurallar`, `faaliyet-ek-kurallar`, `faaliyet-liste-filtresi`, `faaliyet-takvim`, `faaliyet-rapor-kurallar`, `basvuru-il-disi`, `katilim-kurallar` |
 | Belge | `belge-kurallar`, `belge-kapi`, `belge-toplu` |
 | Profil & Gelişim | `kazanim-kurallar`, `kazanim-rozetler`, `hedef-kurallar`, `envanter-kurallar`, `profil-foto-kurallar`, `profil-salt-okunur`, `ogrenci-cv-kurallar`, `ogrenci-iletisim-kurallar`, `ogretmen-gorev-yillari`, `katki-ozeti` |
 | İletişim & Sosyal | `iletisim-kurallar`, `akis-kurallar`, `ekip-kurallar`, `mentor-kurallar`, `metin-baglanti` |
-| Dış Kimlik | `dis-kimlik-kurallar`, `dis-kimlik-sifre`, `dis-profil-kurallar` |
+| Dış Kimlik | `dis-kimlik-kurallar`, `dis-kimlik-sifre`, `dis-profil-kurallar`, `sifirlama-adresi` |
 | Bildirim | `bildirim-hedef`, `bildirim-sablon`, `bildirim-sms`, `bildirim-toplu` |
-| Rapor & İstatistik | `rapor-csv`, `rapor-faaliyet`, `kirilim-istatistigi`, `yonetim-panosu` |
-| Diğer | `paydas-kurallar`, `market-kurallar`, `kvkk-kurallar`, `db-havuz`, `zip`, `ham-yol-taramasi` |
+| Rapor & İstatistik | `rapor-csv`, `rapor-faaliyet`, `rapor-xlsx`, `rapor-disa-aktarma`, `kirilim-istatistigi`, `etkinlik-dokumu`, `grafik-verisi`, `yonetim-panosu`, `okul-eksikleri`, `okul-listesi` |
+| Diğer | `paydas-kurallar`, `market-kurallar`, `kvkk-kurallar`, `db-havuz`, `zip`, `hata-kurallar`, `ham-yol-taramasi` |
 
 > `ham-yol-taramasi.test.ts` bir güvenlik bekçisidir: kodda `TEMEL_YOL` öneki atlanarak yazılmış ham yol kullanımını yakalar. Yeni sayfa eklerken bu testin geçtiğinden emin olun.
 
@@ -667,18 +672,18 @@ npm run build
 | Ölçüt | Beklenen | Komut |
 |---|---|---|
 | Prisma modeli | 47 | `grep -c "^model " prisma/schema.prisma` |
-| Prisma enum | 25 | `grep -c "^enum " prisma/schema.prisma` |
-| Migrasyon dizini | 48 | `ls prisma/migrations \| wc -l` |
-| Sayfa (`page.tsx`) | 57 | `find src/app -name page.tsx \| wc -l` |
-| Route handler | 16 | `find src/app -name route.ts \| wc -l` |
+| Prisma enum | 26 | `grep -c "^enum " prisma/schema.prisma` |
+| Migrasyon dizini | 52 | `ls prisma/migrations \| wc -l` |
+| Sayfa (`page.tsx`) | 61 | `find src/app -name page.tsx \| wc -l` |
+| Route handler | 29 | `find src/app -name route.ts \| wc -l` |
 | Server action dosyası | 34 | `find src/app -name "*eylem*.ts" \| wc -l` |
-| Test paketi | 48 (+`yardimcilar.ts`) | `ls tests \| wc -l` → 49 |
-| Test durumu | 936 | `npm test` özeti |
-| `scripts/` betiği | 15 | `ls scripts \| wc -l` |
-| Paylaşılan bileşen | 22 `.tsx` + `belge/` = 23 girdi | `ls src/components \| wc -l` |
+| Test paketi | 57 (+`yardimcilar.ts`) | `ls tests \| wc -l` → 58 |
+| Test durumu | 1.097 | `npm test` özeti |
+| `scripts/` betiği | 17 | `ls scripts \| wc -l` |
+| Paylaşılan bileşen | 24 `.tsx` + `belge/` + `grafik/` = 26 girdi | `ls src/components \| wc -l` |
 
 **Davranış doğrulaması:**
-- [ ] `prisma/schema.prisma`, migrasyonlar, seed ve kod aynı 47 modeli ve 25 enum'ı paylaşıyor mu?
+- [ ] `prisma/schema.prisma`, migrasyonlar, seed ve kod aynı 47 modeli ve 26 enum'ı paylaşıyor mu?
 - [ ] 7 kritik PostgreSQL kısmi tekil indeksi tanımlı mı?
 - [ ] Tüm tekil ve liste sorguları `kapsam.ts` filtrelerinden geçiyor mu?
 - [ ] Kapsam dışı veya yetkisiz nesnelerde daima `404` dönüyor mu?

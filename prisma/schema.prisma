@@ -254,6 +254,12 @@ enum LogHedefTip {
   /// EBA dışı kullanıcı başvurusu (kayıt, onay, ret). Başvuru sahibinin henüz
   /// kullanıcı kaydı olmayabileceği için hedefId başvurunun kendi kimliğidir.
   DIS_BASVURU
+  /// Sunucu hata günlüğünün görüntülenmesi (18 Ağustos 2026).
+  ///
+  /// Günlüğün kendisi kişisel veri taşımıyor ama yığın izleri sunucunun içini
+  /// gösteriyor; ERISIM_LOGU ile aynı gerekçe: bakan da deftere geçer.
+  /// hedefId, aranan hata kimliği ya da `liste`dir.
+  HATA_KAYDI
 }
 
 enum GonderimKanali {

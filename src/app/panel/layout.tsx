@@ -478,7 +478,14 @@ function PanelCercevesi({
         bilgisi. Beyaz menü barında yer kapladıklarında kullanıcının adını ve
         çıkış düğmesini sıkıştırıyorlardı.
       */}
-      <div className="bg-serit text-serit-metin">
+      {/*
+        `yazdirma-disi` (18 Ağustos 2026): şerit, menü barı ve kenar çubuğu
+        yazdırmada basılmaz — gezinme kâğıtta tıklanamaz ve sayfanın üçte
+        birini yer. Kural globals.css'teki @media print bloğunda; buradaki üç
+        işaret o kuralın tutunduğu yerler. Yeni bir panel ekranı eklerken
+        ayrıca bir şey yapmak gerekmiyor, çatı zaten işaretli.
+      */}
+      <div className="yazdirma-disi bg-serit text-serit-metin">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-6 py-2">
           <p className="text-[11px] font-semibold tracking-widest uppercase">
             T.C. Millî Eğitim Bakanlığı · YEĞİTEK
@@ -491,7 +498,7 @@ function PanelCercevesi({
         BEYAZ MENÜ BARI. `sticky`: kenar çubuğuna geçince sayfalar uzadı ve
         aşağı inen kullanıcının kimliğini/çıkışını görecek yeri kalmıyordu.
       */}
-      <header className="sticky top-0 z-30 border-b border-ust-bar-cizgi bg-ust-bar">
+      <header className="yazdirma-disi sticky top-0 z-30 border-b border-ust-bar-cizgi bg-ust-bar">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-6 py-3">
           <Link href="/panel" className="flex items-center gap-3">
             {/*
@@ -577,7 +584,7 @@ function PanelCercevesi({
         basılır — `hidden lg:block` verilseydi telefonda menü hiç görünmezdi.
       */}
       <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-6 py-8 lg:flex-row">
-        <aside className="lg:w-56 lg:shrink-0">
+        <aside className="yazdirma-disi lg:w-56 lg:shrink-0">
           <div className="lg:sticky lg:top-24">
             {/*
               KAPSAM KUTUSU. Rol etiketleri menü barından buraya taşındı:

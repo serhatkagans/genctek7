@@ -834,6 +834,26 @@ export function erisimLoglariniGorebilirMi(
   return projeYoneticisiMi(kullanici);
 }
 
+/**
+ * Hata kayıtları — "kullanıcının ekranda gördüğü hata kimliğinin karşılığı ne"
+ * (18 Ağustos 2026).
+ *
+ * ERİŞİM KAYITLARINDAN AYRI BİR FONKSİYON, ikisi de bugün aynı cevabı verse
+ * bile: erişim kayıtları KİŞİSEL VERİ taşıdığı için merkeze kapalı, hata
+ * günlüğü ise kişisel veri taşımıyor (bkz. lib/hata-kaydi.ts · "NE YAZILIR, NE
+ * YAZILMAZ") ama SUNUCUNUN İÇİNİ gösteriyor — yığın izinde dosya yolları,
+ * sorgu parçaları ve sürüm bilgisi var. İki ekranın kapalı olma gerekçesi
+ * farklı olduğu için biri gevşetildiğinde öbürü sessizce açılmamalı.
+ *
+ * İl koordinatörüne kapalı: günlük ile sınırı yoktur, ülke genelindeki her
+ * isteğin hatası aynı dosyada.
+ */
+export function hataKayitlariniGorebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
 /** Sistem ayarları, çalışma grupları ve etkinlik programları merkezden yönetilir. */
 export function sistemAyarlariniYonetebilirMi(
   kullanici: OturumKullanicisi,

@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  Bug,
   Compass,
   FileText,
   GraduationCap,
@@ -46,6 +47,7 @@ import {
   ilOzetleriniGetir,
 } from "@/lib/rapor/yonetim-ozeti";
 import {
+  hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
   mentorlukBasvurabilirMi,
@@ -460,6 +462,29 @@ export default async function YonetimSayfasi({
                 yol="/panel/ayarlar"
               />
             </>
+          )}
+          {/*
+            HATA KAYITLARI (18 Ağustos 2026 · inceleme bulgusu).
+
+            Kullanıcı beklenmeyen bir hatada ekranda yalnızca bir numara
+            görüyor ("Hata kimliği: 598556021") ve o numaranın karşılığı
+            günlüğe yazılıyordu — ama okunmasının tek yolu sunucuda
+            `npm run hata:ara` çalıştırmaktı. Numarayı bildiren kişi ile
+            sunucuya girebilen kişi aynı kişi değil; ekranın olmaması,
+            tutulan kaydı proje yöneticisi için okunamaz kılıyordu.
+
+            YETKİ AYRI SORULUYOR (`hataKayitlariniGorebilirMi`), yukarıdaki üç
+            kartın koşuluna eklenmedi: iki ekranın merkeze kapalı olma
+            gerekçesi farklı — biri kişisel veri, öbürü sunucunun iç yapısı
+            (bkz. lib/yetki/izinler.ts).
+          */}
+          {hataKayitlariniGorebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Hata Kayıtları"
+              aciklama="Kullanıcının bildirdiği hata kimliğinin karşılığı: hangi adres, hangi hata, ne zaman"
+              Ikon={Bug}
+              yol="/panel/hata-kayitlari"
+            />
           )}
         </div>
       </Kart>

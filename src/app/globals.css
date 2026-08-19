@@ -483,3 +483,109 @@ h4 {
   --poster-a: var(--renk-metin-yumusak);
   --poster-b: var(--renk-metin);
 }
+
+/*
+  ============================================================================
+  YAZDIRMA — "PDF'e Aktar" (18 Ağustos 2026)
+  ============================================================================
+
+  İstek: prototipteki gibi Excel'in yanında PDF çıktısı (sablon/4.png).
+
+  PDF KÜTÜPHANESİ EKLENMEDİ. Projenin PDF yolu zaten tarayıcı yazdırmasıdır
+  (bkz. components/YazdirButonu — katılım belgeleri 31 Temmuz'dan beri böyle
+  üretiliyor) ve "PDF olarak kaydet" her tarayıcının yazdırma penceresinde
+  duruyor. Sunucu tarafı bir üretici (puppeteer/pdfkit) eklemek, aynı çıktı
+  için sunucuya ya headless bir tarayıcı ya da ikinci bir düzen motoru kurmak
+  demekti: iki ayrı yerde bakımı gereken iki ayrı görünüm.
+
+  BU BLOK TEK BİR EKRANA DEĞİL, PANELİN TAMAMINA YAZILDI. Kural ekran başına
+  yazılsaydı her yeni sayfa kendi yazdırma kusuruyla doğardı; burada bir kez
+  tanımlanıyor ve her panel ekranı yazdırılabilir hâle geliyor.
+
+  `yazdirma-disi` İŞARETİ: ekranda işe yarayan ama kâğıtta anlamsız olan her
+  şey (gezinme, süzgeç formu, düğmeler, tema seçici) bu sınıfı taşır ve
+  yazdırmada basılmaz. Tıklanamayan bir düğmeyi kâğıda basmak mürekkep israfı
+  değil, okuyucuyu yanıltmaktır.
+*/
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+
+  .yazdirma-disi {
+    display: none !important;
+  }
+
+  /*
+    Zeminler beyaza, gölgeler sıfıra. Ekranda derinlik veren gri zemin ve
+    gölge kâğıtta yalnızca toner harcar ve kartın sınırını bulanıklaştırır;
+    sınırı ince bir çizgi çok daha net veriyor.
+  */
+  body {
+    background: #fff !important;
+  }
+
+  .rounded-kart,
+  .rounded-kutu {
+    box-shadow: none !important;
+  }
+
+  /*
+    BÖLÜNMESİN KURALI YALNIZCA KÜÇÜK BİRİMLERE (19 Ağustos 2026 · inceleme
+    bulgusu). Kural önce `section` ve `article`a da veriliyordu, gerekçesi
+    doğruydu: bir ölçü kutusunun sayısı bir sayfada, etiketi öbür sayfada
+    kalırsa ikisi de okunmaz olur. Ama paneldeki HER KART bir `<section>`
+    (bkz. components/ui · Kart) ve raporlar ekranındaki liste kartları A4'ten
+    uzun. Sayfaya sığmayan bir bloğa "bölünme" demek, tarayıcıya çözümsüz bir
+    kısıt vermek demek: Chrome bloğu yine böler ama önceki sayfanın altında
+    yarım sayfalık boşluk bırakır, Safari ve Firefox taşan kısmı kırpabilir —
+    yani çıktının bir bölümü hiç basılmaz.
+
+    Kısıt bu yüzden sayfaya SIĞDIĞI BİLİNEN birimlerde: ölçü kutusu, tablo
+    satırı, açıklama listesi, şekil. Kartın kendisi serbestçe bölünüyor;
+    başlığın tek başına sayfa sonunda kalmasını ise `break-after` engelliyor.
+  */
+  figure,
+  dl,
+  tr,
+  .rounded-kutu {
+    break-inside: avoid;
+  }
+
+  /* Başlık, ait olduğu içerikten koparak sayfa sonunda kalmasın. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  /*
+    Uzun tablolar sayfa değiştirdiğinde başlık satırı her sayfada tekrarlansın;
+    yoksa ikinci sayfadaki sayı sütununun neyi saydığı okunmaz.
+  */
+  thead {
+    display: table-header-group;
+  }
+
+  /*
+    Panel düzeni iki kolonlu (kenar çubuğu + içerik). Kenar çubuğu yazdırmada
+    gizlendiği için içerik kolonu tam genişliğe yayılmalı; yoksa kâğıdın
+    solunda kenar çubuğu kadar boşluk kalır.
+  */
+  main {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /*
+    Bağlantı adresleri BASILMIYOR. Yaygın yazdırma tarifi `a::after` ile href'i
+    yazdırmaktır ama buradaki bağlantılar oturum arkasındaki panel adresleri:
+    kâğıda basılan `/panel/etkinlikler/42` kimseye yaramaz, satır aralarını
+    şişirir ve tabloları taşırır.
+  */
+  a[href]::after {
+    content: none !important;
+  }
+}

@@ -7,7 +7,7 @@
 
 ---
 
-## Sayfalar (57)
+## Sayfalar (61)
 
 ```text
 src/app/basvuru/page.tsx
@@ -27,6 +27,7 @@ src/app/panel/danisman-secim/page.tsx
 src/app/panel/dis-basvurular/page.tsx
 src/app/panel/dis-kullanicilar/[id]/page.tsx
 src/app/panel/duyurular/page.tsx
+src/app/panel/ekip-yonetimi/page.tsx
 src/app/panel/ekipler/[id]/page.tsx
 src/app/panel/ekipler/page.tsx
 src/app/panel/erisim-loglari/page.tsx
@@ -38,6 +39,7 @@ src/app/panel/etkinlikler/[id]/rapor/page.tsx
 src/app/panel/etkinlikler/page.tsx
 src/app/panel/etkinlikler/yeni/page.tsx
 src/app/panel/gorev-rolleri/page.tsx
+src/app/panel/hata-kayitlari/page.tsx
 src/app/panel/kazanimlarim/page.tsx
 src/app/panel/kvkk/page.tsx
 src/app/panel/mentorlugum/page.tsx
@@ -46,7 +48,9 @@ src/app/panel/ogrenciler/[id]/page.tsx
 src/app/panel/ogrenciler/page.tsx
 src/app/panel/ogretmenler/[id]/page.tsx
 src/app/panel/ogretmenler/page.tsx
+src/app/panel/okul-eksikleri/page.tsx
 src/app/panel/okul-sorumlulari/page.tsx
+src/app/panel/okullar/page.tsx
 src/app/panel/page.tsx
 src/app/panel/paydaslar/[id]/page.tsx
 src/app/panel/paydaslar/page.tsx
@@ -69,24 +73,37 @@ src/app/panel/yonetim/page.tsx
 src/app/sifre-sifirlama/page.tsx
 ```
 
-## Route Handler'lar (16)
+## Route Handler'lar (29)
 
 ```text
+src/app/panel/dis-basvurular/disa-aktar/route.ts
+src/app/panel/ekip-yonetimi/disa-aktar/route.ts
+src/app/panel/ekipler/[id]/uyeler/disa-aktar/route.ts
+src/app/panel/erisim-loglari/disa-aktar/route.ts
 src/app/panel/etkinlikler/[id]/basvurular/disa-aktar/route.ts
 src/app/panel/etkinlikler/[id]/ekler/[ekId]/route.ts
 src/app/panel/etkinlikler/[id]/gorseller/route.ts
 src/app/panel/etkinlikler/[id]/rapor/indir/route.ts
 src/app/panel/etkinlikler/disa-aktar/route.ts
+src/app/panel/gorev-rolleri/disa-aktar/route.ts
 src/app/panel/kazanim-ekleri/[ekId]/route.ts
 src/app/panel/mentorler/[id]/foto/route.ts
+src/app/panel/mentorluk/disa-aktar/route.ts
 src/app/panel/ogrenciler/[id]/cv/route.ts
 src/app/panel/ogrenciler/disa-aktar/route.ts
 src/app/panel/ogretmenler/[id]/cv/route.ts
 src/app/panel/ogretmenler/disa-aktar/route.ts
+src/app/panel/okul-eksikleri/disa-aktar/route.ts
+src/app/panel/okul-sorumlulari/disa-aktar/route.ts
+src/app/panel/okullar/disa-aktar/route.ts
 src/app/panel/paydaslar/disa-aktar/route.ts
 src/app/panel/profil/foto/route.ts
+src/app/panel/raporlar/dokum/route.ts
 src/app/panel/raporlar/istatistik/route.ts
+src/app/panel/rol-envanteri/disa-aktar/route.ts
+src/app/panel/talepler/disa-aktar/route.ts
 src/app/panel/urunler/[id]/git/[baglantiId]/route.ts
+src/app/panel/urunler/disa-aktar/route.ts
 src/app/panel/yonetim/disa-aktar/route.ts
 ```
 
@@ -134,6 +151,7 @@ src/app/tema-eylemi.ts
 ```text
 CalismaGrubuSecimi.tsx
 DanismanSecimi.tsx
+DisaAktarmaBagi.tsx
 DuyuruFormu.tsx
 EnvanterFormu.tsx
 EnvanterSonucu.tsx
@@ -150,14 +168,16 @@ PanelGezinme.tsx
 ProfilDuzenleme.tsx
 RolEtiketi.tsx
 RotamKarti.tsx
+SatirIslemleri.tsx
 TemaSecici.tsx
 YazdirButonu.tsx
 YonetimKartlari.tsx
 belge
+grafik
 ui.tsx
 ```
 
-## Test Paketleri (48)
+## Test Paketleri (57)
 
 ```text
 akis-kurallar.test.ts
@@ -176,13 +196,16 @@ dis-kimlik-sifre.test.ts
 dis-profil-kurallar.test.ts
 ekip-kurallar.test.ts
 envanter-kurallar.test.ts
+etkinlik-dokumu.test.ts
 faaliyet-ek-kurallar.test.ts
 faaliyet-kurallar.test.ts
 faaliyet-liste-filtresi.test.ts
 faaliyet-rapor-kurallar.test.ts
 faaliyet-takvim.test.ts
 gorev-rol-etiketleri.test.ts
+grafik-verisi.test.ts
 ham-yol-taramasi.test.ts
+hata-kurallar.test.ts
 hedef-kurallar.test.ts
 iletisim-kurallar.test.ts
 katilim-kurallar.test.ts
@@ -197,12 +220,18 @@ metin-baglanti.test.ts
 ogrenci-cv-kurallar.test.ts
 ogrenci-iletisim-kurallar.test.ts
 ogretmen-gorev-yillari.test.ts
+okul-eksikleri.test.ts
+okul-listesi.test.ts
+oturum-govde.test.ts
 paydas-kurallar.test.ts
 profil-foto-kurallar.test.ts
 profil-salt-okunur.test.ts
 rapor-csv.test.ts
+rapor-disa-aktarma.test.ts
 rapor-faaliyet.test.ts
+rapor-xlsx.test.ts
 rol-karar.test.ts
+sifirlama-adresi.test.ts
 yardimcilar.ts
 yetki-dis-kullanici.test.ts
 yetki-izinler.test.ts

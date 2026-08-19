@@ -5,6 +5,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  Printer,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import {
   SINIF_GIRDI,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
+import { YazdirButonu } from "@/components/YazdirButonu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
@@ -398,24 +400,52 @@ export default async function RaporlarSayfasi() {
         İkisi ayrı sorulmasaydı, ekranda görünen bir düğme rotada 404 verirdi.
       */}
       {faaliyetDisaAktarabilirMi(kullanici) && (
-        <Kart>
+        <Kart className="yazdirma-disi">
           <KartBasligi
-            baslik="Tamamlanan etkinlik raporları (Excel)"
+            baslik="Dışa aktarma"
             aciklama="Biten her etkinliğin katılımcı, fotoğraf ve belge sayıları ile raporunun tam metni. Raporu yazılmamış etkinlikler de listede yer alır."
             Ikon={FileSpreadsheet}
           />
-          {/* Dosya indirmesi: `<Link>` değil `<a>` (bkz. DisaAktarmaBagi). */}
-          <a
-            href={uygulamaYolu("/panel/raporlar/dokum")}
-            className={SINIF_IKINCIL_BUTON}
-          >
-            <Download size={16} aria-hidden />
-            Excel indir ({bitmisler.length} etkinlik)
-          </a>
+          {/*
+            İKİ DÜĞME, İKİ FARKLI ÇIKTI (18 Ağustos 2026 · istek: "Excel'e
+            aktarma yanında PDF'e aktar da ekleyelim", sablon/4.png).
+
+            AYNI ŞEYİN İKİ BİÇİMİ DEĞİLLER ve açıklama bunu söylüyor:
+
+              Excel  Etkinlik başına BİR SATIR olan veri dosyası. Süzülür,
+                     sıralanır, başka bir tabloya yapıştırılır.
+              PDF    EKRANIN KENDİSİ — ölçüler, grafikler ve rapor listeleri.
+                     Sunuma ve dosyalamaya gider, veri işlemeye değil.
+
+            İkisini "aynı raporun iki biçimi" diye sunmak, PDF'i açan kişinin
+            içinde Excel'deki satırları aramasına yol açardı.
+
+            PDF SUNUCUDA ÜRETİLMİYOR: tarayıcının yazdırma penceresi açılıyor
+            ve "PDF olarak kaydet" oradan seçiliyor. Gerekçe globals.css'teki
+            @media print notunda — projenin katılım belgeleri de 31 Temmuz'dan
+            beri böyle üretiliyor.
+          */}
+          <div className="flex flex-wrap gap-2">
+            {/* Dosya indirmesi: `<Link>` değil `<a>` (bkz. DisaAktarmaBagi). */}
+            <a
+              href={uygulamaYolu("/panel/raporlar/dokum")}
+              className={SINIF_IKINCIL_BUTON}
+            >
+              <Download size={16} aria-hidden />
+              Excel&apos;e Aktar ({bitmisler.length} etkinlik)
+            </a>
+            <YazdirButonu className={SINIF_IKINCIL_BUTON}>
+              <Printer size={16} aria-hidden />
+              PDF&apos;e Aktar
+            </YazdirButonu>
+          </div>
           <p className="mt-2 text-sm text-metin-yumusak">
-            Kapsamınızdaki bitmiş etkinlikler. İptal edilenler ve tarihi
-            gelmemiş olanlar dosyada yer almaz. Tarih sütunu gerçek tarih
-            biçimindedir; dosya Excel&apos;de tarihe göre sıralanabilir.
+            <b>Excel:</b> kapsamınızdaki bitmiş etkinlikler, etkinlik başına bir
+            satır. İptal edilenler ve tarihi gelmemiş olanlar dosyada yer almaz;
+            tarih sütunu gerçek tarih biçimindedir, dosya Excel&apos;de tarihe
+            göre sıralanabilir. <b>PDF:</b> bu ekranın çıktısı — ölçüler,
+            grafikler ve rapor listeleri. Açılan yazdırma penceresinde hedef
+            olarak &laquo;PDF olarak kaydet&raquo; seçilir.
           </p>
         </Kart>
       )}
@@ -432,13 +462,14 @@ export default async function RaporlarSayfasi() {
 
         FORM, ALTI AYRI BAĞLANTI DEĞİL: kırılım × düzey altı dosya eder ve
         bunları alt alta bağlantı olarak dizmek, yıl süzgecine yer bırakmazdı.
-        `method="get"` ile doğrudan CSV rotasına gidiyor — sunucu eylemi yok,
+        `method="get"` ile doğrudan çıktı rotasına gidiyor — sunucu eylemi yok,
         çünkü işin sonucu bir dosya indirmesi.
       */}
+      {/* Süzgeç formu kâğıtta işe yaramaz: doldurulamayan bir form basılmaz. */}
       {projeYoneticisiMi(kullanici) && (
-        <Kart>
+        <Kart className="yazdirma-disi">
           <KartBasligi
-            baslik="Program ve çalışma grubu istatistiği (CSV)"
+            baslik="Program ve çalışma grubu istatistiği"
             aciklama="Ülke geneli. Program ve çalışma grubu AYRI dosyalardır: bir etkinliğin programı en fazla bir, çalışma grubu birden çok olabilir."
             Ikon={FileText}
           />
@@ -537,8 +568,37 @@ export default async function RaporlarSayfasi() {
                 className={SINIF_GIRDI}
               />
             </label>
-            <div className="sm:col-span-3">
+            {/*
+              İKİ BİÇİM, TEK FORM (18 Ağustos 2026 · geri bildirim: "bu
+              başlıkta excel rapor yok csv var").
+
+              EKRAN YANLIŞ SÖYLÜYORDU. Formda `bicim` alanı hiç yoktu ve
+              rotanın varsayılanı `xlsx` (bkz. lib/rapor/disa-aktarma ·
+              bicimCoz); yani "CSV indir" yazan düğme Excel dosyası
+              indiriyordu. Başlık, açıklama ve düğme üç ayrı yerde "CSV" derken
+              kullanıcının eline .xlsx geçiyordu — çıktı doğruydu, etiket
+              yalandı.
+
+              Rota İKİSİNİ DE ürettiği için doğru düzeltme etiketi değiştirmek
+              değil, seçimi kullanıcıya vermek: Excel varsayılan (üstteki döküm
+              çıktısıyla aynı biçim, aynı beklenti), CSV ikinci düğme.
+
+              GİZLİ ALAN DEĞİL, İKİNCİ SUBMIT DÜĞMESİ: bir gönderme düğmesinin
+              `name`/`value` çifti YALNIZCA tıklanan düğme için gönderilir.
+              Böylece tek form iki hedefe gidiyor, JavaScript'e gerek kalmıyor
+              ve sayfanın geri kalanı gibi sunucuda basılıyor.
+            */}
+            <div className="flex flex-wrap gap-2 sm:col-span-3">
               <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                <FileSpreadsheet size={16} aria-hidden />
+                Excel indir
+              </button>
+              <button
+                type="submit"
+                name="bicim"
+                value="csv"
+                className={SINIF_IKINCIL_BUTON}
+              >
                 <Download size={16} aria-hidden />
                 CSV indir
               </button>

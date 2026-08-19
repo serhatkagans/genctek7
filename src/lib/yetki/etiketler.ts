@@ -92,6 +92,7 @@ export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
   PAYDAS: "Paydaş kaydı",
   BILDIRIM_SABLONU: "Bildirim şablonu",
   DIS_BASVURU: "Dış giriş başvurusu",
+  HATA_KAYDI: "Hata kayıtları",
 };
 
 /**
