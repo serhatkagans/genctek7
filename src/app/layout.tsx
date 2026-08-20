@@ -35,6 +35,17 @@ const baslikYazisi = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+/*
+ * SEKME SİMGESİ (20 Ağustos 2026 · istek: "portalın tarayıcı penceresinde
+ * güzel logosu var onu platforma da ekle").
+ *
+ * Dosya `src/app/icon.png`: Next bu adı gördüğünde <link rel="icon"> etiketini
+ * kendisi basar, boyutlandırır ve sürüm damgası ekler — metadata'ya elle
+ * `icons` yazmaya gerek yok. Kaynak, tanıtım portalındaki `app/icon.png`'nin
+ * aynısı; iki uygulama aynı sekme simgesini taşısın diye kopyalandı.
+ *
+ * Alt dizin kurulumunda (aiotechs.cloud/genctek) yolu Next kendisi önekler.
+ */
 export const metadata: Metadata = {
   title: "GençTek Bilgi Sistemi",
   description:
