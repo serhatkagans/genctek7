@@ -404,42 +404,6 @@ h4 {
 }
 
 /*
-  Duyuru şeridi — başvurusu açık faaliyetler yatay olarak akar
-  (analiz dokümanı Bölüm 6).
-
-  İçerik iki kez yan yana basılır ve şerit tam yarısı kadar kaydırılır; böylece
-  döngü başa döndüğünde görüntü aynı olur ve akış kesintisiz görünür.
-
-  Hareketi azaltma tercihi olan kullanıcıda animasyon DURUR ve şerit sabit bir
-  listeye döner. Sürekli hareket eden bir öğe, vestibüler duyarlılığı olan
-  kullanıcılarda baş dönmesi yapabiliyor; ayrıca ekran okuyucu kullanıcısı için
-  de akan metin okunaklı değil.
-*/
-@keyframes serit-akisi {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-.serit-akisi {
-  animation: serit-akisi 40s linear infinite;
-}
-
-.serit-kapsayici:hover .serit-akisi,
-.serit-kapsayici:focus-within .serit-akisi {
-  animation-play-state: paused;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .serit-akisi {
-    animation: none;
-  }
-}
-
-/*
   POSTER — kart başlığındaki gradyanlı görsel alan (prototipte `.card .poster`).
 
   Yarışma/etkinlik kartının üstünde duran renkli bant. Bir afiş görseli olmayan

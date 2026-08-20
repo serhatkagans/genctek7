@@ -23,7 +23,42 @@ export interface HataKaydi {
   ad: string;
   mesaj: string;
   yiginIzi: string | null;
+  /**
+   * Hatanın OLUŞTUĞU taraf (21 Ağustos 2026 · istek: "arada hata veriyor ancak
+   * hata kayıtlarına nedeni işlenmiyor").
+   *
+   * Günlükte yalnızca sunucu hataları vardı (bkz. instrumentation.ts). Tarayıcı
+   * tarafında patlayan bir bileşen `error.tsx` ekranını açıyor ama HİÇBİR YERE
+   * yazılmıyordu — üstelik o ekranda "Hata kimliği" satırı da çıkmıyor, çünkü
+   * `digest` yalnızca sunucu hatalarında üretiliyor. Yani kullanıcı "hata aldım"
+   * diyor, elinde numara yok, günlükte de karşılığı yok.
+   *
+   * Ayrım alan olarak tutuluyor, mesaja karıştırılmıyor: istemci kaydının
+   * yığın izi DERLENMİŞ paket dosyalarını gösterir ve sunucu izleriyle aynı
+   * gözle okunamaz — ekranda hangisine baktığını bilmek gerekiyor.
+   *
+   * Eski satırlarda alan YOK; çözümleme onları "sunucu" sayar (bkz.
+   * hataSatiriCoz), çünkü o tarihte başka bir kaynak zaten yazamıyordu.
+   */
+  kaynak: HataKaynagi;
+  /**
+   * Hatanın MAKİNE OKUNUR nedeni: `PrismaClientKnownRequestError.code`
+   * (`P1001`, `P2024`…), Node soket hatalarında `errno` adı (`ECONNREFUSED`).
+   *
+   * NİYE AYRI BİR ALAN (21 Ağustos 2026 · istek: "hata kayıtlarına nedeni
+   * işlenmiyor"). Prisma'nın `message` alanı yalnızca hangi sorgunun, hangi
+   * satırda patladığını yazıyor; NEDENİ yazmıyor — o bilgi `code` alanında
+   * duruyor ve günlüğe hiç geçmiyordu. Yerel günlükte 493 Prisma kaydı tam
+   * olarak bu yüzden "sebepsiz" görünüyordu: veritabanına ulaşılamaması
+   * (P1001) ile havuzun dolması (P2024) ekranda birbirinin aynısıydı.
+   *
+   * `code` STANDART BİR Error ALANI DEĞİL; taşımayan hatalarda `null` kalır.
+   */
+  kod: string | null;
 }
+
+/** Hatanın oluştuğu taraf. */
+export type HataKaynagi = "sunucu" | "istemci";
 
 /** Kimliği olmayan kayıtlarda `kimlik` alanının değeri. */
 export const KIMLIKSIZ = "-";
@@ -101,7 +136,47 @@ export function hataSatiriCoz(satir: string): HataKaydi | null {
     ad,
     mesaj: typeof nesne.mesaj === "string" ? nesne.mesaj : "",
     yiginIzi: typeof nesne.yiginIzi === "string" ? nesne.yiginIzi : null,
+    // Alanı olmayan (18-21 Ağustos arası yazılmış) satırlar sunucu kaydıdır.
+    kaynak: nesne.kaynak === "istemci" ? "istemci" : "sunucu",
+    kod: typeof nesne.kod === "string" && nesne.kod ? nesne.kod : null,
   };
+}
+
+/**
+ * Hata, İSTEMCİNİN BAĞLANTIYI KAPATMASINDAN mı ibaret?
+ *
+ * NİYE VAR (21 Ağustos 2026 · bulgu: "/panel · /panel/talepler/mentor-basvuru
+ * — The destination stream closed early"). Bu mesaj uygulamanın kodundan
+ * gelmiyor; React'in sunucu tarafı akış motorundan geliyor ve tek anlamı şu:
+ * sayfa akarken HTTP bağlantısı kapandı. Sebebi hemen her zaman kullanıcının
+ * kendisi — sayfa yüklenirken başka bir bağlantıya tıklamak, yenilemek, sekmeyi
+ * kapatmak ya da Next'in ön yüklediği (prefetch) bir isteğin iptal edilmesi.
+ *
+ * NİYE GÜNLÜĞE YAZILMIYOR: karşılığında GÖSTERİLEN bir hata ekranı yok — o
+ * anda bakan bir tarayıcı zaten kalmadı. Kayda geçtiğinde ise en çok gezilen
+ * ve en ağır sayfalar (özellikle /panel) günlüğün başına yerleşiyor ve gerçek
+ * arızaları listenin altına itiyor. Hata kayıtları ekranı "şu an ne bozuk"
+ * sorusuna cevap vermek için var; buraya düşen her gürültü o cevabı zayıflatır.
+ *
+ * SÜZGEÇ DAR TUTULUYOR: yalnızca bağlantının koptuğunu söyleyen bilinen
+ * imzalar eleniyor. Geniş bir kural (ör. "stream" geçen her şey) gerçek bir
+ * akış hatasını da sessizce yutardı.
+ */
+export function istemciKopmasiMi(hata: {
+  name?: string;
+  message?: string;
+}): boolean {
+  // Next'in kendi iptal işaretleri (server/pipe-readable.ts · isAbortError).
+  if (hata.name === "AbortError" || hata.name === "ResponseAborted") return true;
+
+  const mesaj = hata.message ?? "";
+  return (
+    mesaj.includes("The destination stream closed early") ||
+    mesaj.includes("The destination stream errored while writing data") ||
+    // Yanıt yazılırken karşı taraf soketi kapatmışsa Node bunları fırlatır.
+    mesaj.includes("ECONNRESET") ||
+    mesaj.includes("EPIPE")
+  );
 }
 
 /**
@@ -186,9 +261,22 @@ export function ilkAnlamliSatir(mesaj: string, uzunluk = 200): string {
  * numarası geçiyor (`...__02gb0h2._.js:6239:140`), yani her derlemede değişen
  * bir metin. Tam mesaja bakan bir anahtar, aynı hatayı her dağıtımdan sonra
  * yeni bir hata gibi gösterirdi.
+ *
+ * KAYNAK DA ANAHTARIN PARÇASI (21 Ağustos 2026 · istemci kayıtları eklendi):
+ * tarayıcıda ve sunucuda aynı cümleyle patlayan iki ayrı arıza var — istemci
+ * tarafındaki "Hydration failed" ile sunucudaki aynı adlı hata aynı satırda
+ * toplansaydı, grubun yığın izleri iki farklı dünyadan gelir ve satır hangi
+ * tarafın bozulduğunu söylemekten çıkardı.
  */
 export function hataOzetKimligi(kayit: HataKaydi): string {
-  return `${kayit.ad} | ${ilkAnlamliSatir(kayit.mesaj)}`;
+  /*
+   * KOD DA ANAHTARIN PARÇASI: Prisma'nın mesajı hangi sorgunun patladığını
+   * yazıyor ama nedenini `code` taşıyor. Kod anahtara girmeseydi "veritabanına
+   * ulaşılamıyor" (P1001) ile "havuz doldu" (P2024) aynı satırda toplanır ve
+   * özet, birbirinden bağımsız iki arızayı tek arıza gibi gösterirdi.
+   */
+  const kod = kayit.kod ? ` (${kayit.kod})` : "";
+  return `${kayit.kaynak} | ${kayit.ad}${kod} | ${ilkAnlamliSatir(kayit.mesaj)}`;
 }
 
 /**
@@ -239,7 +327,13 @@ export function hataEslesiyorMu(
   const ara = filtre.ara?.trim();
   if (ara) {
     const aranan = kucult(ara);
-    const havuz = kucult(`${kayit.ad} ${kayit.mesaj} ${kayit.yol ?? ""}`);
+    /*
+     * `kaynak` de aranabilir alanlardan: "istemci" yazıp tarayıcı hatalarını
+     * süzmek, ekrana ayrı bir açılır kutu eklemeden aynı işi görüyor.
+     */
+    const havuz = kucult(
+      `${kayit.kaynak} ${kayit.ad} ${kayit.kod ?? ""} ${kayit.mesaj} ${kayit.yol ?? ""}`,
+    );
     if (!havuz.includes(aranan)) return false;
   }
 
@@ -253,6 +347,15 @@ export interface HataGrubu {
   ad: string;
   /** Mesajın ilk anlamlı satırı; hatayı tanıtan cümle. */
   baslik: string;
+  /** Grubun tamamı tek taraftan gelir; anahtarın parçası (bkz. hataOzetKimligi). */
+  kaynak: HataKaynagi;
+  /**
+   * Varsa hatanın kendi kodu (`P2024` gibi); anahtarın parçası.
+   *
+   * Ad `kod` DEĞİL: bu arayüzdeki `kod`, grubun adres çubuğunda taşınan kısa
+   * kodu — ikisi bir arada durduğu için ayrımın adda görünmesi gerekiyor.
+   */
+  hataKodu: string | null;
   /*
    * KİMLİK ALANI YOK ve olmamalı: aynı hata her oluşunda yeni bir digest
    * alıyor (bkz. hataOzetKimligi). Satırda tek bir kimlik gösterilseydi,
@@ -315,6 +418,8 @@ export function hataGrupToplayici(ustSinir: number) {
           kod,
           ad: kayit.ad,
           baslik: ilkAnlamliSatir(kayit.mesaj),
+          kaynak: kayit.kaynak,
+          hataKodu: kayit.kod,
           yollar: [],
           yolSayisi: 0,
           adet: 1,

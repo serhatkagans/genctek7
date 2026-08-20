@@ -21,6 +21,16 @@ export const onRequestError: Instrumentation.onRequestError = async (
 ) => {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  /*
+   * İSTEMCİ KOPMASI KAYDA GEÇMEZ (21 Ağustos 2026): sayfa akarken tarayıcı
+   * bağlantıyı kapatırsa React "The destination stream closed early" fırlatıyor.
+   * Kimsenin görmediği bu olay günlüğe yazıldığında en çok gezilen sayfalar
+   * listenin başını dolduruyor ve gerçek arızayı aşağı itiyordu — gerekçesi
+   * lib/hata-kurallar.ts · istemciKopmasiMi.
+   */
+  const { istemciKopmasiMi } = await import("./lib/hata-kurallar");
+  if (hata instanceof Error && istemciKopmasiMi(hata)) return;
+
   const { hataKaydet, hataKaydiHazirla } = await import("./lib/hata-kaydi");
   await hataKaydet(
     hataKaydiHazirla(hata, { path: istek.path, method: istek.method }),

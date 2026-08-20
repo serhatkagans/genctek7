@@ -20,6 +20,7 @@ import {
   okunacakAylar,
   TUM_AYLAR,
 } from "@/lib/hata-kurallar";
+import { hataGunlukDizini, sonGunlukYazmaHatasi } from "@/lib/hata-kaydi";
 import {
   hataAylariniGetir,
   hataKayitlariniGetir,
@@ -109,6 +110,14 @@ export default async function HataKayitlariSayfasi({
   const sayfa = Number.isFinite(istenenSayfa) ? Math.max(istenenSayfa, 1) : 1;
 
   const { aylar, dizinVarMi } = await hataAylariniGetir();
+  /*
+   * Dizin yolu EKRANDA yazıyor: sorunun büyük çoğunluğu "yazılan yer ile
+   * okunan yer aynı mı" sorusunda düğümleniyor ve yöneticinin sunucuya girip
+   * yolu tahmin etmesi gerekiyordu. Yol bir sunucu iç bilgisi ama bu ekran
+   * zaten yığın izleri gösteriyor ve yalnızca proje yöneticisine açık.
+   */
+  const gunlukDizini = hataGunlukDizini();
+  const yazmaHatasi = sonGunlukYazmaHatasi();
   const ayrintiMi = Boolean(kimlik || grup);
   /*
    * Ay genişlemesi YALNIZCA kimlik aramasına bağlı, gruba değil: grup kodu
@@ -207,16 +216,40 @@ export default async function HataKayitlariSayfasi({
         silinemez ve değiştirilemez.
       </BilgiKutusu>
 
+      {/*
+        YAZILAMIYORSA EKRAN BUNU SÖYLER (21 Ağustos 2026 · istek: "arada hata
+        veriyor ancak hata kayıtlarına nedeni işlenmiyor").
+
+        `hataKaydet` yazma hatasını yutuyor ve yutmalı da — asıl hatanın üstüne
+        ikinci bir hata koyamaz. Bedeli, arızanın SESSİZ olmasıydı: dizin izinli
+        değilse (üretimde standalone çıkışının çalışma dizini yüzünden yaşandı,
+        bkz. lib/hata-kaydi.ts · depolamaKoku) ekran boş liste gösteriyor,
+        yönetici de "hiç hata olmamış" diye okuyordu. Uyarı, boş listenin iki
+        anlamını birbirinden ayırıyor.
+      */}
+      {yazmaHatasi && (
+        <BilgiKutusu cesit="hata">
+          Hatalar günlüğe YAZILAMIYOR; bu listede eksik kayıtlar var. Son deneme{" "}
+          {tarihSaatYaz(new Date(yazmaHatasi.zaman))} tarihinde şu hatayla
+          düştü: <code className="font-mono">{yazmaHatasi.mesaj}</code>. Günlük
+          dizini: <code className="font-mono">{gunlukDizini}</code> — sunucuda
+          bu dizinin var ve uygulamanın kullanıcısına yazılabilir olduğunu
+          doğrulayın (bkz. DAGITIM.md · DEPOLAMA_YEREL_DIZIN).
+        </BilgiKutusu>
+      )}
+
       {!dizinVarMi || aylar.length === 0 ? (
         <Kart>
           <KartBasligi
             baslik="Kayıt yok"
-            aciklama="Henüz hiçbir sunucu hatası kaydedilmemiş."
+            aciklama="Henüz hiçbir hata kaydedilmemiş."
             Ikon={Bug}
           />
           <p className="text-sm text-metin-yumusak">
             Günlük ilk hatada kendiliğinden açılır. Bu ekranın boş olması iyiye
-            işarettir; kurulumla ilgili bir eksiklik değildir.
+            işarettir; kurulumla ilgili bir eksiklik değildir. Beklediğiniz bir
+            hata görünmüyorsa günlük dizinine bakın:{" "}
+            <code className="font-mono">{gunlukDizini}</code>
           </p>
         </Kart>
       ) : (
@@ -428,6 +461,29 @@ function OzetListesi({
                   </td>
                   <td className="max-w-[52ch] py-2 pr-4 text-metin">
                     <span className="font-medium">{grup.ad}</span>
+                    {/*
+                      KOD, ADIN HEMEN YANINDA (21 Ağustos 2026): Prisma
+                      hatalarında nedeni söyleyen tek alan bu (`P1001`
+                      veritabanına ulaşılamıyor, `P2024` havuz doldu). Mesaj
+                      yalnızca hangi sorgunun patladığını yazıyor.
+                    */}
+                    {grup.hataKodu && (
+                      <span className="ml-2 font-mono text-xs text-metin-yumusak">
+                        {grup.hataKodu}
+                      </span>
+                    )}
+                    {/*
+                      İSTEMCİ ETİKETİ (21 Ağustos 2026): aynı cümleyle patlayan
+                      tarayıcı ve sunucu hataları ayrı gruplar (bkz.
+                      hata-kurallar.ts · hataOzetKimligi) ama satıra bakan kişi
+                      hangisi olduğunu ancak yığın izini açınca anlardı. Sunucu
+                      kaydı etiketsiz: günlüğün olağan hâli o.
+                    */}
+                    {grup.kaynak === "istemci" && (
+                      <span className="ml-2 rounded-full bg-uyari-zemin px-2 py-0.5 text-xs font-semibold text-uyari-metin">
+                        Tarayıcı
+                      </span>
+                    )}
                     {grup.baslik && (
                       <span className="block text-xs break-words text-metin-yumusak">
                         {grup.baslik}
@@ -525,14 +581,23 @@ function AyrintiListesi({
               className="rounded-kutu border border-cizgi p-4"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-sm font-semibold text-metin">{kayit.ad}</p>
+                <p className="text-sm font-semibold text-metin">
+                  {kayit.ad}
+                  {kayit.kaynak === "istemci" && (
+                    <span className="ml-2 rounded-full bg-uyari-zemin px-2 py-0.5 text-xs font-semibold text-uyari-metin">
+                      Tarayıcı
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-metin-yumusak">
                   {tarihSaatYaz(new Date(kayit.zaman))}
                 </p>
               </div>
 
               <p className="mt-1 font-mono text-xs text-metin-yumusak">
-                {kayit.kimlik} · {kayit.yontem ?? "—"} {kayit.yol ?? "—"}
+                {kayit.kimlik} · {kayit.yontem ?? (kayit.kaynak === "istemci" ? "TARAYICI" : "—")}{" "}
+                {kayit.yol ?? "—"}
+                {kayit.kod && <> · kod {kayit.kod}</>}
               </p>
 
               {/*

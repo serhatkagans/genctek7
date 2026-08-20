@@ -1,0 +1,142 @@
+import { hataKaydet, hataKaydiHazirla } from "@/lib/hata-kaydi";
+import { sorgusuzYol } from "@/lib/hata-kurallar";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+/**
+ * İSTEMCİ HATA UCU (21 Ağustos 2026 · istek: "arada hata veriyor ancak hata
+ * kayıtlarına nedeni işlenmiyor").
+ *
+ * ---------------------------------------------------------------------------
+ * NİYE VAR
+ * ---------------------------------------------------------------------------
+ * Sunucu hataları `instrumentation.ts` üzerinden günlüğe düşüyor. Tarayıcıda
+ * patlayan bir bileşen ise hiçbir yere yazılmıyordu: kullanıcı "Beklenmeyen
+ * bir hata oluştu" ekranını görüyor, o ekranda "Hata kimliği" satırı bile
+ * çıkmıyor (digest YALNIZCA sunucu hatalarında üretilir) ve yönetici hata
+ * kayıtlarına baktığında karşılığı olmayan bir şikâyetle kalıyordu.
+ *
+ * Bu uç, `app/error.tsx`'in (ve `global-error.tsx`'in) gördüğü hatayı aynı
+ * JSONL günlüğüne `kaynak: "istemci"` işaretiyle yazar. Ayrı bir depo
+ * kurulmadı: yöneticinin bakacağı yer tek olmalı.
+ *
+ * ---------------------------------------------------------------------------
+ * OTURUM ARANMAZ
+ * ---------------------------------------------------------------------------
+ * Hata çoğu zaman giriş ekranında ya da oturumu düşmüş bir sayfada oluşuyor;
+ * oturum şartı, tam da en çok ihtiyaç duyulan kayıtları eler. Bunun bedeli,
+ * ucun herkese açık bir YAZMA noktası olması — üç sınırla karşılanıyor:
+ *
+ *   1. Gövde okunmadan önce boyutu bakılır ve her alan kırpılır: günlük
+ *      dosyasına sınırsız metin yazdırılamaz.
+ *   2. Süreç başına dakikada `DAKIKA_SINIRI` kayıt: döngüye giren bir sayfa
+ *      (her render'da hata fırlatan bir bileşen) diski dolduramaz.
+ *   3. Yazılan şey ne olursa olsun bir GÜNLÜK SATIRI; veritabanına
+ *      dokunulmaz, hiçbir iş kuralı çalışmaz.
+ *
+ * Yanıt her durumda 204: istemciye ne kaydedildiğini söylemek, ucu deneme
+ * yanılmayla yoklamayı kolaylaştırmaktan başka işe yaramaz. Zaten hata ekranı
+ * yanıtı hiç okumuyor.
+ *
+ * ---------------------------------------------------------------------------
+ * NE YAZILMAZ
+ * ---------------------------------------------------------------------------
+ * Sunucu tarafındaki sözün aynısı geçerli (bkz. lib/hata-kaydi.ts): adres
+ * `sorgusuzYol`dan geçer — panelin on üç ekranı arama metnini `?ara=` ile
+ * taşıyor ve oraya bir öğrenci adı yazılmış olabilir. Kullanıcı kimliği,
+ * çerez, form içeriği hiç istenmiyor.
+ */
+
+/** Tek kaydın alanlarına konan üst sınırlar (karakter). */
+const MESAJ_SINIRI = 2000;
+const IZ_SINIRI = 8000;
+const AD_SINIRI = 200;
+const KIMLIK_SINIRI = 100;
+
+/** Gövdenin okunmadan önce reddedildiği boyut. */
+const GOVDE_SINIRI = 32 * 1024;
+
+/** Süreç başına dakikada yazılacak en fazla istemci kaydı. */
+const DAKIKA_SINIRI = 60;
+
+let pencereBaslangici = 0;
+let penceredekiKayit = 0;
+
+/**
+ * Kaydın yazılmasına izin var mı?
+ *
+ * Sabit pencere yeterli: amaç adil paylaşım değil, dosyanın kontrolsüz
+ * büyümesini durdurmak. Aynı hata dakikada altmış kez zaten görülmüştür.
+ */
+function siniraTakildiMi(): boolean {
+  const simdi = Date.now();
+  if (simdi - pencereBaslangici > 60_000) {
+    pencereBaslangici = simdi;
+    penceredekiKayit = 0;
+  }
+  penceredekiKayit += 1;
+  return penceredekiKayit > DAKIKA_SINIRI;
+}
+
+function metin(deger: unknown, sinir: number): string | null {
+  if (typeof deger !== "string") return null;
+  const kirpilmis = deger.trim();
+  if (!kirpilmis) return null;
+  return kirpilmis.length > sinir ? kirpilmis.slice(0, sinir) : kirpilmis;
+}
+
+export async function POST(istek: Request) {
+  const bildirilenBoyut = Number.parseInt(
+    istek.headers.get("content-length") ?? "",
+    10,
+  );
+  if (Number.isFinite(bildirilenBoyut) && bildirilenBoyut > GOVDE_SINIRI) {
+    return new Response(null, { status: 413 });
+  }
+
+  let ham: unknown;
+  try {
+    const govde = await istek.text();
+    if (govde.length > GOVDE_SINIRI) return new Response(null, { status: 413 });
+    ham = JSON.parse(govde);
+  } catch {
+    // Bozuk gövde sessizce düşer: bu uca yazan tek şey hata ekranı ve orada
+    // bir aksaklık varsa kullanıcıya ikinci bir hata göstermenin anlamı yok.
+    return new Response(null, { status: 204 });
+  }
+
+  if (typeof ham !== "object" || ham === null) {
+    return new Response(null, { status: 204 });
+  }
+  const nesne = ham as Record<string, unknown>;
+
+  const mesaj = metin(nesne.mesaj, MESAJ_SINIRI);
+  if (!mesaj) return new Response(null, { status: 204 });
+
+  if (siniraTakildiMi()) return new Response(null, { status: 204 });
+
+  /*
+   * Kayıt, sunucu tarafıyla AYNI işlevden geçiriliyor: `hataKaydiHazirla`
+   * kimliği, zamanı ve yolun kırpılmasını tek yerde çözüyor. Buraya ikinci bir
+   * kayıt kurucu yazılsaydı, ilerideki bir alan eklemesi bir tarafta unutulurdu.
+   */
+  const hata = new Error(mesaj) as Error & { digest?: string };
+  hata.name = metin(nesne.ad, AD_SINIRI) ?? "İstemciHatası";
+  hata.stack = metin(nesne.yiginIzi, IZ_SINIRI) ?? undefined;
+  const kimlik = metin(nesne.kimlik, KIMLIK_SINIRI);
+  if (kimlik) hata.digest = kimlik;
+
+  await hataKaydet(
+    hataKaydiHazirla(hata, {
+      // Yol, hatanın oluştuğu SAYFA; isteğin kendi adresi (`/api/hata-bildir`)
+      // hiçbir şey anlatmazdı.
+      path: sorgusuzYol(metin(nesne.yol, 500)) ?? undefined,
+      // `yontem` boş bırakılıyor: alan HTTP yöntemini taşıyor ve tarayıcıda
+      // patlayan bir render'ın yöntemi yok. Tarafı `kaynak` söylüyor.
+      kaynak: "istemci",
+    }),
+  );
+
+  return new Response(null, { status: 204 });
+}

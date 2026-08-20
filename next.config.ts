@@ -79,6 +79,15 @@ const temelYol = process.env.TEMEL_YOL ?? "";
 const nextConfig: NextConfig = {
   output: "standalone",
   ...(temelYol ? { basePath: temelYol } : {}),
+  /*
+   * Kökü İSTEMCİ PAKETİNE de gömüyoruz (21 Ağustos 2026 · istemci hata
+   * bildirimi). `basePath` yalnızca Next'in kendi yönlendirmelerine ve
+   * varlıklarına uygulanıyor; elle yazılan bir `fetch("/api/...")` çağrısı
+   * önekten geçmez ve alt dizine kurulu sunucuda (aiotechs.cloud/genctek)
+   * 404 alırdı. Değer derleme sırasında sabitlenir ve tek kaynağı yine
+   * TEMEL_YOL'dur — kurana ikinci bir değişken çıkarılmıyor.
+   */
+  env: { NEXT_PUBLIC_TEMEL_YOL: temelYol },
   poweredByHeader: false,
   serverExternalPackages: ["@prisma/adapter-pg", "pg"],
   experimental: {

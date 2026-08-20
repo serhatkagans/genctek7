@@ -35,6 +35,9 @@ function yaz(kayit: HataKaydi): void {
   console.log(`Kimlik : ${kayit.kimlik}`);
   console.log(`Zaman  : ${kayit.zaman}`);
   console.log(`İstek  : ${kayit.yontem ?? "—"} ${kayit.yol ?? "—"}`);
+  // Kaynak yalnızca istemci kayıtlarında basılıyor: sunucu hatası günlüğün
+  // olağan hâli, her satıra "sunucu" yazmak çıktıyı gürültüye boğardı.
+  if (kayit.kaynak === "istemci") console.log("Kaynak : tarayıcı (istemci)");
   console.log(`Hata   : ${kayit.ad}: ${kayit.mesaj}`);
   if (kayit.yiginIzi) console.log(kayit.yiginIzi);
 }

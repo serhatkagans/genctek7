@@ -2,7 +2,11 @@
 
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+  hataKimligiUret,
+  istemciHatasiBildir,
+} from "@/lib/istemci-hata-bildir";
 
 /**
  * Beklenmeyen hata ekranı.
@@ -10,6 +14,17 @@ import { useEffect } from "react";
  * Kullanıcıya teknik ayrıntı GÖSTERİLMEZ: yığın izi ve sorgu metni kişisel veri
  * sızdırabilir. Ayrıntı sunucu günlüğüne yazılır, kullanıcı yalnızca hatanın
  * kimliğini görür ve destek istediğinde onu iletir.
+ *
+ * EKRAN ARTIK SESSİZ DEĞİL (21 Ağustos 2026 · istek: "arada hata veriyor ancak
+ * hata kayıtlarına nedeni işlenmiyor"). Burada yalnızca `console.error`
+ * çağrılıyordu: sunucuda oluşan hatalar `instrumentation.ts` üzerinden günlüğe
+ * düşüyor ama TARAYICIDA patlayan bir bileşenin hiçbir izi kalmıyordu — üstelik
+ * o durumda `digest` de üretilmediği için kullanıcı ekranda numara bile
+ * göremiyor, yöneticinin arayacağı bir ip ucu hiç doğmuyordu.
+ *
+ * Hata artık sunucuya bildiriliyor (lib/istemci-hata-bildir.ts) ve kimliği
+ * olmayana yerel bir kimlik üretiliyor; ikisi de aynı günlüğe düşüyor, ekranda
+ * gösterilen numara hata kayıtlarında aranabiliyor.
  */
 export default function HataEkrani({
   error,
@@ -18,9 +33,18 @@ export default function HataEkrani({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  /*
+   * Kimlik İLK RENDER'DA bir kez üretiliyor (`useState` tembel başlangıcı):
+   * yerel kimlik rastgele ve doğrudan render gövdesinde hesaplansaydı her
+   * yeniden çizimde değişir, kullanıcı ekrandan okuduğu numarayı yazarken sayı
+   * gözünün önünde başkalaşırdı. Bildirim ise yan etki olduğu için efektte.
+   */
+  const [kimlik] = useState(() => hataKimligiUret(error));
+
   useEffect(() => {
     console.error("İşlenmeyen hata:", error);
-  }, [error]);
+    istemciHatasiBildir(error, kimlik);
+  }, [error, kimlik]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
@@ -36,9 +60,15 @@ export default function HataEkrani({
           İşleminiz tamamlanamadı. Sayfayı yenilemeyi deneyebilir, sorun
           sürerse okul idareniz aracılığıyla destek isteyebilirsiniz.
         </p>
-        {error.digest && (
+        {/*
+          Kimlik, `digest` YOKKEN de basılıyor: istemci hatasında Next digest
+          üretmiyor ve numarasız bir hata ekranı, kullanıcıya "destek isteyin"
+          derken elini boş bırakıyordu. Yerel kimlik `i-` önekiyle geliyor;
+          günlükte de aynı değer duruyor (bkz. lib/istemci-hata-bildir.ts).
+        */}
+        {kimlik && (
           <p className="mt-3 text-sm">
-            Hata kimliği: <code className="font-mono">{error.digest}</code>
+            Hata kimliği: <code className="font-mono">{kimlik}</code>
           </p>
         )}
       </div>

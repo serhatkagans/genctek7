@@ -7,6 +7,7 @@ import {
   hataGrupToplayici,
   hataOzetKimligi,
   hataSatiriCoz,
+  istemciKopmasiMi,
   ilkAnlamliSatir,
   kisaMesaj,
   KIMLIKSIZ,
@@ -37,6 +38,8 @@ function kayit(ozel: Partial<HataKaydi> = {}): HataKaydi {
     ad: "PrismaClientValidationError",
     mesaj: "Invalid `prisma.basvuru.findMany()` invocation",
     yiginIzi: "at Object.<anonymous>",
+    kaynak: "sunucu",
+    kod: null,
     ...ozel,
   };
 }
@@ -104,7 +107,67 @@ describe("satır çözümleme", () => {
       ad: "TypeError",
       mesaj: "",
       yiginIzi: null,
+      // Alanı olmayan satırlar sunucu kaydı sayılır: istemci bildirimi
+      // eklenmeden önce (21 Ağustos 2026) başka bir yazan yoktu.
+      kaynak: "sunucu",
+      kod: null,
     });
+  });
+
+  it("kaynak alanı yalnızca 'istemci' değerini tanır", () => {
+    const istemci = hataSatiriCoz(JSON.stringify(kayit({ kaynak: "istemci" })));
+    expect(istemci?.kaynak).toBe("istemci");
+
+    const bozuk = hataSatiriCoz(
+      JSON.stringify({ ...kayit(), kaynak: "bilinmeyen" }),
+    );
+    expect(bozuk?.kaynak).toBe("sunucu");
+  });
+});
+
+describe("istemci kopması", () => {
+  /*
+   * Bu mesaj uygulamanın kodundan değil React'in akış motorundan geliyor ve
+   * tek anlamı "sayfa akarken bağlantı kapandı". Gerçek günlükte /panel ve
+   * /panel/talepler/mentor-basvuru satırlarında görüldü (21 Ağustos 2026).
+   */
+  it("akış erken kapandı mesajını tanır", () => {
+    expect(
+      istemciKopmasiMi({
+        name: "Error",
+        message: "The destination stream closed early.",
+      }),
+    ).toBe(true);
+  });
+
+  it("Next'in iptal işaretlerini tanır", () => {
+    expect(istemciKopmasiMi({ name: "AbortError", message: "" })).toBe(true);
+    expect(istemciKopmasiMi({ name: "ResponseAborted", message: "" })).toBe(
+      true,
+    );
+  });
+
+  it("soket hatalarını tanır", () => {
+    expect(
+      istemciKopmasiMi({ name: "Error", message: "write EPIPE" }),
+    ).toBe(true);
+    expect(
+      istemciKopmasiMi({ name: "Error", message: "read ECONNRESET" }),
+    ).toBe(true);
+  });
+
+  /*
+   * SÜZGEÇ DAR: gerçek bir arızayı sessizce yutmak, gürültüden çok daha pahalı
+   * olurdu — kayıt tutulmayan hata hiç olmamış gibi görünür.
+   */
+  it("gerçek hataları elemez", () => {
+    expect(
+      istemciKopmasiMi({
+        name: "TypeError",
+        message: "Cannot read properties of undefined",
+      }),
+    ).toBe(false);
+    expect(istemciKopmasiMi({})).toBe(false);
   });
 });
 
@@ -122,6 +185,12 @@ describe("süzgeç", () => {
     expect(hataEslesiyorMu(kayit(), { ara: "prismaclient" })).toBe(true);
     expect(hataEslesiyorMu(kayit(), { ara: "/panel/profil" })).toBe(true);
     expect(hataEslesiyorMu(kayit(), { ara: "yazismalar" })).toBe(false);
+    // Kaynak da aranabilir: ekrana ayrı bir süzgeç eklemeden tarayıcı
+    // hatalarını ayıklamanın yolu bu.
+    expect(
+      hataEslesiyorMu(kayit({ kaynak: "istemci" }), { ara: "istemci" }),
+    ).toBe(true);
+    expect(hataEslesiyorMu(kayit(), { ara: "istemci" })).toBe(false);
   });
 
   /*
@@ -194,10 +263,37 @@ describe("özet kimliği", () => {
     expect(hataGrupKodu(kayit())).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it("özet kimliği hata adını ve ilk satırı taşır", () => {
+  /*
+   * Prisma'nın mesajı hangi sorgunun patladığını yazıyor, NEDENİNİ `code`
+   * taşıyor: kod anahtara girmeseydi "veritabanına ulaşılamıyor" (P1001) ile
+   * "havuz doldu" (P2024) tek satırda toplanırdı.
+   */
+  it("kodu farklı olan aynı hata ayrı gruplanır", () => {
+    const ulasilamiyor = kayit({ kod: "P1001" });
+    const havuzDoldu = kayit({ kod: "P2024" });
+    expect(hataGrupKodu(ulasilamiyor)).not.toBe(hataGrupKodu(havuzDoldu));
+    expect(hataOzetKimligi(ulasilamiyor)).toContain("(P1001)");
+  });
+
+  it("özet kimliği kaynağı, hata adını ve ilk satırı taşır", () => {
     expect(hataOzetKimligi(kayit({ ad: "TypeError", mesaj: "bir\niki" }))).toBe(
-      "TypeError | bir",
+      "sunucu | TypeError | bir",
     );
+  });
+
+  /*
+   * Tarayıcıda ve sunucuda aynı cümleyle patlayan iki ayrı arıza var; tek
+   * satırda toplansalardı grubun yığın izleri iki farklı dünyadan gelir ve
+   * satır hangi tarafın bozulduğunu söylemekten çıkardı.
+   */
+  it("aynı hata farklı kaynaklardan geldiğinde ayrı gruplanır", () => {
+    const sunucu = kayit({ ad: "TypeError", mesaj: "x is not a function" });
+    const istemci = kayit({
+      ad: "TypeError",
+      mesaj: "x is not a function",
+      kaynak: "istemci",
+    });
+    expect(hataGrupKodu(sunucu)).not.toBe(hataGrupKodu(istemci));
   });
 });
 

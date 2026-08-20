@@ -51,7 +51,6 @@ import {
   SaltOkunurAlan,
 } from "@/components/OgrenciProfilBolumleri";
 import { OnayBelgeleriBolumu } from "@/components/OnayBelgeleriBolumu";
-import { MesajSeridi } from "@/components/MesajSeridi";
 import {
   CvDuzenleme,
   DanismanlikDuzenleme,
@@ -954,6 +953,27 @@ export default async function PanelSayfasi({
             >
               Panoya git
             </Link>
+            {/*
+              OKUNMAMIŞ MESAJ DÜĞMESİ (21 Ağustos 2026 · istek: "okunmamış
+              mesajlar kayıyor onu üste al · Etkinlikler, Panoya git bunların
+              yanına bir buton ve şu kadar okunmamış mesajın var diye buton
+              olsun").
+
+              Aynı bilgiyi taşıyan sarı akan şerit KALKTI: akan metnin
+              üzerine tıklamak zordu ve sayı, akışın solunda parantez içinde
+              kalıyordu. Düğme sabit duruyor, sayıyı doğrudan söylüyor ve
+              sayfanın altındaki Bildirimler bölümüne iniyor — mesajların
+              metni orada, ayrı bir ekran açmaya gerek yok.
+
+              Sayı sıfırken hiç basılmıyor: "0 okunmamış mesajın var" diyen
+              bir düğme, tıklanacak bir şey olmadığı hâlde göze çarpar.
+            */}
+            {okunmamisMesajSayisi > 0 && (
+              <Link href="#bildirimler" className={SINIF_VITRIN_IKINCIL_BUTON}>
+                <Mail size={16} aria-hidden />
+                {okunmamisMesajSayisi} okunmamış mesajın var
+              </Link>
+            )}
           </>
         }
         /*
@@ -1104,13 +1124,6 @@ export default async function PanelSayfasi({
         </BilgiKutusu>
       )}
       {seciimHatasi && <BilgiKutusu cesit="hata">{seciimHatasi}</BilgiKutusu>}
-
-      {/*
-        Sarı şerit artık BAŞVURU değil MESAJ duyuruyor (6 Ağustos 2026).
-        Başvuru bilgisi aşağıdaki "Başvurusu açık etkinlik" sayacında ve
-        kartında duruyor; `seritKayitlari` o sayacı beslemeye devam ediyor.
-      */}
-      <MesajSeridi mesajlar={bildirimler} toplam={okunmamisMesajSayisi} />
 
       {/*
         Dış kullanıcının panelinde ölçüm kartlarının çoğu boş kalır (başvurusu,
@@ -2574,7 +2587,11 @@ export default async function PanelSayfasi({
         bölümü basılmıyor.
       */}
 
-      <section>
+      {/*
+        `id`: vitrindeki "… okunmamış mesajın var" düğmesi buraya iniyor.
+        `scroll-mt-6`, başlığın ekranın en tepesine yapışmasını önler.
+      */}
+      <section id="bildirimler" className="scroll-mt-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
             <BellRing size={18} className="text-vurgu-metin" aria-hidden />
@@ -2631,9 +2648,9 @@ export default async function PanelSayfasi({
 
               return (
               /*
-                `id`: üstteki "Mesajın var" şeridi doğrudan bu satıra iner.
-                `scroll-mt-6`, çıpaya inildiğinde satırın ekranın en tepesine
-                yapışmasını önler.
+                `id`: bildirim bağlantıları (e-posta, arşiv) doğrudan bu satıra
+                iner. `scroll-mt-6`, çıpaya inildiğinde satırın ekranın en
+                tepesine yapışmasını önler.
               */
               <li
                 key={bildirim.id}
