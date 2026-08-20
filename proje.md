@@ -196,7 +196,7 @@ Ayrıca `prisma.seed` alanı `tsx prisma/seed.ts` olarak tanımlıdır.
 
 ### 3.4 `scripts/` Envanteri (14 Betik)
 
-`duman-testi.ts` (uçtan uca duman testi), `gecelik-senkron.ts` (EBA kurum kodu değişimi → devir), `veri-saklama.ts` (KVKK 24 ay saklama temizliği), `hata-ara.ts` (hata kimliğinden kayıt bulma), `eposta-dogrula.ts`, `ornek-veri.ts`, `ornek-kazanim.ts`, `ornek-dis-kullanici.ts`, `disa-aktarma-dogrula.mjs`, `senaryo-goruntuleri.mjs`, `hata-sayfasi-goruntu.mjs`, `skill-paketle.mjs`, `sartname-uret.mjs` (kurulum ekleri), `_gecici-belge.ts`, `_yazdirma-dogrula.ts`.
+`duman-testi.ts` (uçtan uca duman testi), `gecelik-senkron.ts` (EBA kurum kodu değişimi → devir), `veri-saklama.ts` (KVKK 24 ay saklama temizliği), `hata-ara.ts` (hata kimliğinden kayıt bulma), `eposta-dogrula.ts`, `ornek-veri.ts`, `ornek-kazanim.ts`, `ornek-dis-kullanici.ts`, `disa-aktarma-dogrula.mjs`, `senaryo-goruntuleri.mjs`, `hata-sayfasi-goruntu.mjs`, `skill-paketle.mjs`, `sartname-uret.mjs` (kurulum ekleri).
 
 > Betik sayısı 14'ten **15**'e çıktı (`sartname-uret.mjs` eklendi); §17.2 sayım tablosu buna göre okunmalıdır.
 
