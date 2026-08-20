@@ -1,9 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
-import type { EtkinlikKategorisi, Kapsam } from "@/generated/prisma/enums";
-import {
-  ETKINLIK_KATEGORILERI,
-  KAPSAMLAR,
-} from "@/lib/faaliyet/kurallar";
+import type { Kapsam } from "@/generated/prisma/enums";
+import { KAPSAMLAR } from "@/lib/faaliyet/kurallar";
 import { faaliyetKapsamFiltresi } from "@/lib/yetki/kapsam";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import {
@@ -22,7 +19,12 @@ import {
 
 export interface FaaliyetFiltreleri {
   kapsam: Kapsam | null;
-  kategori: EtkinlikKategorisi | null;
+  /*
+   * KATEGORİ SÜZGECİ KALKTI (20 Ağustos 2026 · istek: "filtre kısmından da
+   * etkinlik kategorisi kalksın"). Kolon duruyor ve rozet olarak basılıyor;
+   * yalnızca daraltma seçeneği kaldırıldı — dışa aktarma da bu tipten
+   * beslendiği için CSV'nin kümesi ekrandakiyle aynı kaldı.
+   */
   calismaGrubuId: number | null;
   yalnizcaAcik: boolean;
   yalnizcaBenim: boolean;
@@ -107,16 +109,12 @@ export function faaliyetFiltreleriniCoz(
   parametreler: SorguParametreleri,
 ): FaaliyetFiltreleri {
   const kapsam = tekil(parametreler.kapsam);
-  const kategori = tekil(parametreler.kategori);
   const grup = Number.parseInt(tekil(parametreler.grup) ?? "", 10);
 
   return {
     // Tanınmayan değer sessizce düşer; filtre yalnızca daralttığı için
     // geçersiz bir değeri reddetmek yerine yok saymak yeterli.
     kapsam: KAPSAMLAR.includes(kapsam as Kapsam) ? (kapsam as Kapsam) : null,
-    kategori: ETKINLIK_KATEGORILERI.includes(kategori as EtkinlikKategorisi)
-      ? (kategori as EtkinlikKategorisi)
-      : null,
     calismaGrubuId: Number.isFinite(grup) ? grup : null,
     yalnizcaAcik: tekil(parametreler.acik) === "1",
     yalnizcaBenim: tekil(parametreler.benim) === "1",
@@ -132,8 +130,7 @@ export function faaliyetFiltreleriniCoz(
 export function faaliyetFiltresiVarMi(filtreler: FaaliyetFiltreleri): boolean {
   /*
    * `zaman` SEKMEDİR, filtre değil: "Filtreleri temizle" bağlantısını
-   * tetiklememeli ve varsayılan "hepsi" zaten daraltma yapmıyor. Görünüm
-   * tercihiyle (ızgara/liste) aynı gerekçe.
+   * tetiklememeli ve varsayılan "hepsi" zaten daraltma yapmıyor.
    */
   const { zaman, ...suzgecler } = filtreler;
   void zaman;
@@ -158,10 +155,6 @@ export function faaliyetListeFiltresi(
   if (Object.keys(zaman).length > 0) kosullar.push(zaman);
 
   if (filtreler.kapsam) kosullar.push({ kapsam: filtreler.kapsam });
-  // Kapsam ve kategori bağımsız filtrelerdir; birlikte de kullanılabilirler.
-  if (filtreler.kategori) {
-    kosullar.push({ etkinlikKategorisi: filtreler.kategori });
-  }
   if (filtreler.calismaGrubuId !== null) {
     kosullar.push({
       calismaGruplari: { some: { calismaGrubuId: filtreler.calismaGrubuId } },

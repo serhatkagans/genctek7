@@ -71,11 +71,9 @@ export default async function PanelDuzeni({
    *   · "Algoritmam" — Panel'in içinde bölüm oldu ("Özdeğerlendirme
    *     Envanterleri"). Sayfa duruyor, envanter çözme oradan yürüyor.
    *
-   * Yeniden adlandırılanlar: "Panelim" → "Panel", "Profilim" → "Profil",
-   * "Ürünlerim" → "Market" (istek listesindeki başlıklar).
-   *
-   * SIRA İSTEKTEKİ SIRA: Profil önce geliyor. Panel açılış ekranı olmaya
-   * devam ediyor — sıradaki yeri, hangi sayfanın açıldığını değiştirmiyor.
+   * Yeniden adlandırılanlar: "Panelim" → "Panel", "Ürünlerim" → "Market"
+   * (istek listesindeki başlıklar). "Profil" 20 Ağustos'ta Panel'in içine
+   * girdi ve sekmesi kalktı.
    *
    * YÖNETİM SEKMELERİ KALDI: altı sekme herkeste ortak, koordinatör ve merkez
    * bunlara ek olarak kendi ekranlarını görmeye devam ediyor. Onları da
@@ -89,8 +87,17 @@ export default async function PanelDuzeni({
    * kendisi), Çalışma (işin yapıldığı ekranlar), İletişim (başkasıyla temas),
    * Ekosistem (vitrin).
    */
+  /*
+   * "PROFİL" SEKMESİ KALKTI (20 Ağustos 2026 · istek: "panel ile profil
+   * birleşecek tek panel kalacak, düzenleme ve görüntüleme panelden olacak").
+   *
+   * İki sekme aynı bilgiyi iki yüzeye bölüyordu: Profil gösteriyor, Panel
+   * düzenliyordu. Menüde ikisinin yan yana durması, kullanıcıya her kayıt için
+   * "bu hangisinde?" sorusunu sordurdu. Profil ekranının TAMAMI Panel'in
+   * içinde ve `/panel/profil` adresi oraya yönleniyor
+   * (bkz. app/panel/profil/page.tsx).
+   */
   const baglantilar: GezinmeBaglantisi[] = [
-    { yol: "/panel/profil", etiket: "Profil", grup: "Genel", ikon: "UserRound" },
     { yol: "/panel", etiket: "Panel", grup: "Genel", ikon: "LayoutGrid" },
   ];
 
@@ -432,8 +439,8 @@ export default async function PanelDuzeni({
 
   /*
    * KVKK/belge sekmesi MENÜDE YOK (5 Ağustos 2026). Belgeler artık profilin en
-   * altında (`/panel/profil#kvkk`): metin üye olurken okutuluyor, sonrasında
-   * lazım olduğunda profilden açılıyor. Menüden kaldırmak erişimi kapatmak
+   * altında (`/panel#kvkk`): metin üye olurken okutuluyor, sonrasında lazım
+   * olduğunda panelden açılıyor. Menüden kaldırmak erişimi kapatmak
    * DEĞİLDİR — onayladığı belgeye erişemeyen kullanıcı KVKK açısından
    * savunulamaz; bu yüzden bölüm kaldırılmadı, taşındı.
    */
@@ -563,10 +570,10 @@ function PanelCercevesi({
             {/*
               Şerit, metin güncellendiğinde yeniden onayın alındığı TEK yoldur:
               sekme kalktığı için kullanıcının belgeye kendiliğinden uğrayacağı
-              bir yer yok. Çapa profilin en altındaki bölüme gider.
+              bir yer yok. Çapa Panel'in en altındaki bölüme gider.
             */}
             <Link
-              href="/panel/profil#kvkk"
+              href="/panel#kvkk"
               className="font-semibold underline underline-offset-2"
             >
               Belgeleri aç

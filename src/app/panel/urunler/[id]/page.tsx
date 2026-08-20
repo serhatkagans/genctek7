@@ -119,6 +119,12 @@ export default async function UrunDetaySayfasi({
             ? `${urun.gelistirenEkip} · ${urun.kullanici.ad} ${urun.kullanici.soyad}`
             : `${urun.kullanici.ad} ${urun.kullanici.soyad}`
         }
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       {/*

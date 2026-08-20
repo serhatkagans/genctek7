@@ -924,20 +924,29 @@ görev, bu ise yalnızca bir katkı beyanıdır.
 > olması bilinçli: entegrasyon geldiğinde değişecek tek yer `AuthProvider`
 > uygulamasıdır, bu ekran değil.
 
-### Giriş sonrası herkes profile düşer
+### Giriş sonrası herkes panele düşer
 
 **7 Ağustos 2026'dan beri rol ayrımı yok.** Öğrenci, öğretmen, koordinatör,
-merkez personeli ve dış kullanıcılar girişten sonra `/panel/profil` ekranına
-gelir; önceden yalnızca öğrenci profile düşüyordu.
+merkez personeli ve dış kullanıcılar girişten sonra aynı ekrana gelir;
+önceden yalnızca öğrenci profile düşüyordu. **20 Ağustos 2026'da hedef
+`/panel` oldu:** profil ekranı panelle birleşti ve `/panel/profil` adresi
+oraya yönlendiriyor.
 
 Kural dört yerde birden uygulanır ve dördü aynı olmak zorundadır (`giris`,
 `dis-giris`, `onay` ve açılış ekranı) — yoksa aynı kişi hangi kapıdan geldiğine
 göre farklı ekran görür. **Danışman seçimi hâlâ önceliklidir:** danışmansız
 öğrenci önce seçim ekranına düşer.
 
-### Profil gösterir, Panelim düzenler
+### Panel hem gösterir hem düzenler (20 Ağustos 2026)
 
-**7 Ağustos 2026'da profil salt okunur oldu.** `Panel → Profilim` artık hiçbir
+**Profil ekranı panelle birleşti.** İstek: *"panel ile profil birleşecek tek
+panel kalacak, düzenleme ve görüntüleme panelden olacak"*. Menüdeki `Profil`
+sekmesi kalktı, `/panel/profil` adresi `/panel`e yönleniyor ve kimlik
+bilgileri, katkı kartı, nişanlar, Rotam ile KVKK onayları paneldeki
+`#profilim` bölgesinde. Aşağıdaki bölüm, birleşmeden önceki iki yüzeyli
+düzenin kaydıdır — düzenleme yerleri (çapa adları) değişmedi.
+
+**7 Ağustos 2026'da profil salt okunur olmuştu.** `Panel → Profilim` artık hiçbir
 form taşımaz; bilgi girişi ve düzenlemenin tamamı **Panelim** (`/panel`)
 içindeki katlanabilir bölümlerdedir.
 
@@ -1199,8 +1208,9 @@ rolde** düzenlenebilir: öğrenci, danışman öğretmen, il koordinatörü ve 
 yöneticisi. Girilen değerler profilde salt okunur olarak görünür.
 İletişim bilgisi kimlik bilgisi değildir — e-Okul'dan gelmez, senkron üzerine
 yazmaz ve sahibinden başkası giremez. İzinli alan listesi role göre değişmez
-(`src/app/panel/profil/eylemler.ts`); rol farkı yalnızca bilginin hangi profil
-tablosuna yazıldığındadır (`ogrenci_profil` / `ogretmen_profil`).
+(`src/app/panel/profil/eylemler.ts` — dosya, ekran kapandıktan sonra da o
+dizinde duruyor); rol farkı yalnızca bilginin hangi profil tablosuna
+yazıldığındadır (`ogrenci_profil` / `ogretmen_profil`).
 
 Bilgi işe yarar: öğrenci, Panelim'deki *Danışman öğretmenim* bölümünde
 danışmanının girdiği e-posta ve telefonu görür — profildeki kart 7 Ağustos
@@ -1427,8 +1437,13 @@ Farklı karar verirseniz bu tabloya bakarak tek noktadan değiştirebilirsiniz.
 Şu maddeler karara bağlandı; tabloda yer almıyorlar çünkü değiştirilebilir bir
 ayar değil, uygulanmış kural hâline geldiler:
 
-- **Öğrenci başına çalışma grubu üst sınırı yok.** `OGRENCI_CALISMA_GRUBU_UST_SINIRI`
-  ayarı kaldırıldı (migration mevcut kaydı da siliyor).
+- **Öğrenci başına çalışma grubu üst sınırı 5** (20 Ağustos 2026 · istek).
+  `OGRENCI_CALISMA_GRUBU_UST_SINIRI` **ayarı geri gelmedi**: sınır kod sabiti
+  (`lib/ogrenci/calisma-grubu.ts` · `CALISMA_GRUBU_UST_SINIRI`), çünkü ekranda
+  yazan "en fazla 5" cümlesiyle sunucunun reddi aynı kaynaktan gelmeli.
+- **Danışman DEĞİŞİKLİĞİ onaya tabidir** (20 Ağustos 2026). İlk seçim doğrudan
+  atanır; danışmanı olan öğrencinin seçimi `danisman_talebi` tablosunda talep
+  olarak durur ve istenen öğretmen ya da il koordinatörü karara bağlar.
 - **Danışman öğretmen il koordinatörü yapılabilir.** Atama engellenmez; danışmanlığı
   kapanır, öğrencileri devir kurallarına göre dağıtılır ve proje yöneticisine
   "X öğrenci yeniden dağıtıldı" uyarısı gösterilir (`src/lib/rol/koordinator.ts`).

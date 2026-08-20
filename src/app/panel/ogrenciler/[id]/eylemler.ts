@@ -114,8 +114,8 @@ export async function ogrenciyeGrupEkleEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(ogrenciYolu(ogrenci.id));
   revalidatePath("/panel/ogrenciler");
-  // Öğrenci kendi profilinde ve seçim ekranında değişikliği görsün.
-  revalidatePath("/panel/profil");
+  // Öğrenci kendi panelinde ve seçim ekranında değişikliği görsün.
+  revalidatePath("/panel");
   revalidatePath("/panel/calisma-gruplari");
   redirect(`${ogrenciYolu(ogrenci.id)}?durum=grup-eklendi`);
 }
@@ -155,7 +155,7 @@ export async function ogrenciyiGruptanCikarEylemi(
 
   revalidatePath(ogrenciYolu(ogrenci.id));
   revalidatePath("/panel/ogrenciler");
-  revalidatePath("/panel/profil");
+  revalidatePath("/panel");
   revalidatePath("/panel/calisma-gruplari");
   redirect(`${ogrenciYolu(ogrenci.id)}?durum=grup-cikarildi`);
 }

@@ -2,9 +2,11 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { OnayBelgesi } from "@/generated/prisma/enums";
 import { prisma } from "../db";
 import { belgeGuncellemeTarihleri } from "../kvkk/onay";
+import { bekleyenTalepSayisi } from "../danisman/talep";
 import {
   danismanMi,
   ilKoordinatoruMu,
+  koordinatorIlKodu,
   projeYoneticisiMi,
 } from "../yetki/izinler";
 import {
@@ -187,6 +189,15 @@ export interface MerkezBoslugu {
    * onaylamamış ya da onayı eskimiş koordinatörler.
    */
   belgesiEksikKoordinator: number;
+  /**
+   * Karara bağlanmamış danışman DEĞİŞİKLİĞİ talepleri (20 Ağustos 2026).
+   *
+   * Bekleyen talep, öğrencinin ekranında "onay bekliyor" satırı olarak duran
+   * ve karşılığı bir başkasının tıklamasına bağlı olan tek iş; sayaç
+   * olmasaydı, cevap vermeyen öğretmenin farkına ancak öğrenci sorunca
+   * varılırdı.
+   */
+  bekleyenDanismanTalebi: number;
 }
 
 export async function merkezBosluklariniGetir(
@@ -232,6 +243,7 @@ export async function merkezBosluklariniGetir(
     bekleyenIlDisiBasvuru,
     bekleyenBaglantiIstegi,
     belgesiEksikKoordinator,
+    bekleyenDanismanTalebi,
   ] = await Promise.all([
     prisma.kullanici.count({
       where: {
@@ -253,6 +265,7 @@ export async function merkezBosluklariniGetir(
         OR: belgeEksigi,
       },
     }),
+    prisma.danismanTalebi.count({ where: { durum: "BEKLIYOR" } }),
   ]);
 
   return {
@@ -262,6 +275,7 @@ export async function merkezBosluklariniGetir(
     bekleyenIlDisiBasvuru,
     bekleyenBaglantiIstegi,
     belgesiEksikKoordinator,
+    bekleyenDanismanTalebi,
   };
 }
 
@@ -320,8 +334,19 @@ export async function bekleyenIsleriGetir(
 
   const bitmisKosulu = bitmisFaaliyetKosulu(new Date());
 
-  const [danismansizOgrenci, raporsuzFaaliyet, bekleyenBaglantiIstegi] =
-    await Promise.all([
+  /*
+   * Danışman talebi kuyruğu, danışman öğretmende de basılır: kendisinden
+   * istenen talepler onun işi. Koordinatörde ise ilindeki BÜTÜN bekleyenler
+   * sayılıyor — tıkanan talebi çözecek ikinci kişi o (bkz. lib/danisman/talep.ts).
+   */
+  const sorumluIl = koordinatorMu ? koordinatorIlKodu(kullanici) : null;
+
+  const [
+    danismansizOgrenci,
+    raporsuzFaaliyet,
+    bekleyenBaglantiIstegi,
+    bekleyenDanismanTalebi,
+  ] = await Promise.all([
       koordinatorMu
         ? prisma.kullanici.count({
             where: {
@@ -359,6 +384,7 @@ export async function bekleyenIsleriGetir(
           AND: [{ onayDurumu: "BEKLIYOR" }, baglantiKarariFiltresi(kullanici)],
         },
       }),
+      bekleyenTalepSayisi(kullanici.id, sorumluIl),
     ]);
 
   return {
@@ -368,5 +394,6 @@ export async function bekleyenIsleriGetir(
     bekleyenIlDisiBasvuru: null,
     bekleyenBaglantiIstegi,
     belgesiEksikKoordinator: null,
+    bekleyenDanismanTalebi,
   };
 }

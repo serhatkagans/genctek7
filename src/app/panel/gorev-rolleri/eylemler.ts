@@ -222,7 +222,7 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(YOL);
   revalidatePath("/panel/ogrenciler");
-  revalidatePath("/panel/profil");
+  revalidatePath("/panel");
   redirect(parametreEkle(donusYolu, "durum", "atandi"));
 }
 
@@ -307,6 +307,6 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(YOL);
   revalidatePath("/panel/ogrenciler");
-  revalidatePath("/panel/profil");
+  revalidatePath("/panel");
   redirect(parametreEkle(donusYolu, "durum", "kaldirildi"));
 }

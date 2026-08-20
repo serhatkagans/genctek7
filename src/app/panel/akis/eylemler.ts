@@ -231,6 +231,6 @@ export async function hakkindaKaydetEylemi(veri: FormData): Promise<void> {
   });
 
   revalidatePath(yol);
-  revalidatePath("/panel/profil");
+  revalidatePath("/panel");
   redirect(`${yol}?durum=hakkinda-kaydedildi`);
 }

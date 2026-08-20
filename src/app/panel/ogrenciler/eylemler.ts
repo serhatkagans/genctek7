@@ -61,7 +61,6 @@ export async function danismanlikIsaretiEylemi(veri: FormData): Promise<void> {
 
   // Rol değiştiği için DÜZEN de tazelenmeli: menü ve şerit role bakıyor.
   revalidatePath("/panel", "layout");
-  revalidatePath("/panel/profil");
   redirect(
     parametreEkle(
       donusYolu,
@@ -173,7 +172,7 @@ export async function ogrenciyiDanismanligaAlEylemi(
   });
 
   revalidatePath(YOL);
-  revalidatePath("/panel/profil");
+  revalidatePath("/panel");
   redirect(
     parametreEkle(
       donusYolu,

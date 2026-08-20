@@ -45,6 +45,12 @@ export default async function YeniTalepSayfasi({
       <SayfaBasligi
         baslik="Destek / duyuru talebi aç"
         aciklama="Takıldığınız bir konuda yardım isteyin, duyurunuzu paylaşın ya da ekip arkadaşı arayın."
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       <Link

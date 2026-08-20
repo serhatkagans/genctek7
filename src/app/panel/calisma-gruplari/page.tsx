@@ -41,9 +41,10 @@ export default async function CalismaGruplariSayfasi({
       <SayfaBasligi
         baslik="Çalışma gruplarım"
         /*
-          "İstediğiniz kadar seçebilirsiniz; sayı sınırı yoktur" NOTU
-          KALDIRILDI (7 Ağustos 2026 · istek). Panelim'deki aynı not da
-          kaldırıldı — iki yüzey aynı metni taşıyordu.
+          SAYI SINIRI FORMUN İÇİNDE YAZIYOR, burada değil (20 Ağustos 2026):
+          sınır seçim yaparken okunmalı ve form iki ekranda da aynı bileşenden
+          basılıyor. Buraya da yazılsaydı biri güncellenip öbürü geride
+          kalırdı.
         */
         aciklama="İlgi alanınıza göre grup seçebilirsiniz."
       />

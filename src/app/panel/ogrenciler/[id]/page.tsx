@@ -162,6 +162,12 @@ export default async function OgrenciProfilSayfasi({
         ]
           .filter(Boolean)
           .join(" · ")}
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}

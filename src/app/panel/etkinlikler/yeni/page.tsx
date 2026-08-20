@@ -1,4 +1,4 @@
-import { CalendarPlus, Handshake } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
 import Link from "next/link";
 import {
   BilgiKutusu,
@@ -13,9 +13,6 @@ import { AYAR_ANAHTARLARI, ayarSayi } from "@/lib/ayar";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
-  ETKINLIK_KATEGORILERI,
-  ETKINLIK_KATEGORISI_ACIKLAMALARI,
-  ETKINLIK_KATEGORISI_ETIKETLERI,
   KAPSAM_ETIKETLERI,
   kapsamSecenekleri,
   onayDurumuBelirle,
@@ -24,8 +21,6 @@ import {
   KATILIM_BICIMI_ETIKETLERI,
   KATILIM_BICIMLERI,
 } from "@/lib/kazanim/kurallar";
-import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
-import { paydasKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { girdiTarihi } from "@/lib/tarih";
 import {
   danismanKurumKodu,
@@ -62,7 +57,7 @@ export default async function YeniFaaliyetSayfasi({
       <Kart>
         <KartBasligi
           baslik="Yeni etkinlik"
-          aciklama="Etkinlik açma yetkiniz yok. Öğrenci her kapsamda etkinlik önerebilir, danışman öğretmen okul içi, il koordinatörü il ve ulusal etkinlik açabilir; mezun, paydaş temsilcisi ve mentör il ve ulusal etkinlik bildirebilir."
+          aciklama="Etkinlik açma yetkiniz yok. Öğretmen her kapsamda (okul dışı olanlar il koordinatörü onayıyla), il koordinatörü il ve ulusal etkinlik açabilir; mezun, paydaş temsilcisi ve mentör il ve ulusal etkinlik bildirebilir. Öğrenci etkinlik açmaz, mevcut etkinliklere başvurur."
         />
         <Link href="/panel/etkinlikler" className={SINIF_IKINCIL_BUTON}>
           Etkinliklere dön
@@ -121,25 +116,6 @@ export default async function YeniFaaliyetSayfasi({
     select: { id: true, ad: true, grup: true },
   });
 
-  /*
-   * İŞ BİRLİĞİ YAPILAN PAYDAŞLAR (J4 · 6 Ağustos 2026). İstek "Faaliyet Ekle
-   * kısmında iş birliği yapılan paydaşlar eklenecek" diyor; bağlama bugüne
-   * kadar yalnızca etkinlik DETAYINDA yapılabiliyordu, yani kişi etkinliği
-   * açıp bir de detaya girmek zorundaydı.
-   *
-   * ENVANTER BURADA AÇILMAZ, yalnızca SEÇİLİR: kurum kaydını etkinlik
-   * formundan açtırmak aynı kurumun onlarca kez farklı yazımla girilmesine yol
-   * açardı (S18). Yeni kurum kaydını il koordinatörü açıyor.
-   *
-   * Liste kapsam filtresinden geçer: kullanıcının göremediği kurum burada da
-   * çıkmaz.
-   */
-  const paydaslar = await prisma.paydas.findMany({
-    where: { AND: [paydasKapsamFiltresi(kullanici), { aktif: true }] },
-    orderBy: { ad: "asc" },
-    select: { id: true, ad: true, tur: true },
-  });
-
   // Sınır koda gömülü değil, sistem ayarından gelir; kullanıcıya da o yazılır.
   const gorselMaksBayt = await ayarSayi(
     AYAR_ANAHTARLARI.GORSEL_MAKS_BAYT,
@@ -166,12 +142,19 @@ export default async function YeniFaaliyetSayfasi({
       */}
       <SayfaBasligi
         baslik={ogrenci ? "Yeni etkinlik önerisi" : "Yeni etkinlik"}
+        /*
+          GÖREVLİNİN AÇIKLAMA SATIRI KALKTI (20 Ağustos 2026 · istek:
+          "Etkinliğin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize
+          gerek yoktur. Bu yazı kalksın"). Öğrenci ve dış kullanıcıdaki
+          satırlar, sordukları soruya (ili kim seçiyor?) cevap verdiği için
+          duruyor.
+        */
         aciklama={
           ogrenci
             ? "Etkinliğin yeri okul ve il bilginizden gelir; ayrıca seçmenize gerek yoktur."
             : disKullanici
               ? "Etkinliğin ili kayıtlı ilinizden gelir; ayrıca seçmenize gerek yoktur."
-              : "Etkinliğin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize gerek yoktur."
+              : undefined
         }
       />
 
@@ -201,8 +184,8 @@ export default async function YeniFaaliyetSayfasi({
           </BilgiKutusu>
         ) : (
           <BilgiKutusu cesit="uyari">
-            Açtığınız ulusal etkinlik, proje yöneticisi onayından sonra yayına
-            girer. Onaya kadar öğrencilere görünmez.
+            Girilen etkinlik il GençTek koordinatörü onayından sonra yayına
+            girer.
           </BilgiKutusu>
         ))}
 
@@ -214,39 +197,20 @@ export default async function YeniFaaliyetSayfasi({
 
           <div className="space-y-4">
             {/*
-              Etkinlik kategorisi KAPSAMDAN ayrı bir alandır: kapsam kimin
-              başvurabileceğini, kategori etkinliğin ne olduğunu belirler. Her
-              kapsam her kategoriyle birleşebilir.
+              ETKİNLİK KATEGORİSİ ALANI KALKTI (20 Ağustos 2026 · istek:
+              "etkinlik oluştururken Etkinlik kategorisi alanı kalksın").
+
+              Kategori artık SEÇİLEN PROGRAMDAN türetiliyor (bkz.
+              eylemler.ts · faaliyetOlusturEylemi): program bir gruba aittir,
+              program seçilmezse etkinlik İl Etkinliği sayılır. Kayıtlı
+              etkinliklerin kategori rozeti yerinde duruyor.
             */}
-            <label className="block">
-              <span className={SINIF_ETIKET}>Etkinlik kategorisi</span>
-              <select
-                name="etkinlikKategorisi"
-                required
-                defaultValue="IL_ETKINLIGI"
-                className={SINIF_GIRDI}
-              >
-                {ETKINLIK_KATEGORILERI.map((kategori) => (
-                  <option key={kategori} value={kategori}>
-                    {ETKINLIK_KATEGORISI_ETIKETLERI[kategori]}
-                  </option>
-                ))}
-              </select>
-              <span className="mt-1 block text-sm text-metin-yumusak">
-                {ETKINLIK_KATEGORILERI.map((kategori) => (
-                  <span key={kategori} className="block">
-                    <strong>{ETKINLIK_KATEGORISI_ETIKETLERI[kategori]}:</strong>{" "}
-                    {ETKINLIK_KATEGORISI_ACIKLAMALARI[kategori]}
-                  </span>
-                ))}
-              </span>
-            </label>
 
             <label className="block">
               <span className={SINIF_ETIKET}>
                 Program{" "}
                 <span className="text-metin-yumusak">
-                  (Temel Etkinlik ve Çalışma Grubu Etkinliği için zorunlu)
+                  (listede yoksa &quot;Diğer&quot;)
                 </span>
               </span>
               <select
@@ -261,7 +225,15 @@ export default async function YeniFaaliyetSayfasi({
                   çevirmek zorunda kalıp etkinliğin gerçek niteliğini
                   kaybediyordu.
                 */}
-                <option value="">Diğer — adını aşağıya kendim yazacağım</option>
+                {/*
+                  İSTEK ÜZERİNE SADECE "DİĞER" (20 Ağustos 2026): açıklama
+                  cümlesi seçeneğin içinden çıktı, aşağıdaki yardım satırında
+                  duruyor. Kalın yazılıyor ki listedeki program adlarının
+                  arasında kaybolmasın.
+                */}
+                <option value="" className="font-semibold">
+                  Diğer
+                </option>
                 <optgroup label="Temel Etkinlik">
                   {programlar
                     .filter((program) => program.grup === "TEMEL_ETKINLIK")
@@ -284,7 +256,8 @@ export default async function YeniFaaliyetSayfasi({
                 </optgroup>
               </select>
               <span className="mt-1 block text-sm text-metin-yumusak">
-                Bu iki kategoride etkinliğin adı seçtiğiniz programdan gelir.
+                Program seçerseniz etkinliğin adı programdan gelir;
+                &quot;Diğer&quot;de adı aşağıya siz yazarsınız.
               </span>
             </label>
 
@@ -292,7 +265,7 @@ export default async function YeniFaaliyetSayfasi({
               <span className={SINIF_ETIKET}>
                 Etkinlik adı{" "}
                 <span className="text-metin-yumusak">
-                  (yalnızca İl Etkinliği&apos;nde doldurulur)
+                  (&quot;Diğer&quot; seçtiyseniz zorunlu)
                 </span>
               </span>
               <input
@@ -311,7 +284,7 @@ export default async function YeniFaaliyetSayfasi({
                 required
                 rows={5}
                 className={SINIF_GIRDI}
-                placeholder="Etkinliğin içeriği, katılım koşulları, yeri."
+                placeholder="Etkinliğin içeriği, katılım koşulları, yeri, varsa iş birliği yapılan kurum ve kuruluşlar."
               />
             </label>
 
@@ -455,10 +428,6 @@ export default async function YeniFaaliyetSayfasi({
                 />
               </label>
             </div>
-            <p className="text-sm text-metin-yumusak">
-              Başvurular bitiş tarihinin sonuna kadar açık kalır.
-            </p>
-
             <label className="block">
               <span className={SINIF_ETIKET}>
                 Tanıtıcı görsel{" "}
@@ -471,9 +440,8 @@ export default async function YeniFaaliyetSayfasi({
                 className={`${SINIF_GIRDI} file:mr-3 file:rounded-md file:border-0 file:bg-zemin file:px-3 file:py-1 file:text-sm file:text-metin`}
               />
               <span className="mt-1 block text-sm text-metin-yumusak">
-                Etkinlik listesinde ve detay sayfasında görünür. jpg, png veya
-                webp; en fazla {(gorselMaksBayt / (1024 * 1024)).toFixed(0)} MB.
-                Sonradan detay sayfasından değiştirebilirsiniz.
+                jpg, png veya webp; en fazla{" "}
+                {(gorselMaksBayt / (1024 * 1024)).toFixed(0)} MB.
               </span>
             </label>
           </div>
@@ -482,7 +450,7 @@ export default async function YeniFaaliyetSayfasi({
         <Kart>
           <KartBasligi
             baslik="İlgili çalışma grupları"
-            aciklama="Etiket niteliğindedir: başvuruyu kısıtlamaz, yalnızca etkinliğin hangi alanla ilgili olduğunu gösterir."
+            aciklama="Etkinliğin ilgili olduğunu düşündüğünüz çalışma gruplarını işaretleyiniz."
           />
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {gruplar.map((grup) => (
@@ -503,58 +471,13 @@ export default async function YeniFaaliyetSayfasi({
         </Kart>
 
         {/*
-          Kart, liste BOŞKEN de basılıyor. Gizlemek daha temiz görünürdü ama
-          kullanıcıya iki şeyi birden kaybettirirdi: böyle bir alanın var
-          olduğunu ve kurumun oraya nasıl ekleneceğini. Envanter boşsa yapılacak
-          şey belli — koordinatörden istemek.
+          "İŞ BİRLİĞİ YAPILAN PAYDAŞLAR" KARTI KALKTI (20 Ağustos 2026 ·
+          istek: "İş birliği yapılan paydaşlar bu alan kalkacak").
+
+          Bağ tümden kaybolmadı: paydaş, etkinliğin DETAY ekranından
+          bağlanmaya devam ediyor ve katkısı da orada yazılıyor. Açılış formu
+          zaten uzundu; iş birliği çoğu zaman etkinlik yürürken netleşiyor.
         */}
-        <Kart>
-          <KartBasligi
-            baslik="İş birliği yapılan paydaşlar"
-            aciklama="İsteğe bağlı. Listede olmayan kurum için il koordinatörünüzden paydaş envanterine eklemesini isteyin; kurum kayıtları tek elden yürütülüyor."
-            Ikon={Handshake}
-          />
-          {paydaslar.length === 0 ? (
-            <p className="text-sm text-metin-yumusak">
-              Kapsamınızda kayıtlı paydaş kurum yok. İş birliği yaptığınız bir
-              kurum varsa il koordinatörünüzden envantere eklemesini isteyin;
-              sonra bu etkinliğin detay ekranından bağlayabilirsiniz.
-            </p>
-          ) : (
-            <>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {paydaslar.map((paydas) => (
-                <label
-                  key={paydas.id}
-                  className="flex items-center gap-2 rounded-md border border-cizgi px-3 py-2 text-sm text-metin"
-                >
-                  <input
-                    type="checkbox"
-                    name="paydasId"
-                    value={paydas.id}
-                    className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-                  />
-                  <span>
-                    {paydas.ad}
-                    <span className="ml-1 text-metin-yumusak">
-                      · {PAYDAS_TURU_ETIKETLERI[paydas.tur]}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-            {/*
-              Katkı metni (mekân, eğitmen, ödül desteği) BURADA sorulmuyor:
-              açılış formu zaten uzun ve katkı çoğu zaman etkinlik yürürken
-              netleşiyor. Etkinlik detayından her paydaş için ayrıca yazılabilir.
-            */}
-            <p className="mt-3 text-sm text-metin-yumusak">
-              Her paydaşın katkısını (mekân, eğitmen, ödül desteği) etkinlik
-              detay ekranından yazabilirsiniz.
-            </p>
-            </>
-          )}
-        </Kart>
 
         <div className="flex flex-wrap gap-3">
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>

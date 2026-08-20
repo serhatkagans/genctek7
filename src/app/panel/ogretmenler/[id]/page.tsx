@@ -195,6 +195,12 @@ export default async function OgretmenDetaySayfasi({
         ]
           .filter(Boolean)
           .join(" · ")}
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       <Kart>

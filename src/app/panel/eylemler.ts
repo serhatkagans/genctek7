@@ -110,7 +110,6 @@ export async function yegitekSorumlusuIsaretiEylemi(
   });
 
   revalidatePath("/panel");
-  revalidatePath("/panel/profil");
   revalidatePath("/panel/okul-sorumlulari");
   redirect(
     `/panel?durum=${sorumluMu ? "yegitek-isaretlendi" : "yegitek-kaldirildi"}#yegitek-sorumlulugum`,

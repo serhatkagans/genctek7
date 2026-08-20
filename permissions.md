@@ -11,9 +11,9 @@
 | Kazanım kaydı ekleme / silme (dış etkinlik, ürün, akran eğitimi, yarışma derecesi) | ✓ (yalnızca kendi kayıtları) | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Öğrenci CV'si yükleme / kaldırma | ✓ (yalnızca kendisi) | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Öğrenci CV'si indirme | Yalnızca kendisi | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
-| Okul içi faaliyet açma | ✓ (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✗ |
-| İl içi faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ | ✓ | ✓ (onaya tabi) | ✓ (onaya tabi) |
-| Ulusal faaliyet açma | ✓ (onaya tabi) | ✗ | ✓ (onaya tabi) | ✓ | ✓ (onaya tabi) | ✓ (onaya tabi) |
+| Okul içi faaliyet açma | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| İl içi faaliyet açma | ✗ | ✓ (onaya tabi) | ✓ | ✓ | ✓ (onaya tabi) | ✓ (onaya tabi) |
+| Ulusal faaliyet açma | ✗ | ✓ (onaya tabi) | ✓ (onaya tabi) | ✓ | ✓ (onaya tabi) | ✓ (onaya tabi) |
 | Faaliyete dosya/görsel ekleme | ✗ | Kendi açtığı faaliyete | Kendi açtığı faaliyete | Her faaliyete | ✗ | ✗ |
 | Faaliyete yorum yazma | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ (kapsamındaysa) | ✓ | ✗ | ✗ |
 | Kendi yorumunu silme | ✓ | ✓ | ✓ | ✓ | — | — |
@@ -76,7 +76,9 @@
 
 **Etkinliğe katılımcı olarak başvurma kapısı bu değişiklikle açılmadı** ve kapalı kalmaya devam ediyor (bkz. `basvuruYapabilirMi`) — etkinlik bildirmek ile başvurmak ayrı kapılardır.
 
-**Öğrenci de faaliyet açar ve kapsam sınırı yoktur** — sınır kapsamda değil **onayda** kuruldu. Öğrencinin açtığı hiçbir faaliyet kendiliğinden yayına girmez; okul içi öneri bile onay bekler, çünkü 18 yaş altı bir kullanıcının açtığı çağrı sorumlusuz çıkmamalıdır. Onaya kadar faaliyet yalnızca öğrenciye ve onaylayacak kişilere görünür.
+**Öğrenci faaliyet AÇMAZ** (20 Ağustos 2026 · istek: "öğrencilerin etkinlik oluşturmasına gerek yok sadece mevcutlara katılabilsin"). Önceki kural öğrenciye üç kapsamı da açıyor ve güvenceyi onaya bırakıyordu; kapı tümden kapandı. Öğrencinin etkinlikle ilişkisi **başvurmaktır** — o kapı açık (bkz. `basvuruYapabilirMi`). Veritabanındaki eski öğrenci faaliyetleri olduğu gibi kalır; `faaliyetOnayGerekiyorMu` öğrenci dalını bir güvenlik ağı olarak korur.
+
+**Danışman öğretmen her kapsamda faaliyet açar; sınır onayda** (20 Ağustos 2026 · istek: "öğretmen etkinlik oluştururken kendi okulunda etkinlik oluşturabiliyor, türkiye geneli örnek espor gibi bir etkinlik oluşturmak istediğinde il koordinatörüne onaya gidecek"). Kendi okuluna açtığı etkinlik **doğrudan yayına girer** — orası zaten sorumluluk alanıdır. Okul dışına çıkan her kapsam (il, ulusal) **ilin koordinatörünün** onayını bekler. Bu, 13 Ağustos 2026'daki "öğretmenin her faaliyeti onaya tabi" kuralının yerini alır: her okul içi çalışmayı koordinatör kuyruğuna sokmak öğretmeni kendi sınıfındaki bir etkinlik için bekletiyordu.
 
 **Öğrenci faaliyetini iki taraf onaylayabilir:** öğrencinin ilinin koordinatörü ve YEĞİTEK proje yöneticileri. İkisi de tam yetkilidir, **ilk verilen karar geçerlidir** — ayrı bir sıra ya da çift onay adımı yoktur. Koordinatörün de yetkili olması şart: onay yalnızca merkeze bırakılsaydı bir okulun kendi içindeki öğrenci etkinliği merkezin sırası gelene kadar bekler ve öneri pratikte ölürdü. Onaylayacak kişi onaylayacağı şeyi görmek zorunda olduğu için, kapsam filtresi ilin koordinatörüne o ildeki öğrencilerin **onay bekleyen** faaliyetlerini de açar.
 
@@ -218,7 +220,7 @@ Dosya/görsel **yükleme** yetkisi yalnızca faaliyeti açan kullanıcıdadır; 
 | `GET /kazanim-ekleri/:ekId` | Görünürlük kaydın kendisiyle **aynı**: sahibi ya da sahibi kapsamında gören yetkili. Öğrenci ve öğretmen kapsam filtreleri birlikte denenir (kayıt ikisinde de var). Public dizinden servis edilmez, kapsam dışında 404 |
 | `PUT /profil/cv` | Yalnızca OGRENCI, yalnızca kendi profili; tip/boyut kontrolü `IZINLI_CV_TIPLERI` ve `CV_MAKS_BAYT` ayarlarından |
 | `DELETE /profil/cv` | Aynı yetki; kayıt temizlenir, sonra dosya silinir |
-| `POST /faaliyetler` | Kapsam yetkisi: danışman yalnızca OKUL, il koordinatörü ve öğrenci OKUL/IL/ULUSAL. Öğrencinin açtığı faaliyet her kapsamda `onay_durumu=BEKLIYOR` yazılır |
+| `POST /faaliyetler` | Kapsam yetkisi: öğrenci hiçbir kapsamda açamaz; danışman öğretmen ve il koordinatörü OKUL/IL/ULUSAL. Öğretmenin OKUL dışındaki faaliyeti `onay_durumu=BEKLIYOR` yazılır, okul içi olan doğrudan yayımlanır |
 | `POST /faaliyetler/:id/onayla` | PROJE_YONETICISI **veya** öğrenci faaliyetinde öğrencinin ilinin koordinatörü. Kayıt önce kapsam filtresinden çekilir: yetki faaliyete bağlı olduğu için kaydı görmeden karar verilemez |
 | `GET /faaliyetler` | Öğrenciye yalnızca kendi kapsamındaki + onaylı faaliyetler; koordinatöre ek olarak kendi ilindeki öğrencilerin onay bekleyen önerileri |
 | `POST /faaliyetler/:id/ekler` | Yalnızca `duzenleyen_kullanici_id = @kullaniciId`; tip/boyut kontrolü |

@@ -29,18 +29,15 @@ import { BulunamadiHatasi } from "@/lib/yetki/tipler";
  */
 
 /**
- * Formun yaşadığı ekran — `/panel/profil` DEĞİL (C4 · 7 Ağustos 2026).
- * Rotam bölümünün düzenleme yüzeyi Panelim'e taşındı; profilde yalnızca
- * hedeflerin listesi görünüyor.
+ * Hedeflerin göründüğü tek ekran (20 Ağustos 2026 · panel-profil birleşmesi).
+ *
+ * Rotam'ın GİRİŞ bölümü 14 Ağustos'ta panelden kaldırıldı; eylemler duruyor
+ * çünkü girilmiş hedefler hâlâ listeleniyor (bkz. app/panel/page.tsx).
  */
 const YOL = "/panel";
 
-/** Gösterim yüzeyi; hedefler profilde de listeleniyor. */
-const PROFIL_YOLU = "/panel/profil";
-
 function yollariTazele(): void {
   revalidatePath(YOL);
-  revalidatePath(PROFIL_YOLU);
 }
 
 /**

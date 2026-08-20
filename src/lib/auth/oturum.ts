@@ -125,6 +125,13 @@ export async function oturumKullanicisi(): Promise<OturumKullanicisi | null> {
  * Hata fırlatmak yerine yönlendirme yapılıyor: oturumun süresi dolduğunda ya da
  * kullanıcı pasife alındığında kişi "beklenmeyen hata" ekranı değil giriş
  * ekranı görmeli — bu bir arıza değil, olağan bir durum.
+ *
+ * BURAYA "GİRİŞTEN SONRA ŞU SAYFAYA DÖN" EKLENMEZ. Denendi ve işe yaramıyor:
+ * panel düzeni (app/panel/layout.tsx) oturumu SAYFADAN ÖNCE kontrol edip
+ * /giris'e yönlendiriyor, yani sayfanın verdiği dönüş yolu hiç çalışmıyordu.
+ * Portaldan gelen ziyaretçinin akışı bunun yerine giriş ekranının kendisinde
+ * çözülüyor: bağlantı `/giris?nereye=...` biçiminde geliyor
+ * (bkz. lib/auth/donus-yolu.ts ve app/giris/page.tsx).
  */
 export async function oturumKullanicisiZorunlu(): Promise<OturumKullanicisi> {
   const kullanici = await oturumKullanicisi();

@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import {
+  CALISMA_GRUBU_UST_SINIRI,
+  calismaGrubuSayisiAsildiMi,
+} from "@/lib/ogrenci/calisma-grubu";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
@@ -40,10 +44,22 @@ export async function calismaGrubuKaydetEylemi(veri: FormData): Promise<void> {
     .filter((sayi) => Number.isFinite(sayi));
 
   /*
-   * Seçim sayısında ÜST SINIR YOKTUR. Daha önce "en fazla 3" gibi bir kısıt
-   * vardı, kaldırıldı: öğrenci ilgi duyduğu tüm gruplara yazılabilir. Buraya
-   * sayı kontrolü eklemeyin.
+   * ÜST SINIR (20 Ağustos 2026 · istek: "öğrenciler max 5 çalışma grubunda
+   * görülebilsin"). Sayı ve gerekçesi tek yerde
+   * (lib/ogrenci/calisma-grubu.ts) — ekran da aynı sabitten yazıyor, yoksa
+   * "en fazla 5" diyen bir arayüzle altıyı kabul eden bir sunucu ayrışırdı.
+   *
+   * KONTROL PASİF GRUP SÜZGECİNDEN ÖNCE: öğrenci ekranda ne işaretlediyse o
+   * sayılıyor. Süzgeçten sonra sayılsaydı, kapatılmış bir grubu da işaretleyen
+   * öğrenci "beş seçtim, neden kaydolmadı" derdi.
    */
+  if (calismaGrubuSayisiAsildiMi(secilenler.length)) {
+    redirect(
+      `${donusYolu}?hata=${encodeURIComponent(
+        `En fazla ${CALISMA_GRUBU_UST_SINIRI} çalışma grubu seçebilirsiniz; ${secilenler.length} grup işaretlediniz.`,
+      )}${capa}`,
+    );
+  }
 
   // Pasif gruplar yeni seçimlerde kabul edilmez; geçmiş seçimler korunur.
   const gecerliGruplar = await prisma.calismaGrubu.findMany({
@@ -102,7 +118,6 @@ export async function calismaGrubuKaydetEylemi(veri: FormData): Promise<void> {
 
   revalidatePath("/panel/calisma-gruplari");
   revalidatePath("/panel");
-  revalidatePath("/panel/profil");
   // Danışman/koordinatörün gördüğü tekil profil de aynı listeyi gösteriyor.
   revalidatePath(`/panel/ogrenciler/${kullanici.id}`);
   redirect(`${donusYolu}?durum=kaydedildi${capa}`);

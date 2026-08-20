@@ -1,23 +1,39 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { guvenliDonusYolu } from "@/lib/auth/donus-yolu";
 import { oturumKapat, oturumKullanicisi } from "@/lib/auth/oturum";
 import { disKimlikliMi } from "@/lib/dis-kimlik/giris";
 import { girisYap } from "@/lib/kullanici/giris-akisi";
 
 export async function girisEylemi(veri: FormData): Promise<void> {
   const kimlikBilgisi = String(veri.get("kimlikBilgisi") ?? "");
+  /*
+   * Dönüş yolu, giriş ekranına portaldan gelen kişinin tıkladığı sayfadır
+   * (bkz. lib/auth/donus-yolu.ts). Değer adres çubuğundan geldiği için ASLA
+   * doğrudan kullanılmaz; `guvenliDonusYolu` uygulama dışına çıkan her şeyi
+   * eler ve elenirse akış olağan yoluna (panel) döner.
+   */
+  const nereye = guvenliDonusYolu(String(veri.get("nereye") ?? ""));
+  // Hata dönüşünde de korunur: kişi kimlik seçemediğinde nereden geldiğini
+  // unutan bir ekrana düşerse, portaldan gelen bağlantı ilk hatada kaybolurdu.
+  const nereyeSorgusu = nereye
+    ? `&nereye=${encodeURIComponent(nereye)}`
+    : "";
+
   if (!kimlikBilgisi) {
-    redirect("/giris?hata=Kimlik+se%C3%A7ilmedi");
+    redirect(`/giris?hata=Kimlik+se%C3%A7ilmedi${nereyeSorgusu}`);
   }
 
   const sonuc = await girisYap(kimlikBilgisi);
 
   if (sonuc.durum === "BASARISIZ") {
-    redirect(`/giris?hata=${encodeURIComponent(sonuc.mesaj)}`);
+    redirect(
+      `/giris?hata=${encodeURIComponent(sonuc.mesaj)}${nereyeSorgusu}`,
+    );
   }
 
-  redirect(girisSonrasiYol(sonuc));
+  redirect(girisSonrasiYol(sonuc, nereye));
 }
 
 /**
@@ -39,9 +55,18 @@ export async function girisEylemi(veri: FormData): Promise<void> {
  * sonucunu olduğu gibi geçiriyor ve alanı ayıklamak, ileride rol bazlı bir
  * kapı gerektiğinde geri eklenecek bir bilgiyi bugünden atmak olurdu.
  */
-function girisSonrasiYol(sonuc: { danismanSecimiGerekli: boolean }): string {
+function girisSonrasiYol(
+  sonuc: { danismanSecimiGerekli: boolean },
+  nereye: string | null,
+): string {
+  /*
+   * DANIŞMAN SEÇİMİ DÖNÜŞ YOLUNU DA YENER: danışmansız öğrenci "boşta"
+   * kalamaz (SKILL.md · Değişmezler 2) ve seçim ekranı bir kapıdır. Portaldan
+   * gelen öğrenci önce danışmanını seçer; etkinliği sonra açar.
+   */
   if (sonuc.danismanSecimiGerekli) return "/panel/danisman-secim";
-  return "/panel/profil";
+  if (nereye) return nereye;
+  return "/panel";
 }
 
 /**

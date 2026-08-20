@@ -195,6 +195,24 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{ogrenciAdSoyad}} ({{sinif}}) adlı öğrenci, GençTek danışman öğretmeni olarak sizi seçti. Öğrenci artık \"Öğrencilerim\" listenizde görünüyor.\n\nGençTek",
   },
   {
+    kod: "DANISMAN_TALEBI_GELDI",
+    konu: "{{ogrenciAdSoyad}} danışmanı olmanızı istiyor",
+    govdeSablonu:
+      "Merhaba,\n\n{{ogrenciAdSoyad}} ({{sinif}}) adlı öğrencinin şu anda bir danışman öğretmeni var ve danışmanını sizinle değiştirmek istiyor.\n\nTalep onayınızı bekliyor: \"Öğrencilerim\" ekranının başındaki listeden onaylayabilir ya da gerekçesiyle reddedebilirsiniz. Karar verilene kadar öğrencinin mevcut danışmanı değişmez.\n\nGençTek",
+  },
+  {
+    kod: "DANISMAN_TALEBI_ONAYLANDI",
+    konu: "Danışman değişikliğiniz onaylandı",
+    govdeSablonu:
+      "Merhaba,\n\nDanışman öğretmeninizin {{danismanAdSoyad}} olarak değiştirilmesi talebiniz onaylandı.\n\nGençTek",
+  },
+  {
+    kod: "DANISMAN_TALEBI_REDDEDILDI",
+    konu: "Danışman değişikliğiniz reddedildi",
+    govdeSablonu:
+      "Merhaba,\n\n{{danismanAdSoyad}} öğretmeni danışmanınız olarak seçme talebiniz reddedildi. Mevcut danışmanınız değişmedi.\n\nGerekçe: {{gerekce}}\n\nGençTek",
+  },
+  {
     kod: "OGRENCI_DANISMANLIKTAN_AYRILDI",
     konu: "{{ogrenciAdSoyad}} danışmanlığınızdan ayrıldı",
     govdeSablonu:

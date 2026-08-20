@@ -29,8 +29,6 @@ import {
   danismanaKopyaGerekiyorMu,
   degerlendirmeYapilabilirMi,
   duzenleyenBirimBelirle,
-  ETKINLIK_KATEGORILERI,
-  etkinlikKategorisiDogrula,
   FaaliyetKuralHatasi,
   type FaaliyetYeri,
   faaliyetYeriBelirle,
@@ -42,7 +40,6 @@ import {
   kontenjanDurumu,
   onayDurumuBelirle,
   faaliyetSuresiGecerliMi,
-  programSecimiGerekiyorMu,
   yenidenOnayGerekiyorMu,
 } from "@/lib/faaliyet/kurallar";
 import {
@@ -125,35 +122,31 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
   }
 
   /*
-   * Etkinlik kategorisi kapsamdan BAĞIMSIZ, ayrı ve zorunlu bir alandır.
-   * Temel Etkinlik ve Çalışma Grubu Etkinliği'nde faaliyetin adı serbest metin
-   * değildir, sabit program listesinden gelir; İl Etkinliği'nde tam tersine ad
-   * serbesttir ve program bağlantısı boş kalır.
+   * KATEGORİ ARTIK SORULMUYOR (20 Ağustos 2026 · istek: "etkinlik oluştururken
+   * etkinlik kategorisi alanı kalksın, filtre kısmından da etkinlik kategorisi
+   * kalksın").
+   *
+   * Kolon duruyor — kayıtlı etkinliklerin rozeti ve dışa aktarma sütunu ondan
+   * okunuyor — ama değeri artık SEÇİLEN PROGRAMDAN türetiliyor: her program
+   * bir gruba aittir (Temel Etkinlik / Çalışma Grubu Etkinliği), program
+   * seçilmediyse etkinlik İl Etkinliği'dir.
+   *
+   * Kategori-program eşleşmesini ayrıca doğrulamaya gerek kalmadı: kategori
+   * artık programın kendisinden geldiği için ikisi tanımı gereği uyumlu
+   * (eski doğrulama lib/faaliyet/kurallar.ts'te duruyor).
    */
-  const etkinlikKategorisi = metin(veri, "etkinlikKategorisi") as EtkinlikKategorisi;
-  if (!ETKINLIK_KATEGORILERI.includes(etkinlikKategorisi)) {
-    hataylaDon(yol, "Etkinlik kategorisi seçilmelidir.");
-  }
-
   const programId = sayi(veri, "temelEtkinlikProgramiId");
   const program =
-    programSecimiGerekiyorMu(etkinlikKategorisi) && programId !== null
+    programId !== null
       ? await prisma.temelEtkinlikProgrami.findFirst({
           where: { id: programId, aktif: true },
           select: { id: true, ad: true, grup: true },
         })
       : null;
+  const etkinlikKategorisi: EtkinlikKategorisi =
+    program?.grup ?? "IL_ETKINLIGI";
 
   const serbestAd = metin(veri, "ad");
-  const kategoriKarari = etkinlikKategorisiDogrula({
-    kategori: etkinlikKategorisi,
-    programGrubu: program?.grup ?? null,
-    serbestAd: serbestAd || null,
-  });
-  if (!kategoriKarari.olurMu) {
-    hataylaDon(yol, kategoriKarari.neden ?? "Etkinlik kategorisi geçersiz.");
-  }
-
   const ad = program?.ad ?? serbestAd;
   const aciklama = metin(veri, "aciklama");
   if (!ad || !aciklama) {

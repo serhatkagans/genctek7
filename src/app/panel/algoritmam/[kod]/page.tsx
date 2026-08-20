@@ -13,6 +13,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
+  envanterAcikMi,
   envanterHazirMi,
   envanterSonucu,
   envanterTanimi,
@@ -77,10 +78,10 @@ export default async function EnvanterSayfasi({
         className="inline-flex items-center gap-1.5 text-sm text-vurgu-metin hover:underline"
       >
         <ArrowLeft size={15} aria-hidden />
-        Algoritmam
+        Öz değerlendirme
       </Link>
 
-      <SayfaBasligi baslik={tanim.ad} aciklama={tanim.ozet} />
+      <SayfaBasligi baslik={tanim.ad} aciklama={tanim.ozet} geri={null} />
 
       {hata && <BilgiKutusu cesit="uyari">{hata}</BilgiKutusu>}
 
@@ -100,6 +101,19 @@ export default async function EnvanterSayfasi({
             İçerik geldiğinde bu sayfa kendiliğinden açılır; ayrıca bir işlem
             yapman gerekmez.
           </p>
+        </Kart>
+      ) : tanim.kapali && !sonTamamlanan ? (
+        /*
+          GEÇİCİ KAPALI (20 Ağustos 2026). Kapı BURADA DA duruyor, yalnızca
+          listede değil: adresi bilen ya da yer imine almış öğrenci doğrudan
+          bu sayfaya gelebiliyor ve düğmeyi listede gizlemek onu engellemezdi.
+
+          DAHA ÖNCE ÇÖZMÜŞ OLANIN SONUCU AÇIK KALIR (`!sonTamamlanan`):
+          kapanan şey çözmek, kişinin kendi verisi değil. Çözülmüş bir sonucu
+          kapatmak, öğrencinin kendi cevaplarını ondan saklamak olurdu.
+        */
+        <Kart>
+          <p className="text-metin">{tanim.kapali}</p>
         </Kart>
       ) : suren ? (
         <EnvanterFormu
@@ -121,13 +135,21 @@ export default async function EnvanterSayfasi({
 
           <Kart>
             <div className="flex flex-wrap items-center gap-3">
-              <form action={yenidenCozEylemi}>
-                <input type="hidden" name="envanterKodu" value={tanim.kod} />
-                <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                  <RotateCcw size={15} aria-hidden />
-                  Yeniden çöz
-                </button>
-              </form>
+              {/*
+                Envanter geçici olarak kapalıysa "Yeniden çöz" BASILMAZ: eylem
+                de reddediyor ve reddedilecek bir düğme göstermek, öğrenciye
+                yapabileceği bir iş varmış gibi görünürdü. Sonucun kendisi ve
+                silme hakkı yerinde duruyor.
+              */}
+              {envanterAcikMi(tanim) && (
+                <form action={yenidenCozEylemi}>
+                  <input type="hidden" name="envanterKodu" value={tanim.kod} />
+                  <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                    <RotateCcw size={15} aria-hidden />
+                    Yeniden çöz
+                  </button>
+                </form>
+              )}
               <form action={uygulamaSilEylemi}>
                 <input type="hidden" name="envanterKodu" value={tanim.kod} />
                 <input type="hidden" name="uygulamaId" value={sonTamamlanan.id} />

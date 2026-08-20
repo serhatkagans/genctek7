@@ -67,5 +67,5 @@ export async function ilkGirisOnaylaEylemi(veri: FormData): Promise<void> {
     redirect("/panel/danisman-secim");
   }
 
-  redirect("/panel/profil");
+  redirect("/panel");
 }

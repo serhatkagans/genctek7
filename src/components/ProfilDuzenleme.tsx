@@ -58,16 +58,13 @@ import { tarihSaatYaz } from "@/lib/tarih";
  * ---------------------------------------------------------------------------
  * NEDEN AYRI DOSYA
  * ---------------------------------------------------------------------------
- * İstek profil ile paneli iki ayrı yüzeye böldü:
+ * Formlar 7 Ağustos 2026'da profilden panele taşındı; 20 Ağustos'ta iki ekran
+ * tamamen birleşti ve `/panel` hem gösteren hem düzenleyen tek yüzey oldu
+ * (istek: "panel ile profil birleşecek tek panel kalacak, düzenleme ve
+ * görüntüleme panelden olacak").
  *
- *   "foto ekleme değiştirme panelden yapılsın, profil kısmında sadece foto
- *    görünsün, iletişim bilgileri düzenleme panel sekmesine taşınsın,
- *    profilden sadece görünsün ... bilgi girişleri ve düzenleme panelden
- *    yapılsın"
- *
- * Yani `/panel/profil` GÖSTERİR, `/panel` DÜZENLER. Formlar Panelim sayfasının
- * içine gömülseydi o dosya iki bine yaklaşırdı; buraya alınınca Panelim
- * bölümleri sıralamakla kalıyor.
+ * Formlar Panel sayfasının içine gömülseydi o dosya iki bine yaklaşırdı;
+ * buraya alınınca Panel bölümleri sıralamakla kalıyor.
  *
  * Bölümler KART BASMAZ: hepsi Panelim'de `KatlanabilirKart` içinde duruyor ve
  * kart içinde kart iç içe çerçeve üretirdi (DanismanSecimi ile aynı desen).
@@ -1217,44 +1214,15 @@ const ARSIV_NOTLARI: Partial<Record<KazanimTipi, string>> = {
     "Bu kayıt türü kapatıldı ve profilinizde görünmüyor. GençTek etkinliklerine katılımınız artık etkinlik sonunda alınan yoklamadan (ve adınıza üretilen belgeden) kendiliğinden düşüyor. Eski kayıtlarınız burada duruyor; isterseniz silebilirsiniz.",
 };
 
-/**
- * Panelim'deki bölümlerden profildeki karşılığına götüren bağlantı.
+/*
+ * "PROFİLİMDE NASIL GÖRÜNÜYOR" VE "PANELDEN DÜZENLE" BAĞLANTILARI SİLİNDİ
+ * (20 Ağustos 2026 · panel-profil birleşmesi).
  *
- * İki yüzey ayrıldığı için gerekli: kullanıcı bir kayıt girdikten sonra
- * "peki bu nerede görünüyor" sorusunu soruyor ve cevabı ekranda olmalı.
+ * İkisi de bölünmenin bedeliydi: her düzenleme bölümünün altında profile,
+ * her profil kartının altında panele giden bir satır duruyordu. Tek yüzeyde
+ * gidilecek bir "öbür ekran" yok — değer ile onu değiştiren form artık aynı
+ * kartın içinde.
  */
-export function ProfildeGorBaglantisi({ capa = "" }: { capa?: string }) {
-  return (
-    <Link
-      href={`/panel/profil${capa}`}
-      className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin underline underline-offset-2"
-    >
-      <Sparkles size={14} aria-hidden />
-      Profilimde nasıl göründüğünü gör →
-    </Link>
-  );
-}
-
-/**
- * Profildeki salt okunur bölümlerin başına konan "düzenleme panelde"
- * bağlantısı.
- */
-export function PaneldenDuzenleBaglantisi({
-  capa,
-  etiket = "Panelim'den düzenle →",
-}: {
-  capa: string;
-  etiket?: string;
-}) {
-  return (
-    <Link
-      href={`/panel#${capa}`}
-      className="mt-4 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
-    >
-      {etiket}
-    </Link>
-  );
-}
 
 /** Profildeki başlık ikonları — iki ekranın aynı ikonu kullanması için. */
 export const DUZENLEME_IKONLARI = {

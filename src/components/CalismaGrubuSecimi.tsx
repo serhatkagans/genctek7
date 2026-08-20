@@ -1,4 +1,5 @@
 import { SINIF_BIRINCIL_BUTON } from "@/components/ui";
+import { CALISMA_GRUBU_UST_SINIRI } from "@/lib/ogrenci/calisma-grubu";
 
 /**
  * Çalışma grubu seçim formu.
@@ -8,8 +9,14 @@ import { SINIF_BIRINCIL_BUTON } from "@/components/ui";
  * e-postalarında ve yer imlerinde adresi var); ikisi ayrı ayrı yazılsaydı
  * birine eklenen bir grup ya da kural ötekinde eksik kalırdı.
  *
- * Seçim sayısında ÜST SINIR YOKTUR — buraya sayı kontrolü eklemeyin
- * (SKILL.md · Karara bağlanmış maddeler).
+ * ÜST SINIR VAR: en fazla `CALISMA_GRUBU_UST_SINIRI` grup (20 Ağustos 2026 ·
+ * istek: "öğrenciler max 5 çalışma grubunda görülebilsin"). Sayı buradan
+ * yazılmıyor, kural dosyasından okunuyor — sunucu aynı sabitle reddediyor.
+ *
+ * KUTULAR TARAYICIDA KİLİTLENMİYOR: sayfada JavaScript yok ve altıncı kutuyu
+ * sunucuya gitmeden kapatmanın bir yolu yok. Sınır kaydederken uygulanıyor,
+ * ekranda ise önceden söyleniyor — öğrenci altı işaretleyip "neden olmadı"
+ * diye sormamalı.
  */
 export function CalismaGrubuSecimi({
   gruplar,
@@ -29,6 +36,10 @@ export function CalismaGrubuSecimi({
   return (
     <form action={kaydetEylemi}>
       <input type="hidden" name="donusYolu" value={donusYolu} />
+      <p className="mb-4 text-sm text-metin-yumusak">
+        En fazla <strong>{CALISMA_GRUBU_UST_SINIRI}</strong> çalışma grubu
+        seçebilirsiniz.
+      </p>
       <ul className="grid gap-3 sm:grid-cols-2">
         {gruplar.map((grup) => (
           <li key={grup.id}>

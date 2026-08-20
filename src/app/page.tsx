@@ -42,7 +42,7 @@ export default async function AcilisSayfasi() {
      * profil sekmesi ile başlasın"); giriş eylemiyle aynı yere düşmeli, yoksa
      * aynı kişi nereden geldiğine göre farklı ekran görürdü.
      */
-    redirect("/panel/profil");
+    redirect("/panel");
   }
 
   const mockMu = ortam.AUTH_PROVIDER === "mock";

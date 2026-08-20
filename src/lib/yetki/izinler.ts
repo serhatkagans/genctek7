@@ -173,13 +173,20 @@ export function danismanKurumKodu(
 // ---------------------------------------------------------------------------
 
 /**
- * Danışman öğretmen yalnızca okul içi faaliyet açabilir.
+ * Danışman öğretmen HER KAPSAMDA faaliyet açabilir; güvence kapsamda değil
+ * onayda (20 Ağustos 2026 · istek: "öğretmen etkinlik oluştururken kendi
+ * okulunda etkinlik oluşturabiliyor, türkiye geneli örnek espor gibi bir
+ * etkinlik oluşturmak istediğinde il koordinatörüne onaya gidecek").
  *
- * ÖĞRENCİ DE FAALİYET AÇABİLİR ve kapsam sınırı yoktur: okul, il ve ulusal
- * kapsamın üçünü de önerebilir. Sınır kapsamda değil ONAYDA kuruldu — öğrencinin
- * açtığı faaliyet hiçbir kapsamda kendiliğinden yayına girmez
- * (bkz. faaliyetOnayGerekiyorMu), o yüzden kapsamı ayrıca daraltmak öneriyi
- * baştan kesmekten başka bir şey yapmazdı.
+ * Kendi okulu öğretmenin sorumluluk alanıdır ve oraya açtığı etkinlik doğrudan
+ * yayına girer; okulunun dışına çıkan her kapsam ilin koordinatörüne uğrar
+ * (bkz. faaliyetOnayGerekiyorMu). İl kapsamı istekte adı geçmese de aynı
+ * ölçüye tabi: okul dışına çıkan her çağrı onaya gider.
+ *
+ * ÖĞRENCİ FAALİYET AÇAMAZ (20 Ağustos 2026 · istek: "öğrencilerin etkinlik
+ * oluşturmasına gerek yok sadece mevcutlara katılabilsin"). Öğrenci mevcut
+ * etkinliklere başvurmaya devam ediyor (bkz. basvuruYapabilirMi); kalkan şey
+ * yalnızca etkinlik AÇMA kapısı.
  *
  * MEZUN, PAYDAŞ TEMSİLCİSİ VE MENTÖR DE AÇABİLİR (7 Ağustos 2026 · istek:
  * "3. sekme Etkinlikler · Etkinlik Bildir · Görüntüle"). Öğrencideki mantığın
@@ -200,9 +207,8 @@ export function faaliyetAcabilirMi(
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
   if (ilKoordinatoruMu(kullanici)) return true;
-  if (ogrenciMi(kullanici)) return true;
   if (disKullaniciMi(kullanici)) return kapsam !== "OKUL";
-  if (danismanMi(kullanici)) return kapsam === "OKUL";
+  if (danismanMi(kullanici)) return true;
   return false;
 }
 
@@ -221,6 +227,11 @@ export function faaliyetOnayGerekiyorMu(
   kapsam: Kapsam,
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return false;
+  /*
+   * Öğrenci artık faaliyet AÇAMIYOR (bkz. faaliyetAcabilirMi). Bu satır yine
+   * de duruyor: kapı bir gün yeniden açılırsa öğrencinin çağrısının sessizce
+   * onaysız yayına girmesi, unutulması en pahalı hata olurdu.
+   */
   if (ogrenciMi(kullanici)) return true;
   /*
    * Mezun, paydaş temsilcisi ve mentörün açtığı HER etkinlik — kapsamı ne
@@ -231,14 +242,19 @@ export function faaliyetOnayGerekiyorMu(
    */
   if (disKullaniciMi(kullanici)) return true;
   /*
-   * 3. Danışman öğretmenin açtığı faaliyet — ilin koordinatörü görmeden
-   *    yayına girmez. Koordinatör ilinde ne yapıldığından sorumludur ve
-   *    okullardaki etkinlikleri ancak onaydan geçirirse görebilir.
+   * 3. Danışman öğretmenin açtığı faaliyet — OKUL KAPSAMI HARİÇ ilin
+   *    koordinatörü görmeden yayına girmez (20 Ağustos 2026 · istek:
+   *    "öğretmen … kendi okulunda etkinlik oluşturabiliyor, türkiye geneli …
+   *    bir etkinlik oluşturmak istediğinde il koordinatörüne onaya gidecek").
+   *
+   * Kendi okulu öğretmenin zaten sorumlu olduğu yer: her okul içi etkinliği
+   * koordinatör kuyruğuna sokmak, öğretmeni kendi sınıfındaki bir çalışma
+   * için beklemeye alıyordu. Okul dışına çıkan her kapsam onaya gider.
    *
    * MEVCUT KAYITLAR ETKİLENMEZ: bu karar yalnızca yeni açılan faaliyette
-   * verilir, veritabanındaki ONAY_GEREKMEZ satırları olduğu gibi kalır.
+   * verilir, veritabanındaki satırlar olduğu gibi kalır.
    */
-  if (danismanMi(kullanici)) return true;
+  if (danismanMi(kullanici)) return kapsam !== "OKUL";
   return kapsam === "ULUSAL" && ilKoordinatoruMu(kullanici);
 }
 

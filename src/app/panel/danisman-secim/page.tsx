@@ -4,7 +4,11 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
 import { ogrenciMi } from "@/lib/yetki/izinler";
-import { danismaniBirakEylemi, danismanSecEylemi } from "./eylemler";
+import {
+  danismaniBirakEylemi,
+  danismanSecEylemi,
+  danismanTalebimiGeriCekEylemi,
+} from "./eylemler";
 
 export const dynamic = "force-dynamic";
 
@@ -47,14 +51,30 @@ export default async function DanismanSecimSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        ALT SATIRDA YALNIZCA OKUL ADI (20 Ağustos 2026 · istek: "'Kadıköy
+        Anadolu Lisesi için danışman öğretmen ataması.' Bu kısımda sadece okul
+        adı kalsın"). Cümlenin geri kalanı sayfa başlığının tekrarıydı.
+      */}
       <SayfaBasligi
         baslik="Danışman öğretmenim"
-        aciklama={`${okul?.ad ?? "Okulunuz"} için danışman öğretmen ataması.`}
+        aciklama={okul?.ad ?? "Okulunuz"}
       />
 
       {durum === "secildi" && (
         <BilgiKutusu cesit="olumlu">
           Danışman öğretmeniniz kaydedildi.
+        </BilgiKutusu>
+      )}
+      {durum === "talep-gonderildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Talebiniz gönderildi. Seçtiğiniz öğretmen ya da il koordinatörünüz
+          karara bağlayana kadar mevcut danışmanınız devam eder.
+        </BilgiKutusu>
+      )}
+      {durum === "talep-geri-cekildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Talebiniz geri çekildi; danışmanınız değişmedi.
         </BilgiKutusu>
       )}
       {durum === "birakildi" && (
@@ -69,6 +89,7 @@ export default async function DanismanSecimSayfasi({
         veri={veri}
         secEylemi={danismanSecEylemi}
         birakEylemi={danismaniBirakEylemi}
+        talepGeriCekEylemi={danismanTalebimiGeriCekEylemi}
         donusYolu="/panel/danisman-secim"
       />
     </div>

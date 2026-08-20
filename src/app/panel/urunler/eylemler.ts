@@ -78,5 +78,5 @@ export async function paylasimiDegistirEylemi(veri: FormData): Promise<void> {
    */
   revalidatePath(`${KOK}/${urun.id}`);
   revalidatePath(KOK);
-  revalidatePath("/panel/profil");
+  revalidatePath("/panel");
 }

@@ -8,6 +8,12 @@ import {
   ilkAtamaKarariVer,
   type IlkAtamaKarari,
 } from "./karar";
+import {
+  bekleyenTalebimiGetir,
+  type DanismanSecimSonucu,
+  danismanSecimTalebiniYurut,
+  sonKararliTalebimiGetir,
+} from "./talep";
 
 /**
  * Danışman atama işlemleri. Kararlar karar.ts'te üretilir; burada yalnızca
@@ -134,15 +140,31 @@ export async function danismanSecimVerisiGetir(kullanici: {
   kurumKodu: number | null;
   ilKodu: string | null;
 }) {
-  const [atama, adaylar, koordinator] = await Promise.all([
-    aktifAtamaGetir(kullanici.id),
-    kullanici.kurumKodu !== null
-      ? danismanAdaylariGetir(kullanici.kurumKodu)
-      : Promise.resolve([]),
-    ilKoordinatoruBilgisiGetir(kullanici.ilKodu),
-  ]);
+  /*
+   * BEKLEYEN TALEP VE SON RET DE BURADAN GELİYOR (20 Ağustos 2026). Ekran iki
+   * yerde basılıyor ve ikisi de aynı veriyi göstermek zorunda; sorgu tek
+   * yerde tutulmazsa biri "onay bekliyor" derken öbürü sessiz kalırdı.
+   */
+  const [atama, adaylar, koordinator, bekleyenTalep, sonKarar] =
+    await Promise.all([
+      aktifAtamaGetir(kullanici.id),
+      kullanici.kurumKodu !== null
+        ? danismanAdaylariGetir(kullanici.kurumKodu)
+        : Promise.resolve([]),
+      ilKoordinatoruBilgisiGetir(kullanici.ilKodu),
+      bekleyenTalebimiGetir(kullanici.id),
+      sonKararliTalebimiGetir(kullanici.id),
+    ]);
 
-  return { atama, adaylar, koordinator };
+  return {
+    atama,
+    adaylar,
+    koordinator,
+    bekleyenTalep,
+    // Ekran yalnızca REDDİ basıyor: onayın karşılığı zaten "mevcut durum"
+    // satırındaki yeni danışmanın kendisi.
+    sonRet: sonKarar?.durum === "REDDEDILDI" ? sonKarar : null,
+  };
 }
 
 interface AtamaGirdisi {
@@ -320,18 +342,28 @@ export async function ilkAtamayiYurut(
 /**
  * Öğrencinin kendi danışmanını seçmesi — ilk seçim ve sonraki değişiklikler.
  *
- * Öğrenci danışmanını İSTEDİĞİ ZAMAN değiştirebilir; danışmanın ayrılmasını
- * beklemesi gerekmez ve onay aranmaz. Sıklık sınırı da yoktur. Tek kısıt,
- * seçilen öğretmenin AYNI KURUM KODUNDA ve danışmanlık için işaretlenmiş
- * olmasıdır — istemciden gelen kimliğe güvenilmez.
+ * ONAY GELDİ (20 Ağustos 2026 · istek: "danışman öğretmen seçiminde öğretmene
+ * veya il koordinatörüne onay düşsün sürekli değişmek isteyebilirler").
+ * Fonksiyon artık iki ayrı sonuç döndürebiliyor:
  *
- * Değişiklik geçmiş tablosuna işlenir: eski kayıt OGRENCI_ISTEGI nedeniyle
- * kapanır, yeni kayıt OGRENCI_SECTI tipiyle açılır.
+ *   · İLK SEÇİM (öğrencinin danışmanı yok)  → atama HEMEN yapılır.
+ *   · DEĞİŞİKLİK (aktif danışmanı var)      → TALEP açılır, atama beklemede.
+ *
+ * Ayrımın gerekçesi lib/danisman/talep.ts başlığında: onay beklerken
+ * danışmansız kalan öğrenci Değişmez 2'yi çiğnerdi ve istek zaten
+ * "değişmek"ten söz ediyor.
+ *
+ * Tek kısıt değişmedi: seçilen öğretmen AYNI KURUM KODUNDA ve danışmanlık için
+ * işaretlenmiş olmalı — istemciden gelen kimliğe güvenilmez.
+ *
+ * Onaylanan değişiklik geçmiş tablosuna işlenir: eski kayıt OGRENCI_ISTEGI
+ * nedeniyle kapanır, yeni kayıt OGRENCI_SECTI tipiyle açılır (bkz.
+ * talep.ts · talebiOnayla).
  */
 export async function ogrenciDanismanSecti(
   ogrenciId: number,
   secilenDanismanId: number,
-): Promise<void> {
+): Promise<DanismanSecimSonucu> {
   const ogrenci = await prisma.kullanici.findUniqueOrThrow({
     where: { id: ogrenciId },
     select: { ad: true, soyad: true, sinif: true, kurumKodu: true },
@@ -354,6 +386,22 @@ export async function ogrenciDanismanSecti(
     );
   }
 
+  /*
+   * ATAMA MI, TALEP Mİ? Karar öğrencinin O ANKİ durumuna bakıyor ve karar
+   * kural dosyasında (talep.ts) veriliyor — iki ekran (panel bölümü ve seçim
+   * kapısı) aynı eylemi çağırdığı için ayrımın tek yerde durması şart.
+   */
+  const mevcut = await aktifAtamaGetir(ogrenciId);
+  const karar = await danismanSecimTalebiniYurut(
+    ogrenciId,
+    secilenDanismanId,
+    mevcut?.danismanKullaniciId ?? null,
+  );
+
+  // Onaya giden, aynı kişiyi yeniden seçen ya da zaten bekleyen talebi olan
+  // öğrencide atama tablosuna dokunulmaz.
+  if (karar.tur !== "ATANDI") return karar;
+
   const sonuc = await atamaDegistir({
     ogrenciId,
     danismanKullaniciId: secilenDanismanId,
@@ -363,7 +411,7 @@ export async function ogrenciDanismanSecti(
 
   // Aynı öğretmen yeniden seçildiyse (ekranda "Danışmanınız" yazan satıra
   // basılmışsa) kimseye haber gitmez: değişen bir şey yok.
-  if (!sonuc.degistiMi) return;
+  if (!sonuc.degistiMi) return karar;
 
   const ogrenciAdSoyad = `${ogrenci.ad} ${ogrenci.soyad}`;
 
@@ -397,6 +445,8 @@ export async function ogrenciDanismanSecti(
       "başka bir danışman öğretmen seçti",
     );
   }
+
+  return karar;
 }
 
 /**

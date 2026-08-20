@@ -79,6 +79,15 @@ enum AtamaTipi {
   DEVIR
 }
 
+/// Öğrencinin danışman DEĞİŞİKLİĞİ talebinin durumu (20 Ağustos 2026).
+enum DanismanTalebiDurumu {
+  BEKLIYOR
+  ONAYLANDI
+  REDDEDILDI
+  /// Öğrenci kararı beklerken talebinden vazgeçti.
+  GERI_CEKILDI
+}
+
 enum KapanmaNedeni {
   OGRETMEN_AYRILDI
   OGRENCI_OKUL_DEGISTIRDI
@@ -462,6 +471,15 @@ model Kullanici {
 
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
+
+  /// Öğrencinin açtığı danışman değişikliği talepleri.
+  danismanTaleplerim     DanismanTalebi[] @relation("DanismanTalebiOgrencisi")
+  /// Kendisinden istenen danışmanlıklar — onay kuyruğu.
+  bekleyenDanismanlikler DanismanTalebi[] @relation("DanismanTalebiDanismani")
+  /// Karara bağladığı talepler (öğretmen ya da il koordinatörü).
+  kararVerdigiDanismanTalepleri DanismanTalebi[] @relation("DanismanTalebiKararVereni")
+  /// Talep açıldığı anda danışmanı olduğu öğrencilerin talepleri.
+  birakilacagiDanismanTalepleri DanismanTalebi[] @relation("DanismanTalebiOncekiDanismani")
 
   calismaGruplari       OgrenciCalismaGrubu[] @relation("GrupSecimOgrencisi")
   ekledigiGrupSecimleri OgrenciCalismaGrubu[] @relation("GrupSecimEkleyen")
@@ -878,6 +896,48 @@ model DanismanAtama {
   @@index([ogrenciId, bitisTarihi])
   @@index([danismanKullaniciId, bitisTarihi])
   @@map("danisman_atama")
+}
+
+/// Öğrencinin danışman DEĞİŞİKLİĞİ talebi (20 Ağustos 2026).
+///
+/// İstek: "danışman öğretmen seçiminde öğretmene veya il koordinatörüne onay
+/// düşsün sürekli değişmek isteyebilirler".
+///
+/// DANISMAN_ATAMA'DAN AYRI TABLO. Atama bir GEÇMİŞ tablosudur: her satırı
+/// gerçekten kurulmuş bir bağı anlatır ve "bir öğrencinin tek aktif danışmanı
+/// olur" kısıtı (ux_danisman_atama_tek_aktif) o satırların üstünde duruyor.
+/// Bekleyen bir istek henüz bir bağ değildir; oraya yazılsaydı ya kısıt
+/// gevşetilecek ya da öğrenci istek anında danışmansız kalacaktı — ikisi de
+/// Değişmez 2'yi (öğrenci boşta kalamaz) çiğniyor.
+///
+/// TALEP YALNIZCA DEĞİŞİKLİKTE AÇILIR. Hiç danışmanı olmayan öğrencinin ilk
+/// seçimi doğrudan atanır (bkz. lib/danisman/talep.ts): onay beklerken
+/// danışmansız kalması, korumaya çalıştığımız şeyin kendisini bozardı.
+model DanismanTalebi {
+  id                Int                  @id @default(autoincrement())
+  ogrenciId         Int                  @map("ogrenci_id")
+  /// Öğrencinin danışman olmasını istediği kişi; kararı da bu kişi verir.
+  istenenDanismanId Int                  @map("istenen_danisman_id")
+  /// Talep açıldığı andaki danışman. Karar anında yeniden sorulmaz: onay
+  /// gecikirse aradaki bir devir sessizce yanlış kişiyi "bırakılan" gösterirdi.
+  oncekiDanismanId  Int?                 @map("onceki_danisman_id")
+  durum             DanismanTalebiDurumu @default(BEKLIYOR)
+  /// Ret gerekçesi. Reddederken zorunlu: gerekçesiz ret, öğrenciye ne
+  /// yapacağını söylemeden kapıyı kapatmak olurdu.
+  retGerekcesi      String?              @map("ret_gerekcesi") @db.VarChar(500)
+  olusturmaTarihi   DateTime             @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  kararTarihi       DateTime?            @map("karar_tarihi") @db.Timestamptz(6)
+  /// Kararı veren kişi — istenen öğretmen ya da ilin koordinatörü.
+  kararVerenId      Int?                 @map("karar_veren_id")
+
+  ogrenci         Kullanici  @relation("DanismanTalebiOgrencisi", fields: [ogrenciId], references: [id])
+  istenenDanisman Kullanici  @relation("DanismanTalebiDanismani", fields: [istenenDanismanId], references: [id])
+  kararVeren      Kullanici? @relation("DanismanTalebiKararVereni", fields: [kararVerenId], references: [id])
+  oncekiDanisman  Kullanici? @relation("DanismanTalebiOncekiDanismani", fields: [oncekiDanismanId], references: [id])
+
+  @@index([istenenDanismanId, durum])
+  @@index([ogrenciId, durum])
+  @@map("danisman_talebi")
 }
 
 // ---------------------------------------------------------------------------

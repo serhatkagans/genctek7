@@ -81,7 +81,6 @@ export async function ayarKaydetEylemi(veri: FormData): Promise<void> {
    * isteniyor (onayiGerekiyorMu), bu yüzden ikisi de eskimemeli.
    */
   revalidatePath("/panel", "layout");
-  revalidatePath("/panel/profil");
   redirect(`${YOL}?durum=kaydedildi&anahtar=${anahtar}`);
 }
 

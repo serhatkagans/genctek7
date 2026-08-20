@@ -83,6 +83,24 @@ export interface EnvanterTanimi {
   olcek: readonly OlcekSecenegi[];
   boyutlar: readonly EnvanterBoyutu[];
   maddeler: readonly EnvanterMaddesi[];
+  /*
+   * GEÇİCİ OLARAK KAPALI (20 Ağustos 2026 · istek: "ilgi beceri ve mesleki
+   * envanterlerin başla butonları şu an devrede değil pasife getirelim").
+   *
+   * "İçeriği hazır değil"den AYRI bir durumdur ve ayrı olmak zorundadır:
+   * hazırlık ölçütü madde sayısıdır (bkz. kurallar.ts · envanterHazirMi) ve
+   * o ölçüt bu üç envanterde sağlanıyor — maddeleri yazılmış durumda. Kapalı
+   * olan yalnızca ÇÖZÜLMESİ. Maddeleri silip "hazır değil" saymak, yazılmış
+   * içeriği kaybetmek olurdu; tek bir "aktif" bayrağı ise "maddesi yok ama
+   * açık" gibi tutarsız bir hâle izin verirdi.
+   *
+   * Değer bir GEREKÇEDİR, `true` değil: kart kapalı olduğunu söylerken
+   * nedenini de yazıyor. Öğrenci "neden tıklayamıyorum" sorusunu ekranda
+   * cevaplanmış bulmalı.
+   *
+   * Alan boşken envanter açıktır.
+   */
+  kapali?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +256,8 @@ const ILGI: EnvanterTanimi = {
     { kod: "ILGI_TOPLUM_3", boyut: "DIJITAL_TOPLUM", metin: "Dijital haklar ve güvenli internet konuları ilgimi çeker." },
     { kod: "ILGI_TOPLUM_4", boyut: "DIJITAL_TOPLUM", metin: "Teknolojiyi toplumsal bir soruna çözüm olarak kullanmak isterim." },
   ],
+  kapali:
+    "Bu envanter şu anda çözüme kapalı. Madde metinleri ve puanlama anahtarı üzerinde çalışma sürüyor; açıldığında panelinizde görünecek.",
 };
 
 // ---------------------------------------------------------------------------
@@ -355,6 +375,8 @@ const BECERI: EnvanterTanimi = {
     { kod: "BEC_SUNUM_4", boyut: "SUNUM", metin: "Sunum ya da tanıtım hazırlayabilirim." },
     { kod: "BEC_SUNUM_5", boyut: "SUNUM", metin: "Soru gelince bilmediğimi rahatça söyleyebilirim." },
   ],
+  kapali:
+    "Bu envanter şu anda çözüme kapalı. Madde metinleri ve puanlama anahtarı üzerinde çalışma sürüyor; açıldığında panelinizde görünecek.",
 };
 
 // ---------------------------------------------------------------------------
@@ -462,6 +484,8 @@ const MESLEKI_YAKLASIM: EnvanterTanimi = {
     { kod: "MY_ELCI_3", boyut: "ELCI", metin: "Okulum ya da kurumum adına konuşmak bana uygun." },
     { kod: "MY_ELCI_4", boyut: "ELCI", metin: "Farklı yerlerden gelen kişilerle ortak iş yapabilirim." },
   ],
+  kapali:
+    "Bu envanter şu anda çözüme kapalı. Madde metinleri ve puanlama anahtarı üzerinde çalışma sürüyor; açıldığında panelinizde görünecek.",
 };
 
 // ---------------------------------------------------------------------------
@@ -492,15 +516,16 @@ const TEKNOLOJI_LIDERLIGI: EnvanterTanimi = {
 
 const KISILIK: EnvanterTanimi = {
   kod: "KISILIK",
-  ad: "Dick Kişilik Envanteri",
+  ad: "Kişilik Envanteri",
   ozet: "Çalışma ve iletişim biçimin.",
   yonerge: "",
   kaynak: "DIS_KAYNAK",
   kaynakNotu:
     "Yayımlanmış bir envanter. Madde metinleri ve puanlama anahtarı hak " +
-    "sahibinden gelmelidir. AYRICA ADI DOĞRULANMALI: literatürde bu adla " +
-    "yaygın bir envanter bulunamadı; DISC kişilik envanteri kastediliyorsa " +
-    "hangi sürümün kullanılacağı da belirtilmeli.",
+    "sahibinden gelmelidir. HANGİ ENVANTER OLDUĞU HÂLÂ BELİRLENMEDİ: ad " +
+    "20 Ağustos 2026'da isteğe uyarak sadeleştirildi (\"Dick kişilik " +
+    "envanteri sadece kişilik envanteri olacak\") ama içerik gelirken " +
+    "ölçeğin adı ve sürümü de belirtilmeli — kart o adı gösterecek.",
   surum: 1,
   olcek: [],
   boyutlar: [],

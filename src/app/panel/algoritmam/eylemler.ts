@@ -6,6 +6,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
   cevaplariKabulEt,
+  envanterAcikMi,
   envanterHazirMi,
   envanterTanimi,
   tamamlanabilirMi,
@@ -113,7 +114,7 @@ export async function envanterBaslatEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
   const tanim = tanimiCoz(veri.get("envanterKodu"));
 
-  if (!envanterHazirMi(tanim)) {
+  if (!envanterAcikMi(tanim)) {
     hataylaDon(tanim.kod, "Bu envanterin içeriği henüz hazır değil.");
   }
 
@@ -237,7 +238,7 @@ export async function yenidenCozEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
   const tanim = tanimiCoz(veri.get("envanterKodu"));
 
-  if (!envanterHazirMi(tanim)) {
+  if (!envanterAcikMi(tanim)) {
     hataylaDon(tanim.kod, "Bu envanterin içeriği henüz hazır değil.");
   }
 

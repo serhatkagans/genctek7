@@ -132,6 +132,12 @@ export default async function DisKullaniciProfiliSayfasi({
       <SayfaBasligi
         baslik={`${kisi.ad} ${kisi.soyad}`}
         aciklama={`${TUR_ETIKETLERI[basvuru.tur]} · ${kisi.il?.ad ?? "İl belirtilmemiş"}`}
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       {!kisi.aktif && (

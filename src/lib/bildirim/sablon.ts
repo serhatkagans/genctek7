@@ -42,6 +42,21 @@ export const BILDIRIM_KODLARI = {
    * güncellemek demekti.
    */
   OGRENCI_DANISMANLIKTAN_AYRILDI: "OGRENCI_DANISMANLIKTAN_AYRILDI",
+  /**
+   * Öğrenci danışman DEĞİŞİKLİĞİ istedi — İSTENEN ÖĞRETMENE gider
+   * (20 Ağustos 2026 · istek: "danışman öğretmen seçiminde öğretmene veya il
+   * koordinatörüne onay düşsün").
+   *
+   * OGRENCI_DANISMAN_SECTI'DEN AYRI: o, olmuş bitmiş bir bağı haber verir;
+   * bu, cevap bekleyen bir istektir. Aynı şablonla gönderilseydi öğretmen
+   * "listenizde görünüyor" diyen bir metin okur ve öğrenciyi listesinde
+   * bulamazdı.
+   */
+  DANISMAN_TALEBI_GELDI: "DANISMAN_TALEBI_GELDI",
+  /** Değişiklik onaylandı — ÖĞRENCİYE gider. */
+  DANISMAN_TALEBI_ONAYLANDI: "DANISMAN_TALEBI_ONAYLANDI",
+  /** Değişiklik reddedildi — ÖĞRENCİYE, gerekçesiyle birlikte gider. */
+  DANISMAN_TALEBI_REDDEDILDI: "DANISMAN_TALEBI_REDDEDILDI",
   KOORDINATOR_DEVREDILEBILIR_OGRENCI: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
   ONAY_BEKLEYEN_ULUSAL_FAALIYET: "ONAY_BEKLEYEN_ULUSAL_FAALIYET",
   /** Öğrenci faaliyet açtı; il koordinatörüne ve YEĞİTEK'e birlikte gider. */
@@ -232,6 +247,27 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Bir öğrenci danışman öğretmen olarak sizi seçtiğinde size gider. Onay istenmez; bildirim bağın kurulduğunu haber verir.",
     degiskenler: ["ogrenciAdSoyad", "sinif"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.DANISMAN_TALEBI_GELDI,
+    baslik: "Danışman değişikliği talebi",
+    aciklama:
+      "Danışmanı olan bir öğrenci sizi danışman seçtiğinde size gider. Bağ HENÜZ KURULMAZ; öğrenci sizin ya da il koordinatörünün onayını bekler.",
+    degiskenler: ["ogrenciAdSoyad", "sinif"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.DANISMAN_TALEBI_ONAYLANDI,
+    baslik: "Danışman değişikliğiniz onaylandı",
+    aciklama:
+      "Öğrencinin danışman değişikliği talebi onaylandığında öğrenciye gider.",
+    degiskenler: ["danismanAdSoyad"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.DANISMAN_TALEBI_REDDEDILDI,
+    baslik: "Danışman değişikliğiniz reddedildi",
+    aciklama:
+      "Talep reddedildiğinde öğrenciye gider. Gerekçe metnin içindedir; gerekçesiz ret kabul edilmiyor.",
+    degiskenler: ["danismanAdSoyad", "gerekce"],
   },
   {
     kod: BILDIRIM_KODLARI.OGRENCI_DANISMANLIKTAN_AYRILDI,

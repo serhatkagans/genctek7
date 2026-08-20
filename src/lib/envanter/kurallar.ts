@@ -34,9 +34,21 @@ export function envanterHazirMi(tanim: EnvanterTanimi): boolean {
   return tanim.maddeler.length > 0 && tanim.boyutlar.length > 0;
 }
 
+/**
+ * Envanter ŞU AN ÇÖZÜLEBİLİR mi?
+ *
+ * İki koşul birden: içeriği hazır olacak VE geçici olarak kapatılmamış
+ * olacak (bkz. tanimlar.ts · `kapali`). Ekranlar ve eylemler bu soruyu
+ * soruyor — `envanterHazirMi` yalnızca içeriğin varlığını söyler ve tek
+ * başına kullanıldığında kapalı bir envanteri çözüme açardı.
+ */
+export function envanterAcikMi(tanim: EnvanterTanimi): boolean {
+  return envanterHazirMi(tanim) && !tanim.kapali;
+}
+
 /** Ekranda çözülebilen envanterler. */
 export function hazirEnvanterler(): EnvanterTanimi[] {
-  return ENVANTERLER.filter(envanterHazirMi);
+  return ENVANTERLER.filter(envanterAcikMi);
 }
 
 export function olcekDegeriGecerliMi(

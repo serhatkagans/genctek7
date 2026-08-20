@@ -42,6 +42,12 @@ export default async function MentorTalebiSayfasi({
       <SayfaBasligi
         baslik="Mentör talebi aç"
         aciklama="Yol gösterecek bir mentöre sorun; talebinizi havuzdaki mentörler görür."
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       <Link

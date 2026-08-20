@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Hourglass,
   ShieldCheck,
   UserCheck,
   UserPlus,
@@ -32,6 +33,12 @@ import {
 } from "@/app/panel/gorev-rolleri/eylemler";
 import { danismanligiBirakEylemi } from "./[id]/eylemler";
 import { ogrenciyiDanismanligaAlEylemi } from "./eylemler";
+import {
+  danismanTalebiniOnaylaEylemi,
+  danismanTalebiniReddetEylemi,
+} from "./talep-eylemleri";
+import { bekleyenTalepleriGetir } from "@/lib/danisman/talep";
+import { tarihSaatYaz } from "@/lib/tarih";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import { prisma } from "@/lib/db";
 import {
@@ -209,6 +216,24 @@ export default async function OgrencilerSayfasi({
    * zorunda kalmamalı. Durum/hata parametreleri eylemde ekleniyor.
    */
   const mevcutSorgu = sorguMetni(parametreler, ["durum", "hata"]);
+
+  /*
+   * DANIŞMAN DEĞİŞİKLİĞİ ONAY KUYRUĞU (20 Ağustos 2026 · istek: "danışman
+   * öğretmen seçiminde öğretmene veya il koordinatörüne onay düşsün").
+   *
+   * KUYRUK BU EKRANIN BAŞINDA çünkü kararın sonucu bu listedir: onaylayan
+   * öğretmen öğrenciyi hemen altında görür, reddeden görmez. Ayrı bir onay
+   * ekranı açmak, günde bir talep gelen öğretmeni hiç uğramayacağı bir
+   * sayfaya yollardı.
+   *
+   * Kimin neyi göreceğini kural katmanı belirliyor: öğretmen kendisinden
+   * istenenleri, koordinatör ilindeki bütün bekleyenleri
+   * (bkz. lib/danisman/talep.ts · bekleyenTalepleriGetir).
+   */
+  const bekleyenTalepler = await bekleyenTalepleriGetir(
+    kullanici.id,
+    ilKoordinatoruMu(kullanici) ? koordinatorIlKodu(kullanici) : null,
+  );
   const donusYolu = mevcutSorgu
     ? `/panel/ogrenciler?${mevcutSorgu}`
     : "/panel/ogrenciler";
@@ -472,7 +497,111 @@ export default async function OgrencilerSayfasi({
         !["atandi", "kaldirildi", "danismanlik-birakildi", "danismanlik-alindi"].includes(
           gorevDurumu,
         ) && <BilgiKutusu cesit="olumlu">{gorevDurumu}</BilgiKutusu>}
+      {gorevDurumu === "talep-onaylandi" && (
+        <BilgiKutusu cesit="olumlu">
+          Danışman değişikliği onaylandı; öğrenci artık yeni danışmanına bağlı.
+        </BilgiKutusu>
+      )}
+      {gorevDurumu === "talep-reddedildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Talep reddedildi. Öğrencinin danışmanı değişmedi ve gerekçeniz ona
+          iletildi.
+        </BilgiKutusu>
+      )}
       {gorevHatasi && <BilgiKutusu cesit="hata">{gorevHatasi}</BilgiKutusu>}
+
+      {/*
+        BEKLEYEN TALEPLER — SAYFANIN EN BAŞINDA, listeden önce. Kuyruk bir
+        yapılacak listesi; öğrenci tablosunun altında dursaydı üç yüz satırlık
+        listenin ardında kalırdı.
+
+        KUTU YALNIZCA TALEP VARKEN basılıyor: boş bir "bekleyen talep yok"
+        kartı, hiç talep almayan öğretmenin ekranında kalıcı bir gürültü
+        olurdu — sayacın yeri panel ("Dikkat gerektirenler").
+      */}
+      {bekleyenTalepler.length > 0 && (
+        <div id="danisman-talepleri" className="scroll-mt-6">
+          <Kart>
+            <KartBasligi
+              baslik={`Danışman değişikliği talepleri (${bekleyenTalepler.length})`}
+              aciklama="Öğrenciler danışmanlarını değiştirmek istiyor. Karar verilene kadar mevcut danışmanları devam eder; reddederseniz gerekçeniz öğrenciye iletilir."
+              Ikon={Hourglass}
+            />
+            <ul className="space-y-3">
+              {bekleyenTalepler.map((talep) => (
+                <li
+                  key={talep.id}
+                  className="rounded-kart border border-uyari-cizgi bg-uyari-zemin p-4"
+                >
+                  <p className="font-medium text-metin">
+                    <Link
+                      href={`/panel/ogrenciler/${talep.ogrenci.id}`}
+                      className="underline underline-offset-2"
+                    >
+                      {talep.ogrenci.ad} {talep.ogrenci.soyad}
+                    </Link>
+                    {talep.ogrenci.sinif && (
+                      <span className="ml-2 text-sm text-metin-yumusak">
+                        {talep.ogrenci.sinif}
+                      </span>
+                    )}
+                  </p>
+                  {/*
+                    KİMDEN KİME açıkça yazılıyor. Koordinatörün ekranında
+                    talepler başka öğretmenler için de gelebiliyor; yalnızca
+                    öğrencinin adı basılsaydı kimin danışmanlığının
+                    tartışıldığı görünmezdi.
+                  */}
+                  <p className="mt-1 text-sm text-metin-yumusak">
+                    {talep.oncekiDanisman
+                      ? `${talep.oncekiDanisman.ad} ${talep.oncekiDanisman.soyad} → `
+                      : ""}
+                    {talep.istenenDanisman.ad} {talep.istenenDanisman.soyad}
+                    {" · "}
+                    {tarihSaatYaz(talep.olusturmaTarihi)}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-start gap-3">
+                    <form action={danismanTalebiniOnaylaEylemi}>
+                      <input type="hidden" name="talepId" value={talep.id} />
+                      <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                        <BadgeCheck size={15} aria-hidden />
+                        Onayla
+                      </button>
+                    </form>
+
+                    {/*
+                      RET GEREKÇESİ AYNI SATIRDA İSTENİYOR, ayrı bir ekranda
+                      değil: gerekçe zorunlu (kural katmanı reddediyor) ve iki
+                      adımlı bir akış, öğretmeni "reddet"e basıp yarıda
+                      bırakmaya iterdi — talep de kuyrukta kalırdı.
+                    */}
+                    <form
+                      action={danismanTalebiniReddetEylemi}
+                      className="flex flex-wrap items-start gap-2"
+                    >
+                      <input type="hidden" name="talepId" value={talep.id} />
+                      <input
+                        type="text"
+                        name="gerekce"
+                        required
+                        minLength={5}
+                        maxLength={500}
+                        placeholder="Ret gerekçesi (öğrenci görecek)"
+                        className="w-72 rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin"
+                      />
+                      <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                        <X size={15} aria-hidden />
+                        Reddet
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Kart>
+        </div>
+      )}
 
       {/*
         GENÇTEK DANIŞMAN ÖĞRETMENLİĞİ (7 Ağustos 2026 · istek: "GençTek

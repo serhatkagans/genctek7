@@ -45,21 +45,14 @@ const IZINLI_ALANLAR = [
 /**
  * Formların yaşadığı ekran — dönüş adresi.
  *
- * `/panel/profil` DEĞİL (C4 · 7 Ağustos 2026): fotoğraf ve iletişim formları
- * Panelim'e taşındı, profil salt okunur oldu. Kullanıcıyı kaydettikten sonra
- * profile atmak, formu bırakıp başka bir ekrana düşürmek olurdu.
+ * TEK EKRAN (20 Ağustos 2026 · panel-profil birleşmesi): yazılan bilgi de
+ * onu yazan form da burada. Ayrı bir "gösterim yüzeyi" tazelemesi kalktı;
+ * `/panel/profil` artık yalnızca buraya yönlendiren bir adres.
  */
 const YOL = "/panel";
 
-/**
- * Gösterim yüzeyi — yazılan bilgi burada görünüyor, bu yüzden o da tazelenir.
- * Tazelenmezse kullanıcı profiline geçtiğinde eski değeri görür.
- */
-const PROFIL_YOLU = "/panel/profil";
-
 function yollariTazele(): void {
   revalidatePath(YOL);
-  revalidatePath(PROFIL_YOLU);
 }
 
 /**

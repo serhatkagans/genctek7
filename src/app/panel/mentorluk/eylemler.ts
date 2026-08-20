@@ -56,9 +56,8 @@ const PANO = "/panel/talepler/mentor-basvuru";
 function basvuruyaDon(sorgu: string): never {
   revalidatePath(PANO);
   revalidatePath("/panel/talepler");
-  // Panel'deki "Mentörlüklerim" kartı ile profildeki durum da tazelenmeli.
+  // Panel'deki "Mentörlüklerim" kartı ile mentörlük durumu da tazelenmeli.
   revalidatePath(PANEL);
-  revalidatePath("/panel/profil");
   redirect(`${PANO}?${sorgu}#mentorlugum`);
 }
 

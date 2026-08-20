@@ -1,9 +1,11 @@
 import {
   BadgeCheck,
+  Hourglass,
   MapPin,
   UserCheck,
   UserMinus,
   UserPlus,
+  X,
 } from "lucide-react";
 import {
   BilgiKutusu,
@@ -14,6 +16,7 @@ import {
 } from "@/components/ui";
 import type { KoordinatorBilgisi } from "@/lib/danisman/atama";
 import type { DanismanAdayi } from "@/lib/danisman/karar";
+import { tarihSaatYaz } from "@/lib/tarih";
 
 /**
  * Danışman öğretmen durumu ve seçim listesi.
@@ -39,6 +42,23 @@ export interface DanismanSecimVerisi {
   } | null;
   adaylar: DanismanAdayi[];
   koordinator: KoordinatorBilgisi | null;
+  /**
+   * Cevap bekleyen danışman DEĞİŞİKLİĞİ talebi (20 Ağustos 2026).
+   *
+   * `null` iken ekran eskisi gibi çalışır: seçim düğmeleri açıktır. Talep
+   * varken düğmeler basılmaz — bkz. aşağıdaki not.
+   */
+  bekleyenTalep: {
+    id: number;
+    olusturmaTarihi: Date;
+    istenenDanisman: { id: number; ad: string; soyad: string; brans: string | null };
+  } | null;
+  /** Reddedilmiş son talep; gerekçesi öğrenciye gösterilir. */
+  sonRet: {
+    retGerekcesi: string | null;
+    kararTarihi: Date | null;
+    istenenDanisman: { ad: string; soyad: string };
+  } | null;
 }
 
 function iletisimSatiri(
@@ -55,6 +75,7 @@ export function DanismanSecimi({
   veri,
   secEylemi,
   birakEylemi,
+  talepGeriCekEylemi,
   donusYolu,
   kartlaSar = true,
 }: {
@@ -62,11 +83,13 @@ export function DanismanSecimi({
   secEylemi: (girdi: FormData) => Promise<void>;
   /** Danışmanlığı sonlandırma; seçim eylemiyle aynı iki yerden çağrılır. */
   birakEylemi: (girdi: FormData) => Promise<void>;
+  /** Bekleyen talepten vazgeçme (20 Ağustos 2026). */
+  talepGeriCekEylemi: (girdi: FormData) => Promise<void>;
   /** Seçimden sonra dönülecek adres; eylem tek, çağıran iki. */
   donusYolu: string;
   kartlaSar?: boolean;
 }) {
-  const { atama, adaylar, koordinator } = veri;
+  const { atama, adaylar, koordinator, bekleyenTalep, sonRet } = veri;
   const koordinatoreBagliMi =
     atama !== null && atama.danismanKullaniciId === koordinator?.kullaniciId;
 
@@ -81,191 +104,268 @@ export function DanismanSecimi({
 
   const Sarmalayici = kartlaSar ? Kart : Bos;
 
+  /*
+   * TEK KART, AÇIKLAMASIZ (20 Ağustos 2026 · istekler: "danışman öğretmenim
+   * sayfasındaki açıklamaları silelim, mevcut durum da silinsin" · "iki kart
+   * birleşsin oradaki").
+   *
+   * Ekran iki karttı: üstte "Mevcut durum", altında seçim listesi. İkisi tek
+   * bir soruyu cevaplıyor — "danışmanım kim ve kimi seçebilirim" — ve arayı
+   * bölen çerçeve, öğrenciyi aynı işin iki kutusu arasında gezdiriyordu.
+   * Şimdi tek kart: üstte kim olduğu, ince bir ayraçtan sonra kimler
+   * seçilebileceği.
+   *
+   * "Mevcut durum" BAŞLIĞI DA KALKTI: altındaki satır zaten danışmanın adını
+   * ya da "Danışman atanmadı"yı yazıyor, başlık ona bir şey eklemiyordu.
+   *
+   * AÇIKLAMA CÜMLELERİ SİLİNDİ ("değiştirebilirsiniz, onay gerekmez",
+   * "platforma giriş yapmış öğretmenler arasından seçebilirsiniz" ve
+   * sonlandırma düğmesinin altındaki not). Hepsi ekranın kendi davranışını
+   * anlatıyordu; ekran o davranışı zaten yapıyor.
+   *
+   * KALAN TEK KUTU BİR YÖNERGEDİR, açıklama değil: okulunda danışman öğretmen
+   * bulunmayan öğrenciye "il koordinatörünüzle iletişime geçin" diyor
+   * (F · 6 Ağustos 2026 · istek). Onu da silmek, o öğrenciyi ne yapacağını
+   * bilmeden bırakırdı.
+   */
   return (
-    <div className="space-y-6">
-      <Sarmalayici>
-        <h2 className="text-sm font-medium text-metin-yumusak">Mevcut durum</h2>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-lg text-metin">
-          {atama ? (
-            <>
-              <UserCheck size={18} className="text-vurgu-metin" aria-hidden />
-              {atama.danisman.ad} {atama.danisman.soyad}
-              {atama.danisman.brans ? ` · ${atama.danisman.brans}` : ""}
-              {koordinatoreBagliMi && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rol-koordinator-zemin px-2.5 py-0.5 text-sm text-rol-koordinator-metin">
-                  <MapPin size={13} aria-hidden />
-                  İl koordinatörü
-                </span>
-              )}
-            </>
-          ) : (
-            "Danışman atanmadı."
-          )}
+    <Sarmalayici>
+      <p className="flex flex-wrap items-center gap-2 text-lg text-metin">
+        {atama ? (
+          <>
+            <UserCheck size={18} className="text-vurgu-metin" aria-hidden />
+            {atama.danisman.ad} {atama.danisman.soyad}
+            {atama.danisman.brans ? ` · ${atama.danisman.brans}` : ""}
+            {koordinatoreBagliMi && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rol-koordinator-zemin px-2.5 py-0.5 text-sm text-rol-koordinator-metin">
+                <MapPin size={13} aria-hidden />
+                İl koordinatörü
+              </span>
+            )}
+          </>
+        ) : (
+          "Danışman atanmadı."
+        )}
+      </p>
+      {atama && danismanIletisimi.length > 0 && (
+        <p className="mt-1 text-sm text-metin-yumusak">
+          {danismanIletisimi.join(" · ")}
         </p>
-        {atama && danismanIletisimi.length > 0 && (
-          <p className="mt-1 text-sm text-metin-yumusak">
-            {danismanIletisimi.join(" · ")}
+      )}
+
+      {/*
+        BEKLEYEN TALEP (20 Ağustos 2026 · istek: "danışman öğretmen seçiminde
+        öğretmene veya il koordinatörüne onay düşsün sürekli değişmek
+        isteyebilirler").
+
+        Kutu "mevcut durum" satırının HEMEN ALTINDA: iki satır birlikte
+        okunmalı — "danışmanın şu, ama şunun için istek gönderdin". Ayrı bir
+        kartta dursaydı öğrenci üstteki adı görüp isteğinin geçtiğini sanardı.
+
+        Cümle atamanın DEĞİŞMEDİĞİNİ açıkça söylüyor: onay bekleyen bir istek,
+        öğrenciyi danışmansız bırakmaz.
+      */}
+      {bekleyenTalep && (
+        <div className="mt-4 rounded-kart border border-uyari-cizgi bg-uyari-zemin p-4">
+          <p className="flex flex-wrap items-center gap-2 font-medium text-uyari-metin">
+            <Hourglass size={16} aria-hidden />
+            {bekleyenTalep.istenenDanisman.ad}{" "}
+            {bekleyenTalep.istenenDanisman.soyad} için talebiniz onay bekliyor
           </p>
-        )}
-        {adaylar.length > 0 && (
-          <p className="mt-2 text-sm text-metin-yumusak">
-            {koordinatoreBagliMi
-              ? "Okulunuzda danışman öğretmen bulunduğu için aşağıdan kendi danışmanınızı seçebilirsiniz."
-              : "Danışmanınızı istediğiniz zaman değiştirebilirsiniz; değişiklik anında geçerli olur, onay gerekmez."}
+          <p className="mt-1.5 text-sm text-uyari-metin">
+            {tarihSaatYaz(bekleyenTalep.olusturmaTarihi)} tarihinde gönderildi.
+            Talebi seçtiğiniz öğretmen ya da il koordinatörünüz karara bağlar;
+            o zamana kadar danışmanınız değişmez.
           </p>
-        )}
-
-        {/*
-          DANIŞMANLIĞI SONLANDIRMA (11 Ağustos 2026 · istek: "öğrenci danışman
-          öğretmeni bırakacak butonu yok bırakabilsin").
-
-          Öğretmen tarafındaki bırakmanın aynası: bağ kapanır, öğrenci
-          danışmansız kalır ve yeni danışmanını istediği zaman seçer. Gerekçe
-          sorulmaz (bkz. lib/danisman/atama.ts · ogrenciDanismaniniBirakti).
-
-          İL KOORDİNATÖRÜNE BAĞLIYKEN BASILMAZ. O bağ seçilmiş bir danışmanlık
-          değil, okulunda danışman öğretmen bulunmayan öğrenciyi boşta
-          bırakmamak için kurulan bir yedektir; sonlandırmak öğrenciye bir şey
-          kazandırmaz, seçebileceği kimse de yoktur.
-
-          Düğme İKİNCİL ve listenin ÜSTÜNDE, "mevcut durum" bölümünün içinde:
-          asıl iş danışman seçmek, bu onun yanındaki çıkış yolu. Aday
-          listesinin altına konsaydı "Danışmanım olsun" düğmelerinin devamı
-          gibi okunurdu.
-        */}
-        {atama && !koordinatoreBagliMi && (
-          <form action={birakEylemi} className="mt-4">
+          <form action={talepGeriCekEylemi} className="mt-3">
             <input type="hidden" name="donusYolu" value={donusYolu} />
+            <input type="hidden" name="talepId" value={bekleyenTalep.id} />
             <button type="submit" className={SINIF_IKINCIL_BUTON}>
-              <UserMinus size={15} aria-hidden />
-              Danışmanlığı sonlandır
+              <X size={15} aria-hidden />
+              Talebimi geri çek
             </button>
-            <p className="mt-1.5 text-sm text-metin-yumusak">
-              Danışmanınız kalmaz ve öğretmene bilgi verilir. Yeni danışmanınızı
-              istediğiniz zaman aşağıdaki listeden seçebilirsiniz.
-            </p>
           </form>
-        )}
-      </Sarmalayici>
+        </div>
+      )}
 
-      {adaylar.length === 0 ? (
-        /*
-          Okulda danışman yok. Eskiden bu durumda yalnızca "koordinatörünüze
-          bağlısınız" cümlesi vardı ve öğrenci bağlı OLDUĞU kişinin adını bile
-          göremiyordu. Koordinatör artık listede — seçilebilir değil, çünkü
-          seçilecek bir alternatif yok; atama zaten otomatik yapılmış durumda.
-        */
-        <Sarmalayici>
-          {/*
-            AÇIKLAMA ATAMAYA GÖRE DEĞİŞİR. "İl koordinatörünüze bağlısınız"
-            cümlesi, atama gerçekten kuruluyken doğru; danışmanlığı elle
-            sonlandırılmış öğrenci (kendisi bıraktı ya da öğretmeni bıraktı)
-            kimseye bağlı DEĞİLDİR ve otomatik olarak da bağlanmaz
-            (bkz. ilkAtamaKarariVer · elleBirakildiMi). Tek metin basılsaydı
-            ekran, öğrencinin durumunu olduğundan iyi gösterirdi.
-          */}
-          <KartBasligi
-            baslik="İl koordinatörünüz"
-            aciklama={
-              atama
-                ? "Okulunuzda GençTek danışman öğretmeni olarak görev alan öğretmen bulunmuyor. Bu nedenle il koordinatörünüze bağlısınız; okulunuzda bir öğretmen görev aldığında bilgilendirilirsiniz."
-                : "Okulunuzda GençTek danışman öğretmeni olarak görev alan öğretmen bulunmuyor ve şu anda danışmanınız yok. Okulunuzda bir öğretmen görev aldığında seçim yapabilirsiniz; o zamana kadar aşağıdaki il koordinatörünüze ulaşabilirsiniz."
-            }
-            Ikon={MapPin}
-          />
+      {/*
+        SON RET GEREKÇESİ. Bildirim listesi zaten okundu işaretlenip düşüyor;
+        gerekçenin kalıcı olarak durduğu tek yer burası. Öğrenci reddedilen
+        isteğini neden tekrarlamaması gerektiğini burada okuyor.
 
-          {/*
-            İSTENEN NOT (F · 6 Ağustos 2026). Kart zaten koordinatörün adını ve
-            iletişim bilgisini gösteriyor ama "ne yapmam gerekiyor" sorusunu
-            cevaplamıyordu: öğrenci bağlı olduğu kişiyi görüp orada kalıyordu.
-          */}
-          <BilgiKutusu className="mb-4">
-            Danışman öğretmeni olmayan öğrencilerin il koordinatörü ile iletişime
-            geçmesi gerekmektedir.
-          </BilgiKutusu>
-          {koordinator ? (
-            <div className="rounded-kart border border-cizgi px-4 py-3">
-              <span className="block font-medium text-metin">
-                {koordinator.ad} {koordinator.soyad}
-              </span>
-              <span className="block text-sm text-metin-yumusak">
-                {koordinator.brans ?? "İl koordinatörü"}
-              </span>
-              {koordinatorIletisimi.length > 0 && (
-                <span className="mt-1 block text-sm text-metin-yumusak">
-                  {koordinatorIletisimi.join(" · ")}
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="text-metin-yumusak">
-              İlinize henüz il koordinatörü atanmadı. Atama yapıldığında
-              danışmanınız olarak buraya yazılacak.
+        Bekleyen talep VARKEN basılmaz: o an geçerli olan yeni istektir, eski
+        ret ikinci bir uyarı gibi görünürdü.
+      */}
+      {!bekleyenTalep && sonRet && (
+        <div className="mt-4 rounded-kart border border-cizgi bg-zemin p-4">
+          <p className="text-sm font-medium text-metin">
+            {sonRet.istenenDanisman.ad} {sonRet.istenenDanisman.soyad} için son
+            talebiniz reddedildi
+            {sonRet.kararTarihi
+              ? ` · ${tarihSaatYaz(sonRet.kararTarihi)}`
+              : ""}
+          </p>
+          {sonRet.retGerekcesi && (
+            <p className="mt-1 text-sm text-metin-yumusak">
+              Gerekçe: {sonRet.retGerekcesi}
             </p>
           )}
-        </Sarmalayici>
-      ) : (
-        <Sarmalayici>
-          {/*
-            İSTENEN NOT (F · 6 Ağustos 2026): "Platforma giriş yapmış okulunuz
-            öğretmenleri arasından seçim yapabilirsiniz."
-
-            Cümlenin işi listenin NEDEN kısa olabileceğini anlatmak: okulda
-            çalışan her öğretmen burada görünmez, yalnızca platforma girip
-            danışmanlık görevini işaretleyenler görünür. Bunu söylemeyen bir
-            liste, öğrenciye "öğretmenim neden yok" dedirtiyordu.
-          */}
-          <KartBasligi
-            baslik="Danışman öğretmen seçimi"
-            aciklama="Platforma giriş yapmış okulunuz öğretmenleri arasından seçim yapabilirsiniz. Listede yalnızca GençTek danışman öğretmenliği görevini işaretlemiş öğretmenler görünür."
-            Ikon={UserPlus}
-          />
-          <ul className="space-y-2">
-            {adaylar.map((aday) => {
-              const seciliMi = atama?.danismanKullaniciId === aday.kullaniciId;
-              return (
-                <li key={aday.kullaniciId}>
-                  <form action={secEylemi}>
-                    <input
-                      type="hidden"
-                      name="danismanId"
-                      value={aday.kullaniciId}
-                    />
-                    <input type="hidden" name="donusYolu" value={donusYolu} />
-                    <div
-                      className={`flex flex-wrap items-center justify-between gap-3 rounded-kart border px-4 py-3 ${
-                        seciliMi
-                          ? "border-olumlu-cizgi bg-olumlu-zemin"
-                          : "border-cizgi"
-                      }`}
-                    >
-                      <span>
-                        <span className="block font-medium text-metin">
-                          {aday.ad} {aday.soyad}
-                        </span>
-                        <span className="block text-sm text-metin-yumusak">
-                          {aday.brans ?? "—"}
-                        </span>
-                      </span>
-                      {seciliMi ? (
-                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-olumlu-metin">
-                          <BadgeCheck size={16} aria-hidden />
-                          Danışmanınız
-                        </span>
-                      ) : (
-                        <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                          Danışmanım olsun
-                        </button>
-                      )}
-                    </div>
-                  </form>
-                </li>
-              );
-            })}
-          </ul>
-        </Sarmalayici>
+        </div>
       )}
-    </div>
+
+      {/*
+        DANIŞMANLIĞI SONLANDIRMA (11 Ağustos 2026 · istek: "öğrenci danışman
+        öğretmeni bırakacak butonu yok bırakabilsin").
+
+        Öğretmen tarafındaki bırakmanın aynası: bağ kapanır, öğrenci
+        danışmansız kalır ve yeni danışmanını istediği zaman seçer. Gerekçe
+        sorulmaz (bkz. lib/danisman/atama.ts · ogrenciDanismaniniBirakti).
+
+        İL KOORDİNATÖRÜNE BAĞLIYKEN BASILMAZ. O bağ seçilmiş bir danışmanlık
+        değil, okulunda danışman öğretmen bulunmayan öğrenciyi boşta
+        bırakmamak için kurulan bir yedektir; sonlandırmak öğrenciye bir şey
+        kazandırmaz, seçebileceği kimse de yoktur.
+
+        Düğme İKİNCİL ve listenin ÜSTÜNDE: asıl iş danışman seçmek, bu onun
+        yanındaki çıkış yolu. Aday listesinin altına konsaydı "Danışmanım
+        olsun" düğmelerinin devamı gibi okunurdu.
+      */}
+      {atama && !koordinatoreBagliMi && (
+        <form action={birakEylemi} className="mt-4">
+          <input type="hidden" name="donusYolu" value={donusYolu} />
+          <button type="submit" className={SINIF_IKINCIL_BUTON}>
+            <UserMinus size={15} aria-hidden />
+            Danışmanlığı sonlandır
+          </button>
+        </form>
+      )}
+
+      {/*
+        AYRAÇ, YENİ KART DEĞİL: iki bölüm hâlâ ayrı okunuyor ama tek çerçevenin
+        içinde.
+      */}
+      <div className="mt-6 border-t border-cizgi pt-6">
+        {adaylar.length === 0 ? (
+          /*
+            Okulda danışman yok. Koordinatör listede — seçilebilir değil, çünkü
+            seçilecek bir alternatif yok; atama zaten otomatik yapılmış durumda.
+          */
+          <>
+            <KartBasligi baslik="İl koordinatörünüz" Ikon={MapPin} />
+
+            <BilgiKutusu className="mb-4">
+              Danışman öğretmeni olmayan öğrencilerin il koordinatörü ile
+              iletişime geçmesi gerekmektedir.
+            </BilgiKutusu>
+            {koordinator ? (
+              <div className="rounded-kart border border-cizgi px-4 py-3">
+                <span className="block font-medium text-metin">
+                  {koordinator.ad} {koordinator.soyad}
+                </span>
+                <span className="block text-sm text-metin-yumusak">
+                  {koordinator.brans ?? "İl koordinatörü"}
+                </span>
+                {koordinatorIletisimi.length > 0 && (
+                  <span className="mt-1 block text-sm text-metin-yumusak">
+                    {koordinatorIletisimi.join(" · ")}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-metin-yumusak">
+                İlinize henüz il koordinatörü atanmadı. Atama yapıldığında
+                danışmanınız olarak buraya yazılacak.
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            {/*
+              LİSTENİN NEDEN KISA OLABİLECEĞİNİ SÖYLEYEN TEK CÜMLE
+              (20 Ağustos 2026 · istek: "bu yazı yerine danışman öğretmeninizi
+              göremiyorsanız sistemden giriş yapması gerekir yazısı gelsin").
+
+              Önceki metin aynı şeyi iki cümlede ve sistemin diliyle
+              anlatıyordu ("platforma giriş yapmış öğretmenler",
+              "danışman öğretmenliği görevini işaretlemiş"). Yenisi öğrencinin
+              sorduğu soruyla başlıyor: öğretmenim listede yok, ne yapmalıyım.
+            */}
+            <KartBasligi
+              baslik="Danışman öğretmen seçimi"
+              aciklama={
+                /*
+                  METİN DURUMA GÖRE DEĞİŞİR (20 Ağustos 2026): danışmanı olan
+                  öğrencinin seçimi bir TALEPTİR, ilk seçim ise doğrudan atama.
+                  Tek cümle basılsaydı biri için yanlış olurdu.
+                */
+                atama
+                  ? "Danışman değişikliği onaya tabidir: seçtiğiniz öğretmen ya da il koordinatörünüz onaylayana kadar mevcut danışmanınız devam eder. Danışman öğretmeninizi göremiyorsanız sisteme giriş yapması gerekir."
+                  : "Danışman öğretmeninizi göremiyorsanız sisteme giriş yapması gerekir."
+              }
+              Ikon={UserPlus}
+            />
+            <ul className="space-y-2">
+              {adaylar.map((aday) => {
+                const seciliMi = atama?.danismanKullaniciId === aday.kullaniciId;
+                return (
+                  <li key={aday.kullaniciId}>
+                    <form action={secEylemi}>
+                      <input
+                        type="hidden"
+                        name="danismanId"
+                        value={aday.kullaniciId}
+                      />
+                      <input type="hidden" name="donusYolu" value={donusYolu} />
+                      <div
+                        className={`flex flex-wrap items-center justify-between gap-3 rounded-kart border px-4 py-3 ${
+                          seciliMi
+                            ? "border-olumlu-cizgi bg-olumlu-zemin"
+                            : "border-cizgi"
+                        }`}
+                      >
+                        <span>
+                          <span className="block font-medium text-metin">
+                            {aday.ad} {aday.soyad}
+                          </span>
+                          <span className="block text-sm text-metin-yumusak">
+                            {aday.brans ?? "—"}
+                          </span>
+                        </span>
+                        {seciliMi ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-olumlu-metin">
+                            <BadgeCheck size={16} aria-hidden />
+                            Danışmanınız
+                          </span>
+                        ) : bekleyenTalep ? (
+                          /*
+                            BEKLEYEN TALEP VARKEN SEÇİM KAPALI. Kural katmanı da
+                            reddediyor (öğrenci başına tek bekleyen talep) ama
+                            düğmeyi açık bırakmak, öğrenciyi her tıklamada
+                            hata mesajına götürürdü. Bekleyen istek geri
+                            çekilebiliyor; çıkış yolu yukarıdaki kutuda.
+                          */
+                          <span className="text-sm text-metin-yumusak">
+                            Talebiniz sonuçlanana kadar seçim yapılamaz
+                          </span>
+                        ) : atama ? (
+                          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                            Talep gönder
+                          </button>
+                        ) : (
+                          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                            Danışmanım olsun
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+    </Sarmalayici>
   );
 }
 

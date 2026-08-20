@@ -64,8 +64,8 @@ async function girisYap(kisiAdi) {
  */
 async function ilkGirisKapisiniGec(sayfa) {
   /*
-   * Kapı, giriş sonrası HEDEF SAYFADA açılıyor: `girisYap` kişiyi /panel ya da
-   * /panel/profil'e yolluyor, panel düzeni de onaysız kullanıcıyı /onay'a
+   * Kapı, giriş sonrası HEDEF SAYFADA açılıyor: `girisYap` kişiyi /panel'e
+   * yolluyor, panel düzeni de onaysız kullanıcıyı /onay'a
    * çeviriyor. `waitForURL(/(panel|onay)/)` bu zincirin ORTASINDA, henüz
    * /panel'deyken eşleşebiliyor; o an url'ye bakıp "kapı yok" demek yanlış
    * sonuç veriyordu ve sonraki her gezinme sessizce /onay'a düşüyordu.
@@ -251,7 +251,7 @@ rapor.push("Hazırlık: 5 öğrenci ilk girişini yaptı");
 // görünür (tek aday olsaydı sistem otomatik atardı).
 {
   const { baglam, sayfa } = await girisYap("Fatma Çelik");
-  await sayfa.goto(`${kok}/panel/profil`, { waitUntil: "networkidle" });
+  await sayfa.goto(`${kok}/panel#profilim`, { waitUntil: "networkidle" });
   await cek(sayfa, "0-gorev-almamis-ogretmen-profil");
 
   const gorevAlDugmesi = sayfa.getByRole("button", {
@@ -302,7 +302,7 @@ rapor.push("Hazırlık: 5 öğrenci ilk girişini yaptı");
   const menuler = await menu(sayfa);
   const liste = await ogrenciListesi(sayfa);
   await cek(sayfa, "3-okul-koordinatoru-ogrenciler");
-  await cek(sayfa, "3-okul-koordinatoru-profil", "/panel/profil");
+  await cek(sayfa, "3-okul-koordinatoru-profil", "/panel#profilim");
   rapor.push(
     `Okul koord. · menü: ${menuler.join(", ")} · öğrenci listesi (${liste?.length}): ${liste?.join(" | ")}`,
   );
@@ -762,9 +762,12 @@ let ekAdresi;
    */
   const { baglam, sayfa, ilkGirisKapisi } = await girisYap("Yusuf Demir");
 
-  // Belge bölümü profilin en altında; menüden kaldırıldı (5 Ağustos 2026).
-  await sayfa.goto(`${kok}/panel/profil#kvkk`, { waitUntil: "networkidle" });
-  await cek(sayfa, "8-ogrenci-onay-belgeleri", "/panel/profil#kvkk");
+  /*
+   * Belge bölümü Panel'in en altında; menüden kaldırıldı (5 Ağustos 2026) ve
+   * profil ekranı 20 Ağustos'ta panelle birleşti.
+   */
+  await sayfa.goto(`${kok}/panel#kvkk`, { waitUntil: "networkidle" });
+  await cek(sayfa, "8-ogrenci-onay-belgeleri", "/panel#kvkk");
 
   const onayliBelge = await sayfa.getByText("tarihinde onayladınız").count();
   const bekleyenBelge = await sayfa.getByText("henüz onaylamadınız").count();
@@ -830,7 +833,15 @@ let ekAdresi;
 
   for (const [kisi, etiket] of beklenen) {
     const { baglam, sayfa } = await girisYap(kisi);
-    await sayfa.goto(`${kok}/panel/profil`, { waitUntil: "networkidle" });
+    /*
+     * BÖLÜM AÇIK GELSİN diye `?bolum=` veriliyor: iletişim formu Panel'de
+     * katlanır bir `<details>` içinde ve kapalı bir öğenin içindeki alan
+     * doldurulamaz (bkz. app/panel/page.tsx).
+     */
+    await sayfa.goto(
+      `${kok}/panel?bolum=iletisim-bilgilerim#iletisim-bilgilerim`,
+      { waitUntil: "networkidle" },
+    );
 
     const epostaAlani = sayfa.locator('input[name="eposta"]');
     const telefonAlani = sayfa.locator('input[name="telefon"]');
@@ -866,7 +877,7 @@ let ekAdresi;
     );
 
     if (kisi === "Selim Koç") {
-      await cek(sayfa, "9-il-koordinatoru-profil", "/panel/profil");
+      await cek(sayfa, "9-il-koordinatoru-profil", "/panel#profilim");
     }
     await baglam.close();
   }

@@ -127,13 +127,28 @@ bütün öğrencileri gerekçesiz ve tek tek karar verilmeden devir akışına
 sokuyordu. Rolü kapatan yol (okuldan ayrılma, rol envanterinden kaldırma)
 duruyor.
 
-### Öğrenci kendi isteğiyle danışman değiştirirse
+### Öğrenci kendi isteğiyle danışman değiştirirse — ONAYA TABİ (20 Ağustos 2026)
 
-Öğrenci danışmanını **istediği zaman** değiştirebilir; danışmanın ayrılmasını beklemesi gerekmez. Onay aranmaz, değişiklik anında geçerlidir (ilk seçimle aynı mantık). Sıklık sınırı da yoktur.
+**İstek:** *"danışman öğretmen seçiminde öğretmene veya il koordinatörüne onay düşsün sürekli değişmek isteyebilirler"*.
 
-Tek kısıt: yalnızca **kendi kurum kodundaki ve danışman olarak işaretli** öğretmenler arasından seçim yapabilir.
+| Durum | Ne olur |
+|---|---|
+| Öğrencinin danışmanı **yok** (ilk seçim) | Atama **hemen** yapılır, onay yok |
+| Öğrencinin danışmanı **var** (değişiklik) | **Talep** açılır; karar verilene kadar mevcut danışman devam eder |
 
-Veri modelinde: eski kayıt `kapanma_nedeni = OGRENCI_ISTEGI` ile kapanır, yeni kayıt `atama_tipi = OGRENCI_SECTI` ile açılır.
+**İlk seçim neden onaya girmez:** Değişmez 2 — öğrenci boşta kalamaz. Onay beklerken öğrenci danışmansız kalırdı; üstelik isteğin gerekçesi "sürekli **değişmek**", ilk seçimde değişen bir şey yok.
+
+**Kararı kim verir:** öğrencinin istediği **öğretmen** ya da öğrencinin ilindeki **il koordinatörü**. Koordinatörün yetkisi aynı zamanda tıkanma valfidir — cevap vermeyen bir öğretmen, öğrenciyi süresiz bekletebilecek tek nokta olurdu. **Eski danışmana sorulmaz** (bırakılan tarafa veto vermek, öğrenciyi ayrılmak istediği kişinin iznine bağlardı) ama haber gider.
+
+**Ret gerekçesi zorunlu** (en az 5 karakter): gerekçesiz ret, öğrenciyi aynı isteği tekrarlamaya iterdi. Gerekçe öğrencinin seçim ekranında kalıcı olarak görünür — bildirim okununca düşer, ekrandaki satır kalır.
+
+**Aynı anda tek bekleyen talep** (`ux_danisman_talebi_tek_bekleyen`). Öğrenci talebini geri çekebilir; kayıt silinmez, `GERI_CEKILDI` olur.
+
+Tek kısıt değişmedi: yalnızca **kendi kurum kodundaki ve danışman olarak işaretli** öğretmenler arasından seçim yapılabilir. Uygunluk **onay anında yeniden sorulur** — talep açıldıktan sonra öğretmen görevi bırakmış olabilir.
+
+Veri modelinde: talep `danisman_talebi` tablosunda durur (atama tablosuna yazılmaz — gerekçesi migration başlığında). Onaylanınca eski kayıt `kapanma_nedeni = OGRENCI_ISTEGI` ile kapanır, yeni kayıt `atama_tipi = OGRENCI_SECTI` ile açılır.
+
+Ekranlar: öğrenci `/panel/danisman-secim`, karar veren `/panel/ogrenciler#danisman-talepleri`; sayaç panelde "Dikkat gerektirenler" içinde.
 
 ### Danışmanı olan öğretmen il koordinatörü yapılırsa
 
@@ -166,7 +181,7 @@ Kurallar:
 
 ### Katkı kartı
 
-Temsilcilikler, çalışma grupları ve öğrencinin **düzenlediği faaliyetler** öğrencinin ekranlarında tek bir "Katkı kartı"nda toplanır (`/panel/profil` ve `/panel/kazanimlarim`). Kartta **geçmiş dönemlerin** görevleri de dönemiyle birlikte durur: geçen yılın il temsilciliği bir katkıdır ve eylülde sessizce silinmemelidir.
+Temsilcilikler, çalışma grupları ve öğrencinin **düzenlediği faaliyetler** öğrencinin ekranlarında tek bir "Katkı kartı"nda toplanır (`/panel#katilimlarim` ve `/panel/kazanimlarim`). Kartta **geçmiş dönemlerin** görevleri de dönemiyle birlikte durur: geçen yılın il temsilciliği bir katkıdır ve eylülde sessizce silinmemelidir.
 
 Öğretmenin katkı kartı aynı ekranlarda ama **kendi kalemleriyle** durur: rolleri, aktif danışmanlıkları ve düzenlediği faaliyetler. Öğrencinin kalemleri (çalışma grubu seçimi, temsilcilik) öğretmende hiçbir zaman dolmaz; ortak bir kart bunları boş satır olarak taşırdı.
 
@@ -231,16 +246,18 @@ Onaya kadar `onayDurumu=BEKLIYOR` ve faaliyet öğrencilere görünmez; yalnızc
 
 Onaylanmış bir öğrenci faaliyetinde tarih değişirse ya da kontenjan düşerse onay yeniden düşer ve uyarı yine **her iki tarafa** gider; yoksa koordinatör açılışta gördüğü öneriyi ikinci kez hiç görmezdi.
 
-Öğretmenlerin açtığı okul içi ve il içi faaliyetler onaysız yayına girer.
+**Öğrenci artık faaliyet AÇMAZ** (20 Ağustos 2026 · istek: "öğrencilerin etkinlik oluşturmasına gerek yok sadece mevcutlara katılabilsin"). Yukarıdaki onay akışı veritabanındaki eski öğrenci faaliyetleri için geçerliliğini korur; yeni öneri açılmıyor. Öğrencinin etkinlikle ilişkisi başvurmaktır.
 
-### Etkinlik kategorisi (Kapsam'dan AYRI bir alan)
+**Danışman öğretmen her kapsamda faaliyet açar** (20 Ağustos 2026 · istek: "öğretmen … kendi okulunda etkinlik oluşturabiliyor, türkiye geneli örnek espor gibi bir etkinlik oluşturmak istediğinde il koordinatörüne onaya gidecek"): kendi **okuluna** açtığı etkinlik onaysız yayına girer, **il ve ulusal** kapsamdakiler ilin koordinatörünün onayını bekler.
+
+### Etkinlik kategorisi (artık SORULMUYOR, PROGRAMDAN türetiliyor)
 
 Kapsam ile etkinlik kategorisi **iki ayrı, bağımsız alandır**:
 
 - **Kapsam** (Okul / İl / Ulusal) → *kimin başvurabileceğini* belirler.
 - **Etkinlik kategorisi** → *etkinliğin niteliğini* belirler.
 
-Her kapsam her kategoriyle birleşebilir; birini diğerinden türetme.
+**Kategori 20 Ağustos 2026'da formdan ve filtrelerden kalktı** (istek: "etkinlik oluştururken Etkinlik kategorisi alanı kalksın, filtre kısmından da etkinlik kategorisi kalksın"). Kolon ve rozet duruyor; değer artık **seçilen programdan** türetiliyor: program bir gruba aittir (Temel Etkinlik / Çalışma Grubu Etkinliği), program seçilmezse etkinlik **İl Etkinliği** sayılır. Kategori programdan geldiği için ikisi tanımı gereği uyumlu; eşleşme doğrulaması (`etkinlikKategorisiDogrula`) kuralın kaydı olarak yerinde duruyor.
 
 | Kategori | Nedir | Faaliyetin adı |
 |---|---|---|
@@ -387,7 +404,7 @@ kullanımı) kapsar — rızaya bağlanmayan işlem bu onaya dayandırılamaz.
 **Kilit yalnızca ilk giriştedir.** Hiç onay vermemiş kullanıcı panele giremez;
 `/onay` kapısından geçer. Sonradan eklenen bir belge ya da güncellenen bir metin
 kimseyi kapıda bırakmaz — panelde şerit çıkar, **profilin en altındaki bölümden**
-onaylanır (`/panel/profil#kvkk`). Sebebi pratik: bir metin güncellemesi tüm ilin
+onaylanır (`/panel#kvkk`). Sebebi pratik: bir metin güncellemesi tüm ilin
 koordinatörünü aynı anda dışarıda bırakabilir ve acil bir işin ortasında sistemin
 kilitlenmesi korumaktan çok zarar verir; erişimler zaten kayda geçiyor.
 
@@ -569,7 +586,7 @@ Profilde öğretmenin **"Öğrencilerim"** kartının karşılığı **"İlimdek
 
 ### Giriş sonrası herkes profile düşer
 
-**7 Ağustos 2026'dan beri rol ayrımı yok:** öğrenci, öğretmen, koordinatör, merkez personeli ve dış kullanıcılar (mezun, paydaş, mentör) girişten sonra `/panel/profil` ekranına gelir. Önceden yalnızca öğrenci profile düşüyordu (C3), diğerleri panele.
+**7 Ağustos 2026'dan beri rol ayrımı yok:** öğrenci, öğretmen, koordinatör, merkez personeli ve dış kullanıcılar (mezun, paydaş, mentör) girişten sonra aynı ekrana gelir. Önceden yalnızca öğrenci profile düşüyordu (C3), diğerleri panele. **20 Ağustos 2026'da hedef `/panel` oldu** — profil ekranı panelle birleşti ve adresi oraya yönlendiriyor.
 
 Kural **üç yerde birden** uygulanır ve üçü aynı olmak zorundadır, yoksa aynı kişi hangi kapıdan geldiğine göre farklı ekran görür:
 
@@ -664,9 +681,13 @@ Dördüncü görev rolü: `CALISMA_GRUBU_YONETICISI`. Diğer üçünden farkı *
 
 Etiket değişiklikleri için **veri taşınmadı**: enum değerleri korundu. Geri alınması pahalı bir işi bedavaya yapmak olurdu. `SPONSOR` de açılmış ilanları türsüz bırakmamak için listede duruyor.
 
-### Profil GÖSTERİR, Panelim DÜZENLER (7 Ağustos 2026)
+### Panel hem GÖSTERİR hem DÜZENLER (20 Ağustos 2026)
 
-Profil ekranı (`/panel/profil`) **salt okunurdur**. Bilgi girişi ve düzenlemenin tamamı Panelim (`/panel`) içindeki katlanabilir bölümlerdedir. Ayrım istekten gelir: *"foto ekleme değiştirme panelden yapılsın, profil kısmında sadece foto görünsün, iletişim bilgileri düzenleme panel sekmesine taşınsın, profilden sadece görünsün ... bilgi girişleri ve düzenleme panelden yapılsın"*.
+Profil ekranı panelle **birleşti**. İstek: *"panel ile profil birleşecek tek panel kalacak, düzenleme ve görüntüleme panelden olacak"*. `/panel/profil` artık `/panel`e yönlendiren bir adres; menüdeki `Profil` sekmesi kalktı. Kişinin kendi kaydı paneldeki `#profilim` bölgesinde başlar: önce salt okunur **Kimlik bilgileri**, sonra katlanır düzenleme bölümleri, en altta hesaplanan görünümler (katkı kartı, nişanlar, Rotam) ve **KVKK onayları** (`#kvkk`).
+
+Düzenleme bölümlerinin çapaları **değişmedi**; eylemlerin dönüş adresleri de aynı kaldı. Aşağıdaki tablo birleşmeden önceki iki yüzeyli düzenin kaydıdır — "Profilde" sütunundaki her satır bugün aynı sayfada, ilgili bölümün içinde ya da hemen altında duruyor.
+
+**7 Ağustos 2026 · önceki düzen.** Profil salt okunurdu, düzenleme panele taşınmıştı: *"foto ekleme değiştirme panelden yapılsın, profil kısmında sadece foto görünsün, iletişim bilgileri düzenleme panel sekmesine taşınsın, profilden sadece görünsün ... bilgi girişleri ve düzenleme panelden yapılsın"*.
 
 | Bölüm | Profilde | Panelim'de |
 |---|---|---|

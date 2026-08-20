@@ -1,32 +1,17 @@
-import type { FaaliyetDurumu, Kapsam } from "@/generated/prisma/enums";
+import type { FaaliyetDurumu } from "@/generated/prisma/enums";
 import { basvuruPenceresi } from "./kurallar";
 
 /**
- * Etkinlik takvimi — analiz dokümanı Bölüm 6: "Sisteme ilk girişte etkinlik
- * takvimi görülecek (geçmiş/aktif/yaklaşan)".
+ * Faaliyet tarihleri üzerine saf yardımcılar: başvuru şeridi ve geri sayım.
  *
  * Saf tutulur: veritabanına gitmez, şimdiki zamanı parametre alır. Böylece
- * "bu faaliyet bugün mü, yarın mı" kararı birim testle sınanabilir — takvim
- * ekranındaki en sinsi hata, sunucunun saatine göre kayan sınırlardır.
+ * "başvuru bugün mü kapanıyor" kararı birim testle sınanabilir — bu
+ * hesapların en sinsi hatası, sunucunun saatine göre kayan gün sınırlarıdır.
+ *
+ * GEÇMİŞ/BUGÜN/YAKLAŞAN AYIRICILARI KALKTI (20 Ağustos 2026): tek
+ * kullanıcıları paneldeki etkinlik takvimi bölümüydü, o da istek üzerine
+ * kaldırıldı.
  */
-
-export type TakvimBolumu = "GECMIS" | "BUGUN" | "YAKLASAN";
-
-export interface TakvimKaydi {
-  id: number;
-  ad: string;
-  tarih: Date;
-  kapsam: Kapsam;
-  durum: FaaliyetDurumu;
-  basvuruBaslangic: Date;
-  basvuruBitis: Date;
-}
-
-export interface Takvim<T> {
-  bugun: T[];
-  yaklasan: T[];
-  gecmis: T[];
-}
 
 function gunBasi(tarih: Date): Date {
   return new Date(
@@ -38,58 +23,6 @@ function gunBasi(tarih: Date): Date {
     0,
     0,
   );
-}
-
-/**
- * Faaliyetin takvimdeki yeri.
- *
- * Karşılaştırma GÜN bazındadır, an bazında değil: sabah 10'da yapılan bir
- * etkinlik öğleden sonra bakıldığında "geçmiş" görünseydi, o günün programını
- * takip eden kullanıcı etkinliği listede kaybederdi.
- */
-export function takvimBolumu(
-  faaliyet: { tarih: Date },
-  simdi: Date,
-): TakvimBolumu {
-  const gun = gunBasi(faaliyet.tarih).getTime();
-  const bugun = gunBasi(simdi).getTime();
-
-  if (gun === bugun) return "BUGUN";
-  return gun > bugun ? "YAKLASAN" : "GECMIS";
-}
-
-/**
- * Faaliyetleri takvim bölümlerine ayırır.
- *
- * Yaklaşanlar en yakın tarihten uzağa, geçmişler en yeniden eskiye sıralanır:
- * iki listede de kullanıcının önce görmek istediği kayıt "şimdiye en yakın"
- * olandır.
- */
-export function takvimeAyir<T extends { tarih: Date }>(
-  faaliyetler: readonly T[],
-  simdi: Date,
-): Takvim<T> {
-  const takvim: Takvim<T> = { bugun: [], yaklasan: [], gecmis: [] };
-
-  for (const faaliyet of faaliyetler) {
-    switch (takvimBolumu(faaliyet, simdi)) {
-      case "BUGUN":
-        takvim.bugun.push(faaliyet);
-        break;
-      case "YAKLASAN":
-        takvim.yaklasan.push(faaliyet);
-        break;
-      case "GECMIS":
-        takvim.gecmis.push(faaliyet);
-        break;
-    }
-  }
-
-  takvim.bugun.sort((a, b) => a.tarih.getTime() - b.tarih.getTime());
-  takvim.yaklasan.sort((a, b) => a.tarih.getTime() - b.tarih.getTime());
-  takvim.gecmis.sort((a, b) => b.tarih.getTime() - a.tarih.getTime());
-
-  return takvim;
 }
 
 /**

@@ -3,12 +3,10 @@ import {
   kalanGun,
   kalanGunYaz,
   seritteGosterilecekler,
-  takvimBolumu,
-  takvimeAyir,
 } from "@/lib/faaliyet/takvim";
 
 /**
- * Etkinlik takvimi ve duyuru şeridi — analiz dokümanı Bölüm 6.
+ * Duyuru şeridi ve geri sayımlar — analiz dokümanı Bölüm 6.
  */
 
 const SIMDI = new Date(2026, 3, 15, 14, 0, 0); // 15 Nisan 2026, 14:00
@@ -29,59 +27,6 @@ function faaliyet(
     basvuruBitis: ekler.basvuruBitis ?? new Date(2026, 3, 30, 23, 59, 59),
   };
 }
-
-describe("takvim bölümü", () => {
-  /*
-   * Karşılaştırma GÜN bazındadır: sabah 10'da yapılan etkinlik öğleden sonra
-   * bakıldığında "geçmiş" görünseydi, o günün programını takip eden kullanıcı
-   * etkinliği listede kaybederdi.
-   */
-  it("aynı gün içindeki etkinlik saat geçse de bugün sayılır", () => {
-    expect(takvimBolumu({ tarih: new Date(2026, 3, 15, 10, 0) }, SIMDI)).toBe(
-      "BUGUN",
-    );
-    expect(takvimBolumu({ tarih: new Date(2026, 3, 15, 23, 30) }, SIMDI)).toBe(
-      "BUGUN",
-    );
-  });
-
-  it("dünkü geçmiş, yarınki yaklaşandır", () => {
-    expect(takvimBolumu({ tarih: new Date(2026, 3, 14, 23, 59) }, SIMDI)).toBe(
-      "GECMIS",
-    );
-    expect(takvimBolumu({ tarih: new Date(2026, 3, 16, 0, 1) }, SIMDI)).toBe(
-      "YAKLASAN",
-    );
-  });
-});
-
-describe("takvime ayırma", () => {
-  it("üç bölüme ayırır ve her bölümü şimdiye yakından uzağa sıralar", () => {
-    const takvim = takvimeAyir(
-      [
-        faaliyet(new Date(2026, 3, 20)),
-        faaliyet(new Date(2026, 3, 1)),
-        faaliyet(new Date(2026, 3, 15, 9)),
-        faaliyet(new Date(2026, 3, 17)),
-        faaliyet(new Date(2026, 3, 10)),
-      ],
-      SIMDI,
-    );
-
-    expect(takvim.bugun).toHaveLength(1);
-    // Yaklaşanlar en yakın tarihten uzağa.
-    expect(takvim.yaklasan.map((f) => f.tarih.getDate())).toEqual([17, 20]);
-    // Geçmişler en yeniden eskiye.
-    expect(takvim.gecmis.map((f) => f.tarih.getDate())).toEqual([10, 1]);
-  });
-
-  it("boş listede üç bölüm de boş döner", () => {
-    const takvim = takvimeAyir([], SIMDI);
-    expect(takvim.bugun).toEqual([]);
-    expect(takvim.yaklasan).toEqual([]);
-    expect(takvim.gecmis).toEqual([]);
-  });
-});
 
 describe("duyuru şeridi", () => {
   it("yalnızca başvuru penceresi açık faaliyetler girer", () => {

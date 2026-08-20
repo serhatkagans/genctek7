@@ -33,7 +33,7 @@ export async function disGirisEylemi(veri: FormData): Promise<void> {
    * "tüm kullanıcı grupları" içinde. EBA girişiyle aynı yere varmalı — aynı
    * kişi hangi kapıdan girdiğine göre farklı ekran görmemeli.
    */
-  redirect("/panel/profil");
+  redirect("/panel");
 }
 
 /**
@@ -53,5 +53,5 @@ export async function mockDisGirisEylemi(veri: FormData): Promise<void> {
 
   // Şifreli girişle aynı yere düşer: aynı kişi hangi kapıdan girdiğine göre
   // farklı ekran görmemeli (7 Ağustos 2026).
-  redirect("/panel/profil");
+  redirect("/panel");
 }

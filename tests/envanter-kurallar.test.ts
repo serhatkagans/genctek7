@@ -1,5 +1,6 @@
 import {
   cevaplariKabulEt,
+  envanterAcikMi,
   envanterHazirMi,
   envanterSonucu,
   envanterTanimi,
@@ -84,9 +85,24 @@ describe("envanterTanimi / hazır olma", () => {
     expect(envanterHazirMi(tanim!)).toBe(false);
   });
 
-  it("hazır listesi yalnızca içeriği gelmiş envanterleri döner", () => {
-    const kodlar = hazirEnvanterler().map((t) => t.kod);
-    expect(kodlar).toEqual(["ILGI", "BECERI", "MESLEKI_YAKLASIM"]);
+  /*
+   * 20 Ağustos 2026 · istek: "ilgi beceri ve mesleki envanterlerin başla
+   * butonları şu an devrede değil pasife getirelim".
+   *
+   * Üç envanterin de MADDELERİ YERİNDE — `envanterHazirMi` hâlâ true diyor;
+   * kapalı olan yalnızca çözülmesi (`kapali` alanı). Test bu ayrımı ölçüyor:
+   * "hazır" ile "açık" ayrışmazsa kapalı bir envanter listede çözülebilir
+   * görünür.
+   */
+  it("kapatılmış envanter hazır SAYILIR ama açık sayılmaz", () => {
+    const tanim = envanterTanimi("ILGI");
+    expect(tanim).not.toBeNull();
+    expect(envanterHazirMi(tanim!)).toBe(true);
+    expect(envanterAcikMi(tanim!)).toBe(false);
+  });
+
+  it("açık envanter listesi şu an boş: üçü de geçici olarak kapalı", () => {
+    expect(hazirEnvanterler().map((t) => t.kod)).toEqual([]);
   });
 });
 

@@ -7,6 +7,7 @@ import {
   ogrenciDanismaniniBirakti,
   ogrenciDanismanSecti,
 } from "@/lib/danisman/atama";
+import { talebimiGeriCek } from "@/lib/danisman/talep";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
@@ -45,20 +46,84 @@ export async function danismanSecEylemi(veri: FormData): Promise<void> {
     redirect(`${donusYolu}?hata=Ge%C3%A7ersiz+se%C3%A7im${capa}`);
   }
 
-  await ogrenciDanismanSecti(kullanici.id, secilenId);
+  /*
+   * SEÇİM İKİ SONUÇ DOĞURABİLİR (20 Ağustos 2026 · istek: "danışman öğretmen
+   * seçiminde öğretmene veya il koordinatörüne onay düşsün").
+   *
+   * İlk seçim atanır, DEĞİŞİKLİK onaya gider. Ekran hangisinin olduğunu
+   * söylemek zorunda: aynı "kaydedildi" mesajı basılsaydı, danışmanını
+   * değiştirmek isteyen öğrenci işlemin bittiğini sanır ve listede eski
+   * öğretmenini görünce hata sanırdı.
+   */
+  const sonuc = await ogrenciDanismanSecti(kullanici.id, secilenId);
+
+  if (sonuc.tur === "BEKLEYEN_TALEP_VAR") {
+    redirect(
+      `${donusYolu}?hata=${encodeURIComponent(
+        `${sonuc.istenenAdSoyad} için gönderdiğiniz talep hâlâ cevap bekliyor. Yeni bir talep açmadan önce onu geri çekmeniz gerekiyor.`,
+      )}${capa}`,
+    );
+  }
 
   await erisimLogla({
     kullaniciId: kullanici.id,
     islem: "DEGISIKLIK",
     hedefTip: "DANISMAN_ATAMA",
     hedefId: kullanici.id,
-    detay: `Danışman seçildi: ${secilenId}`,
+    detay:
+      sonuc.tur === "ONAYA_GONDERILDI"
+        ? `Danışman değişikliği talebi açıldı: ${secilenId}`
+        : `Danışman seçildi: ${secilenId}`,
   });
 
   revalidatePath("/panel/danisman-secim");
   revalidatePath("/panel");
-  revalidatePath("/panel/profil");
-  redirect(`${donusYolu}?durum=secildi${capa}`);
+  redirect(
+    `${donusYolu}?durum=${
+      sonuc.tur === "ONAYA_GONDERILDI" ? "talep-gonderildi" : "secildi"
+    }${capa}`,
+  );
+}
+
+/**
+ * Öğrenci bekleyen talebinden vazgeçer.
+ *
+ * Talep kimliği FORMDAN gelir ama kural katmanı onu öğrencinin KENDİ kimliğiyle
+ * birlikte arıyor (bkz. talep.ts · talebimiGeriCek): başka bir öğrencinin talep
+ * numarasını yazan kişi hiçbir satır bulamaz.
+ */
+export async function danismanTalebimiGeriCekEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  if (!ogrenciMi(kullanici)) {
+    throw new YetkiHatasi("Danışman talebi yalnızca öğrencilere aittir.");
+  }
+
+  const donusYolu = donusYolunuCoz(veri);
+  const capa = donusYolu === "/panel" ? "#danismanim" : "";
+  const talepId = Number.parseInt(String(veri.get("talepId") ?? ""), 10);
+
+  if (!Number.isFinite(talepId) || !(await talebimiGeriCek(talepId, kullanici.id))) {
+    redirect(
+      `${donusYolu}?hata=${encodeURIComponent(
+        "Geri çekilecek bekleyen bir talebiniz bulunamadı.",
+      )}${capa}`,
+    );
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "DANISMAN_ATAMA",
+    hedefId: kullanici.id,
+    detay: "Danışman değişikliği talebi geri çekildi",
+  });
+
+  revalidatePath("/panel/danisman-secim");
+  revalidatePath("/panel");
+  redirect(`${donusYolu}?durum=talep-geri-cekildi${capa}`);
 }
 
 /**
@@ -97,6 +162,5 @@ export async function danismaniBirakEylemi(veri: FormData): Promise<void> {
 
   revalidatePath("/panel/danisman-secim");
   revalidatePath("/panel");
-  revalidatePath("/panel/profil");
   redirect(`${donusYolu}?durum=birakildi${capa}`);
 }

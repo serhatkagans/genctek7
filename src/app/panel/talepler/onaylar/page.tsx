@@ -216,6 +216,12 @@ export default async function PanoIlanOnaylariSayfasi({
             ? `${bekleyenler.length} ilan kararınızı bekliyor`
             : "Bekleyen ilan yok"
         }
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       <Link

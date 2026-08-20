@@ -119,7 +119,7 @@ Bağımlılık zinciri bu; sıra atlanırsa geri dönüp yeniden yazmak gerekir.
 8. **Dosya/görsel yükleme ve yorumlar** — Depolama soyutlaması, moderasyon, kapsam bazlı görünürlük
 9. **Başvuru ve değerlendirme** — Başvuru, geri çekme, değerlendirme, bildirim
 10. **Raporlama ve filtreleme** — İl/ilçe/okul/çalışma grubu bazlı listeler
-11. **KVKK** — Onay belgeleri (aydınlatma, açık rıza, taahhütname, gizlilik sözleşmesi) ve ilk giriş kapısı, saklama süresi işleri. **Belgelerin menüde sekmesi YOKTUR** (5 Ağustos 2026): metin `/onay` kapısında okutulur, sonrasında profilin en altından (`/panel/profil#kvkk`) okunur ve metin güncellendiğinde oradan yeniden onaylanır. Panel şeridi bu bölüme götürür ve **yeniden onayın tek yoludur** — kaldırılamaz. Onayladığı belgeye erişemeyen kullanıcı KVKK açısından savunulamaz; bölüm bu yüzden kaldırılmadı, taşındı.
+11. **KVKK** — Onay belgeleri (aydınlatma, açık rıza, taahhütname, gizlilik sözleşmesi) ve ilk giriş kapısı, saklama süresi işleri. **Belgelerin menüde sekmesi YOKTUR** (5 Ağustos 2026): metin `/onay` kapısında okutulur, sonrasında Panel'in en altından (`/panel#kvkk`) okunur ve metin güncellendiğinde oradan yeniden onaylanır. Panel şeridi bu bölüme götürür ve **yeniden onayın tek yoludur** — kaldırılamaz. Onayladığı belgeye erişemeyen kullanıcı KVKK açısından savunulamaz; bölüm bu yüzden kaldırılmadı, taşındı.
 12. **Birim testler** — 3, 5, 9. adımlardaki iş kuralları için (bekletmeden, ilgili modülle birlikte yazılması daha sağlıklı)
 13. **EBA dışı giriş** — Mezun/paydaş başvurusu, proje yöneticisi onayı, şifreli giriş ve parola sıfırlama (`src/lib/dis-kimlik/`)
 14. **Gerçek EBA SSO entegrasyonu** — Token erişimi geldiğinde `AuthProvider`'ın gerçek implementasyonu. **EBA dışı akış bundan etkilenmez.**
@@ -139,17 +139,17 @@ Bunlar sonraki faza bırakıldı. İstenmediği sürece kod yazma, tabloya yer a
 
 Bunlar artık varsayım değil, karardır — yeniden tartışma:
 
-- **Öğrenci başına çalışma grubu üst sınırı yoktur.** "En fazla 3" gibi bir kısıt eklemeyin.
+- **Öğrenci başına çalışma grubu üst sınırı 5'tir** (20 Ağustos 2026 · istek: "öğrenciler max 5 çalışma grubunda görülebilsin"). Sınır bir zamanlar kaldırılmıştı, geri geldi; sayı `lib/ogrenci/calisma-grubu.ts` içindeki `CALISMA_GRUBU_UST_SINIRI` sabitinde — **sistem ayarı değil**, ekranda yazan cümle ile sunucunun reddi aynı kaynaktan beslenmeli. Geçmiş seçimler geriye dönük kırılmaz; sınır yalnızca kaydederken uygulanır.
 - **EBA dışı giriş e-posta + şifreyledir** (e-Devlet değil). Parola sıfırlama var, ikinci faktör yok; ret gerekçesi zorunlu, tekrar başvuru serbest. Paydaş temsilcisi mevcut paydaş **kurum kaydına** bağlanır, serbest metin kurum adı yazamaz.
 - **Onaylanana kadar `kullanici` satırı açılmaz.** Başvuru bir kullanıcı değildir.
-- **Öğrenci her girişte profil ekranıyla karşılanır** (danışmansızsa önce danışman seçimi). Öğretmen, koordinatör ve merkez personeli panele girer.
+- **Herkes girişte `/panel` ekranıyla karşılanır** (danışmansız öğrencide önce danışman seçimi). Profil ekranı 20 Ağustos 2026'da panelle **birleşti**; `/panel/profil` oraya yönlendiriyor ve menüde `Profil` sekmesi yok.
 - **Panelim'in sarı şeridi MESAJ duyurur, başvuru değil (6 Ağustos 2026).** Şerit yalnızca okunmamış bildirim varken basılır; başlığa tıklanınca sayfanın altındaki bildirim satırına iner ve e-posta olarak giden gövdenin aynısı orada görünür. **Ayrı bir mesaj ekranı açma** — `bildirim` tablosu tek gelen kutusudur ve toplu duyuru ile kullanıcılar arası yazışmayı da o taşır. Başvurusu açık etkinlikler aynı sayfadaki ölçüm kartı ve kart listesinde duruyor.
 - **Menü küçüldü, ekranlar durdu (5 Ağustos 2026).** Öğrencide "Çalışma Gruplarım" ve "Danışmanım" sekmeleri yok — ikisi de **Panelim'in içinde katlanabilir bölüm**. Danışman öğretmende "Görev Rolleri" ve "Paydaşlar" yok — Okul Temsilcisi ataması **Öğrenciler** ekranında, paydaş bağlama **etkinlik detayında**; ikisinin de kayıt/envanter tarafı il koordinatöründe kaldı. "KVKK ve Belgelerim" yok — belgeler profilin en altında. **Sekmeyi kaldırmak sayfayı silmek DEĞİLDİR:** sayfalar duruyor, `/panel/danisman-secim` ayrıca giriş kapısı olduğu için silinemez. Yeni bir sekme eklemeden önce içeriğin var olan bir ekranın bölümü olup olamayacağını sorun.
 - **Danışman öğretmen il koordinatörü yapılabilir.** Atama engellenmez; danışmanlığı kapanır, öğrencileri devir kurallarına göre dağıtılır, proje yöneticisine "X öğrenci yeniden dağıtıldı" uyarısı gösterilir.
 - **Etkinlik kategorisi, kapsamdan ayrı ve bağımsız bir alandır** (Temel Etkinlik / Çalışma Grubu Etkinliği / İl Etkinliği).
 - **Kontenjan, aktif başvuru sayısını sınırlar** (yalnızca seçilenleri değil) ve her denemede canlı sayılır.
 - **Faaliyet düzenlenebilir ve iptal edilebilir**; iptal silme değildir.
-- **Öğrenci danışmanını istediği zaman değiştirebilir.**
+- **Danışman DEĞİŞİKLİĞİ onaya tabidir** (20 Ağustos 2026): öğrencinin danışmanı varsa seçim doğrudan atanmaz, **talep** açılır; kararı istenen öğretmen ya da il koordinatörü verir, ret gerekçesi zorunludur ve karar gelene kadar mevcut danışman devam eder. **İlk seçim onaya girmez** — onay beklerken danışmansız kalan öğrenci Değişmez 2'yi çiğnerdi. Ayrıntı: `references/domain-rules.md` · "Öğrenci kendi isteğiyle danışman değiştirirse".
 - **Öğretmen tek bir öğrencinin danışmanlığını bırakabilir** (6 Ağustos 2026): gerekçe zorunlu, il koordinatörüne bildirim gider, erişim kaydına yazılır. Öğrenci mevcut devir kurallarıyla yeniden bağlanır; devredilecek kimse yoksa bırakma yapılmaz.
 - **Katılım/teşekkür belgesinde imza sahibinin adı ELLE girilir** ve zorunludur; unvan kapsamdan gelir (OKUL → Okul Müdürü, IL → İl Millî Eğitim Müdürü). Ad sistemde tutulmuyor, e-Okul'dan da gelmiyor — oturum kişisinden türetmeyin.
 - **Rol adı "İl Temsilcisi"dir** ("İl Yöneticisi" yanlış yazımdı).

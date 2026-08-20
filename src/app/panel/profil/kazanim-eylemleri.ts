@@ -49,9 +49,6 @@ import {
  */
 const YOL = "/panel";
 
-/** Gösterim yüzeyi; yazılan kayıt burada da görünüyor. */
-const PROFIL_YOLU = "/panel/profil";
-
 function panele(capa: string, sorgu: string): never {
   redirect(`${YOL}?bolum=${capa}&${sorgu}#${capa}`);
 }
@@ -60,10 +57,9 @@ function hataylaDon(mesaj: string): never {
   panele("kayitlarim", `hata=${encodeURIComponent(mesaj)}`);
 }
 
-/** CV üç yerde görünüyor: panel, profil ve kişinin envanterdeki detayı. */
+/** CV iki yerde görünüyor: panel ve kişinin envanterdeki detayı. */
 function cvYollariniTazele(kullanici: OturumKullanicisi): void {
   revalidatePath(YOL);
-  revalidatePath(PROFIL_YOLU);
   revalidatePath(
     ogrenciMi(kullanici)
       ? `/panel/ogrenciler/${kullanici.id}`
@@ -91,14 +87,13 @@ function cvSahibi(kullanici: OturumKullanicisi): "OGRENCI" | "OGRETMEN" {
 /**
  * Kayıt sonrası tazelenecek ekranlar.
  *
- * Kazanım aynı anda üç yerde görünüyor: profil, katkı ekranı ve kişinin
+ * Kazanım aynı anda üç yerde görünüyor: panel, katkı ekranı ve kişinin
  * envanterdeki detay sayfası. Detay sayfasının yolu role göre değişir
  * (`ogrenciler` / `ogretmenler`); tazelenmezse yetkili, öğrencinin az önce
  * girdiği kaydı eski önbellekten göremezdi.
  */
 function kazanimYollariniTazele(kullanici: OturumKullanicisi): void {
   revalidatePath(YOL);
-  revalidatePath(PROFIL_YOLU);
   revalidatePath("/panel/kazanimlarim");
   revalidatePath(
     ogrenciMi(kullanici)

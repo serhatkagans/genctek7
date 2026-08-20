@@ -11,6 +11,12 @@ import {
   ilkAtamayiYurut,
   ogrenciDanismanSecti,
 } from "../src/lib/danisman/atama";
+import {
+  bekleyenTalebimiGetir,
+  talebeKararVerebilirMi,
+  talebiOnayla,
+  talebiReddet,
+} from "../src/lib/danisman/talep";
 import { prisma } from "../src/lib/db";
 import { kullaniciSagla } from "../src/lib/kullanici/sagla";
 import { saklamaSuresiTemizligi } from "../src/lib/kvkk/saklama";
@@ -400,6 +406,91 @@ async function main() {
   kontrol(
     "okulun adayı olmayan bir öğretmen seçilemez",
     baskaOkulHatasi,
+  );
+
+  /*
+   * DANIŞMAN DEĞİŞİKLİĞİ ONAYI (20 Ağustos 2026 · istek: "danışman öğretmen
+   * seçiminde öğretmene veya il koordinatörüne onay düşsün sürekli değişmek
+   * isteyebilirler").
+   *
+   * Birim testler kararı sınayamıyor: kural "öğrencinin O ANDA aktif ataması
+   * var mı" sorusuna bakıyor ve cevabı veritabanında. Burada ölçülen tek şey,
+   * ilk seçimle DEĞİŞİKLİĞİN farklı davranması ve onay gelene kadar
+   * öğrencinin danışmansız kalmaması (Değişmez 2).
+   */
+  console.log("\n4b. Danışman DEĞİŞİKLİĞİ onaydan geçer");
+  const ogretmen3 = await sagla("ogretmen-003");
+  await danismanlikDurumunuDegistir(ogretmen3, true);
+
+  const degisiklik = await ogrenciDanismanSecti(ogrenci2, ogretmen3);
+  kontrol(
+    "danışmanı olan öğrencinin seçimi onaya gider",
+    degisiklik.tur === "ONAYA_GONDERILDI",
+  );
+
+  const talepSirasindakiAtama = await aktifAtamaGetir(ogrenci2);
+  kontrol(
+    "talep beklerken öğrencinin danışmanı DEĞİŞMEZ",
+    talepSirasindakiAtama?.danismanKullaniciId === ogretmen2,
+  );
+
+  const ikinciDeneme = await ogrenciDanismanSecti(ogrenci2, ogretmen1);
+  kontrol(
+    "bekleyen talebi olan öğrenci ikinci talep açamaz",
+    ikinciDeneme.tur === "BEKLEYEN_TALEP_VAR",
+  );
+
+  const bekleyen = await bekleyenTalebimiGetir(ogrenci2);
+  kontrol("bekleyen talep okunabiliyor", bekleyen !== null);
+
+  kontrol(
+    "istenen öğretmen karara yetkili",
+    bekleyen !== null &&
+      (await talebeKararVerebilirMi(bekleyen.id, ogretmen3)),
+  );
+  kontrol(
+    "ilgisiz öğretmen karara yetkili DEĞİL",
+    bekleyen !== null &&
+      !(await talebeKararVerebilirMi(bekleyen.id, ogretmen1)),
+  );
+
+  if (bekleyen) {
+    const onay = await talebiOnayla(bekleyen.id, ogretmen3);
+    kontrol("talep onaylanır", onay.olurMu);
+  }
+
+  const onaySonrasiAtama = await aktifAtamaGetir(ogrenci2);
+  kontrol(
+    "onaydan sonra atama yeni danışmana geçer",
+    onaySonrasiAtama?.danismanKullaniciId === ogretmen3 &&
+      onaySonrasiAtama?.atamaTipi === "OGRENCI_SECTI",
+  );
+  kontrol(
+    "onaydan sonra bekleyen talep kalmaz",
+    (await bekleyenTalebimiGetir(ogrenci2)) === null,
+  );
+
+  // Ret yolu: atama DEĞİŞMEZ ve gerekçe zorunludur.
+  const retTalebi = await ogrenciDanismanSecti(ogrenci2, ogretmen2);
+  kontrol("ikinci değişiklik de onaya gider", retTalebi.tur === "ONAYA_GONDERILDI");
+
+  const retBekleyen = await bekleyenTalebimiGetir(ogrenci2);
+  if (retBekleyen) {
+    const gerekcesiz = await talebiReddet(retBekleyen.id, ogretmen2, "yok");
+    kontrol("gerekçesiz ret kabul edilmez", !gerekcesiz.olurMu);
+
+    const ret = await talebiReddet(
+      retBekleyen.id,
+      ogretmen2,
+      "Bu dönem danışmanlık kontenjanım dolu.",
+    );
+    kontrol("gerekçeli ret kabul edilir", ret.olurMu);
+  }
+
+  const retSonrasiAtama = await aktifAtamaGetir(ogrenci2);
+  kontrol(
+    "ret öğrenciyi danışmansız BIRAKMAZ",
+    retSonrasiAtama?.danismanKullaniciId === ogretmen3,
   );
 
   console.log("\n5. Tek aday: otomatik atama");

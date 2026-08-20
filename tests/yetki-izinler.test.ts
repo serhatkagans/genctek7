@@ -46,11 +46,16 @@ import {
  */
 
 describe("faaliyet açma kapsamı", () => {
-  it("danışman öğretmen yalnızca okul içi faaliyet açar", () => {
+  /*
+   * Öğretmene üç kapsam da açık (20 Ağustos 2026): sınır kapsamda değil
+   * onayda — okul dışına çıkan her etkinliği ilin koordinatörü görür
+   * (bkz. "danışman öğretmenin okul dışı faaliyeti onay bekler").
+   */
+  it("danışman öğretmen her kapsamda faaliyet açar", () => {
     const danisman = danismanYap();
     expect(faaliyetAcabilirMi(danisman, "OKUL")).toBe(true);
-    expect(faaliyetAcabilirMi(danisman, "IL")).toBe(false);
-    expect(faaliyetAcabilirMi(danisman, "ULUSAL")).toBe(false);
+    expect(faaliyetAcabilirMi(danisman, "IL")).toBe(true);
+    expect(faaliyetAcabilirMi(danisman, "ULUSAL")).toBe(true);
   });
 
   it("il koordinatörü okul, il ve ulusal faaliyet açar", () => {
@@ -61,15 +66,17 @@ describe("faaliyet açma kapsamı", () => {
   });
 
   /*
-   * Öğrenciye üç kapsam da açıktır ve bu bir gevşeme DEĞİLDİR: sınır kapsamda
-   * değil onayda kuruldu — öğrencinin açtığı hiçbir faaliyet kendiliğinden
-   * yayına girmez (bkz. "öğrencinin açtığı her faaliyet onay bekler").
+   * ÖĞRENCİ FAALİYET AÇAMAZ (20 Ağustos 2026 · istek: "öğrencilerin etkinlik
+   * oluşturmasına gerek yok sadece mevcutlara katılabilsin"). Başvuru kapısı
+   * açık kalıyor; kapanan yalnızca açma kapısı.
    */
-  it("öğrenci her kapsamda faaliyet önerebilir", () => {
+  it("öğrenci hiçbir kapsamda faaliyet açamaz", () => {
     const ogrenci = ogrenciYap();
-    expect(faaliyetAcabilirMi(ogrenci, "OKUL")).toBe(true);
-    expect(faaliyetAcabilirMi(ogrenci, "IL")).toBe(true);
-    expect(faaliyetAcabilirMi(ogrenci, "ULUSAL")).toBe(true);
+    expect(faaliyetAcabilirMi(ogrenci, "OKUL")).toBe(false);
+    expect(faaliyetAcabilirMi(ogrenci, "IL")).toBe(false);
+    expect(faaliyetAcabilirMi(ogrenci, "ULUSAL")).toBe(false);
+    // Katılım kapısı ayrı ve açık.
+    expect(basvuruYapabilirMi(ogrenci)).toBe(true);
   });
 
   /*
@@ -176,8 +183,12 @@ describe("öğrenci faaliyeti onay akışı", () => {
     });
 
   it("öğrencinin açtığı her faaliyet onay bekler", () => {
-    // Kapsam sınırı yok, onay sınırı var: 18 yaş altı bir kullanıcının açtığı
-    // çağrı okul içine bile sorumlusuz çıkmamalı.
+    /*
+     * Öğrenci artık faaliyet AÇAMIYOR (bkz. "öğrenci hiçbir kapsamda faaliyet
+     * açamaz"); kural yine de sınanıyor, çünkü kapı bir gün yeniden açılırsa
+     * öğrencinin çağrısının sessizce onaysız yayına girmesi en pahalı hata
+     * olurdu.
+     */
     const ogrenci = ogrenciYap();
     expect(faaliyetOnayGerekiyorMu(ogrenci, "OKUL")).toBe(true);
     expect(faaliyetOnayGerekiyorMu(ogrenci, "IL")).toBe(true);
@@ -650,12 +661,11 @@ describe("öğrenci görev rolleri ek yetki vermez", () => {
     expect(basvuruYapabilirMi(ilTemsilcisiOgrenci)).toBe(
       basvuruYapabilirMi(sıradanOgrenci),
     );
-    // Temsilci de sıradan öğrenci de faaliyet önerebilir ve ikisinin önerisi de
-    // aynı biçimde onay bekler; temsilcilik onay atlatmaz.
+    // Temsilcilik faaliyet açma kapısını da açmaz: ikisi de açamaz.
     expect(faaliyetAcabilirMi(ilTemsilcisiOgrenci, "OKUL")).toBe(
       faaliyetAcabilirMi(sıradanOgrenci, "OKUL"),
     );
-    expect(faaliyetOnayGerekiyorMu(ilTemsilcisiOgrenci, "OKUL")).toBe(true);
+    expect(faaliyetAcabilirMi(ilTemsilcisiOgrenci, "OKUL")).toBe(false);
   });
 });
 
@@ -779,10 +789,16 @@ describe("öğretmen faaliyeti onay akışı", () => {
       ...ozellikler,
     });
 
-  it("danışman öğretmenin açtığı faaliyet onay bekler", () => {
-    // Koordinatör ilinde ne yapıldığından sorumlu; okuldaki etkinlikleri
-    // ancak onaydan geçirirse görebilir.
-    expect(faaliyetOnayGerekiyorMu(danismanYap(), "OKUL")).toBe(true);
+  it("danışman öğretmenin okul dışı faaliyeti onay bekler, okul içi beklemez", () => {
+    /*
+     * Kendi okulu öğretmenin zaten sorumlu olduğu yer; oraya açtığı etkinlik
+     * doğrudan yayına girer (20 Ağustos 2026). Okul dışına çıkan çağrıyı ise
+     * ilin koordinatörü görmeden yayınlamıyoruz.
+     */
+    const danisman = danismanYap();
+    expect(faaliyetOnayGerekiyorMu(danisman, "OKUL")).toBe(false);
+    expect(faaliyetOnayGerekiyorMu(danisman, "IL")).toBe(true);
+    expect(faaliyetOnayGerekiyorMu(danisman, "ULUSAL")).toBe(true);
   });
 
   it("okulun ilindeki koordinatör onaylayabilir", () => {

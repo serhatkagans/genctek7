@@ -22,7 +22,7 @@ import { ilkGirisOnaylaEylemi } from "./eylemler";
  *
  * Kilit YALNIZCA ilk girişte vardır. Sonradan eklenen bir belge ya da
  * güncellenen bir metin kimseyi kapıda bırakmaz; panelde şerit çıkar ve
- * profilin en altındaki bölümden onaylanır (`/panel/profil#kvkk`, bkz.
+ * profilin en altındaki bölümden onaylanır (`/panel#kvkk`, bkz.
  * lib/kvkk/onay.ts · ilkGirisKilidiVarMi).
  */
 

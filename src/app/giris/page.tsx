@@ -10,6 +10,7 @@ import {
   UserCog,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ILLER } from "../../../prisma/veri/iller";
 import { TemaSecici } from "@/components/TemaSecici";
 import { authProvider } from "@/lib/auth";
@@ -17,6 +18,8 @@ import type { AuthKimlik } from "@/lib/auth/tipler";
 import { prisma } from "@/lib/db";
 import { ortam } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
+import { guvenliDonusYolu } from "@/lib/auth/donus-yolu";
+import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { girisEylemi } from "./eylemler";
 
 /**
@@ -99,14 +102,18 @@ function KimlikKarti({
   kimlik,
   altBilgi,
   seritSinifi,
+  nereye,
 }: {
   kimlik: AuthKimlik;
   altBilgi: string;
   seritSinifi: string;
+  /** Girişten sonra açılacak sayfa; portaldan gelen bağlantı bunu taşır. */
+  nereye: string | null;
 }) {
   return (
     <form action={girisEylemi}>
       <input type="hidden" name="kimlikBilgisi" value={kimlik.authProviderId} />
+      {nereye && <input type="hidden" name="nereye" value={nereye} />}
       <button
         type="submit"
         className={`group flex w-full items-center justify-between gap-3 rounded-kart border border-l-4 border-cizgi bg-kart px-4 py-3 text-left transition hover:border-vurgu ${seritSinifi}`}
@@ -129,9 +136,44 @@ function KimlikKarti({
 export default async function GirisSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ hata?: string; ara?: string; tumu?: string }>;
+  searchParams: Promise<{
+    hata?: string;
+    ara?: string;
+    tumu?: string;
+    /**
+     * Girişten sonra açılacak sayfa (20 Ağustos 2026 · istek: "az önceki
+     * uygulamadaki sayfaya gitmesi gerek ama girişten sonra").
+     *
+     * Tanıtım portalındaki etkinlik kartı buraya `?nereye=/panel/etkinlikler/12`
+     * ile bağlanıyor. Değer adres çubuğundan geldiği için doğrudan
+     * kullanılmaz; `guvenliDonusYolu` uygulama dışına çıkan her şeyi eler.
+     */
+    nereye?: string;
+  }>;
 }) {
-  const { hata, ara, tumu } = await searchParams;
+  const { hata, ara, tumu, nereye: hamNereye } = await searchParams;
+  const nereye = guvenliDonusYolu(hamNereye);
+
+  /*
+   * OTURUMU OLAN ZİYARETÇİ GİRİŞ EKRANINI HİÇ GÖRMEZ, doğrudan hedefe gider.
+   *
+   * Bu, tanıtım portalından gelen bağlantının çalışması için ŞART. Portal
+   * kartı `/giris?nereye=/panel/etkinlikler/12` adresine bağlanıyor: ziyaretçi
+   * çoğunlukla oturumsuz olduğu için giriş ekranı doğru karşılamadır, ama
+   * zaten girmiş olan kişiye "tekrar giriş yapın" demek, elindeki oturumu yok
+   * saymak olurdu.
+   *
+   * KAPI PANELİN KENDİSİNDEN GEÇİYOR: buradaki kontrol yalnızca "oturum var
+   * mı" diye soruyor; ilk giriş onayı, danışman seçimi gibi kapılar panel
+   * düzeninde duruyor ve hedef sayfa açılırken yine çalışıyorlar.
+   *
+   * Yalnızca `nereye` VARKEN çalışır: parametresiz /giris adresine gelen kişi
+   * (ör. çıkış yapıp yeniden başkası olarak girmek isteyen) ekranı görmeye
+   * devam eder.
+   */
+  if (nereye && (await oturumKullanicisi())) {
+    redirect(nereye);
+  }
   const aranan = (ara ?? "").trim().toLocaleLowerCase("tr");
   const [tema, kimlikler] = await Promise.all([
     aktifTema(),
@@ -331,6 +373,9 @@ export default async function GirisSayfasi({
               const sorgu = new URLSearchParams();
               if (ara) sorgu.set("ara", ara);
               if (acilacak) sorgu.set("tumu", acilacak);
+              // Arama ve "tümünü göster" gezinmesi dönüş yolunu düşürmemeli:
+              // portaldan gelen kişi kimliğini ararken hedefini kaybederdi.
+              if (nereye) sorgu.set("nereye", nereye);
               const metin = sorgu.toString();
               return `${metin ? `/giris?${metin}` : "/giris"}#${senaryo.kod}`;
             };
@@ -354,6 +399,7 @@ export default async function GirisSayfasi({
                       kimlik={kimlik}
                       altBilgi={altBilgi(kimlik, senaryo.kod)}
                       seritSinifi={senaryo.seritSinifi}
+                      nereye={nereye}
                     />
                   ))}
                 </div>

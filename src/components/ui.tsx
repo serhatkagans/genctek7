@@ -1,4 +1,4 @@
-import { Check, Download, FileText } from "lucide-react";
+import { ArrowLeft, Check, Download, FileText } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -117,15 +117,47 @@ export function SayfaBasligi({
   aciklama,
   rozet,
   eylem,
+  geri = { yol: "/panel", etiket: "Panel" },
 }: {
   baslik: string;
   aciklama?: string;
   rozet?: React.ReactNode;
   eylem?: React.ReactNode;
+  /**
+   * Başlığın üstündeki geri bağlantısı. Varsayılan Panel'dir; kendi geri
+   * bağlantısı olan ekranlar `null` geçer (bkz. aşağıdaki not).
+   */
+  geri?: { yol: string; etiket: string } | null;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
+        {/*
+          GERİ BAĞLANTISI HER SAYFA BAŞLIĞINDA (20 Ağustos 2026 · istek:
+          "paneldeki kartlara inince panelden uzaklaşıyor, üste navigasyon
+          linki gelsin … tarayıcıdaki geri butonuna basması gerek").
+
+          Paneldeki kartların yarısı menüde KARŞILIĞI OLMAYAN ekranlara
+          gidiyor: danışman seçimi, çalışma grupları, öz değerlendirme,
+          kazanımlar, bildirimler, raporlar. Kenar çubuğu duruyor ama o
+          ekranlardan hiçbirini işaretlemiyor; kullanıcı kartla girdiği yerden
+          çıkmak için tarayıcının geri düğmesine kalıyordu.
+
+          VARSAYILAN DEĞER BİLEŞENDE, ÇAĞIRANDA DEĞİL: kırk dokuz ekran var ve
+          bağlantıyı tek tek eklemek, unutulan ekranlar bırakırdı. Kendi geri
+          bağlantısı olan ayrıntı sayfaları (öğrenci kaydı, ekip, pano formları)
+          `geri={null}` geçiyor — onların doğru üst adresi Panel değil, geldikleri
+          liste.
+        */}
+        {geri && (
+          <Link
+            href={geri.yol}
+            className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin transition hover:underline"
+          >
+            <ArrowLeft size={15} aria-hidden />
+            {geri.etiket}
+          </Link>
+        )}
         {rozet && <div className="mb-2 flex flex-wrap gap-1.5">{rozet}</div>}
         <h1 className="text-[26px] leading-tight font-extrabold text-baslik">
           {baslik}

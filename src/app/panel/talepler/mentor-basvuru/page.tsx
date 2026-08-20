@@ -64,6 +64,12 @@ export default async function MentorBasvuruSayfasi({
       <SayfaBasligi
         baslik="Mentör olmak için başvur"
         aciklama="Bildiğiniz konularda öğrencilere yol gösterin."
+        /*
+          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
+          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
+          basılsaydı üst üste iki geri bağlantısı olurdu.
+        */
+        geri={null}
       />
 
       <Link

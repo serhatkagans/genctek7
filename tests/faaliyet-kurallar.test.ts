@@ -83,16 +83,19 @@ describe("onay durumu", () => {
   });
 
   /*
-   * Kural DEĞİŞTİ: danışman öğretmenin okul faaliyeti eskiden onaysız yayına
-   * giriyordu. Artık ilin koordinatörünün onayını bekliyor — koordinatör
-   * ilinde ne yapıldığından sorumlu ve okullardaki etkinlikleri ancak onaydan
-   * geçirirse görebiliyor.
+   * Kural 20 Ağustos 2026'da bir kez daha değişti: öğretmenin KENDİ OKULUNA
+   * açtığı etkinlik doğrudan yayına giriyor, okul dışına çıkan her kapsam
+   * ilin koordinatörünün onayını bekliyor (istek: "öğretmen … kendi okulunda
+   * etkinlik oluşturabiliyor, türkiye geneli … bir etkinlik oluşturmak
+   * istediğinde il koordinatörüne onaya gidecek").
    *
-   * Bu yalnızca YENİ faaliyetleri etkiler; veritabanındaki ONAY_GEREKMEZ
-   * kayıtlar olduğu gibi kalır.
+   * Bu yalnızca YENİ faaliyetleri etkiler; veritabanındaki kayıtlar olduğu
+   * gibi kalır.
    */
-  it("danışman öğretmenin okul faaliyeti koordinatör onayı bekler", () => {
-    expect(onayDurumuBelirle(danismanYap(), "OKUL")).toBe("BEKLIYOR");
+  it("danışman öğretmenin okul faaliyeti onaysız, okul dışı faaliyeti onaylı yayınlanır", () => {
+    expect(onayDurumuBelirle(danismanYap(), "OKUL")).toBe("ONAY_GEREKMEZ");
+    expect(onayDurumuBelirle(danismanYap(), "IL")).toBe("BEKLIYOR");
+    expect(onayDurumuBelirle(danismanYap(), "ULUSAL")).toBe("BEKLIYOR");
   });
 });
 
