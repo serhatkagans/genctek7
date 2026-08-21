@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { CerezBildirimi } from "@/components/CerezBildirimi";
 import { aktifTema } from "@/lib/tema";
 import "./globals.css";
 
@@ -66,7 +67,23 @@ export default async function RootLayout({
       data-tema={tema}
       className={`${govdeYazisi.variable} ${baslikYazisi.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        {/*
+          ÇEREZ BİLDİRİMİ EN DIŞ DÜZENDE (21 Ağustos 2026 · istek: "açılışta
+          çerez politikası ile ilgili popup gelecek bir kerelik").
+
+          Panelin içinde değil kök düzende: bildirim uygulamanın AÇILIŞINDA
+          çıkmalı ve giriş ekranı da uygulamanın bir parçası. Panele
+          konsaydı, girişte çerez zaten yazılmış olurdu ve bildirim çerezi
+          gördükten sonra çıkardı.
+
+          `children`den SONRA basılıyor: sayfanın kendi içeriği DOM'da önce
+          gelsin — bildirim ekranın altına sabitleniyor ve odak sırasında
+          sayfanın önüne geçmemeli.
+        */}
+        <CerezBildirimi />
+      </body>
     </html>
   );
 }

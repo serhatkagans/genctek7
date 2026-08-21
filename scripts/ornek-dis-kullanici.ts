@@ -70,7 +70,6 @@ function temelGirdi(): DisBasvuruGirdisi {
     paydasId: "",
     gorevUnvani: "",
     beyan: "",
-    aydinlatmaOnayi: true,
     mentorlukIstiyor: false,
     mentorlukKonulari: "",
     mentorlukGrupIdleri: [],

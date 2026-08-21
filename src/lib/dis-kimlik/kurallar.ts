@@ -251,8 +251,6 @@ export interface DisBasvuruGirdisi {
   paydasId: string;
   gorevUnvani: string;
   beyan: string;
-  /** Aydınlatma metni onay kutusu işaretlendi mi? */
-  aydinlatmaOnayi: boolean;
   /**
    * MENTÖRLÜK (7 Ağustos 2026 · "Paydaş/Mentör başvurusu tek bir formdan
    * yapılacak"). tur=MENTOR olduğunda zorunlu olarak true gelir; mezun ve
@@ -378,12 +376,11 @@ export function disBasvuruGirdisiniCoz(
     };
   }
 
-  if (!girdi.aydinlatmaOnayi) {
-    return {
-      olurMu: false,
-      neden: "Aydınlatma metnini okuyup onaylamadan başvuru alınamaz.",
-    };
-  }
+  /*
+   * AYDINLATMA ONAYI ŞARTI KALKTI (21 Ağustos 2026 · istek: "kvkk olmayacak
+   * yani sadece çerez politikası"). Formdaki kutu da kalktı; şart burada
+   * kalsaydı hiçbir başvuru kabul edilmezdi.
+   */
 
   let mezunKurumKodu: number | null = null;
   let mezuniyetYili: number | null = null;

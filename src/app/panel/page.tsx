@@ -1,6 +1,8 @@
 import {
   ArrowRight,
   ArrowRightLeft,
+  Award,
+  BadgeCheck,
   BarChart3,
   BellRing,
   Camera,
@@ -43,22 +45,16 @@ import {
   SINIF_VITRIN_IKINCIL_BUTON,
   Vitrin,
 } from "@/components/ui";
-import { KatkiKarti } from "@/components/KatkiKarti";
 import {
   KatilimKarti,
-  KatkiNisanlariKarti,
-  KazanimGruplari,
   SaltOkunurAlan,
 } from "@/components/OgrenciProfilBolumleri";
-import { OnayBelgeleriBolumu } from "@/components/OnayBelgeleriBolumu";
 import {
   CvDuzenleme,
   DanismanlikDuzenleme,
   DestekGruplariDuzenleme,
   FotografDuzenleme,
   IletisimDuzenleme,
-  KayitEklemeFormu,
-  KayitYonetimi,
   ProfilFotografi,
 } from "@/components/ProfilDuzenleme";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
@@ -72,14 +68,7 @@ import {
   profilFotoYukleEylemi,
   profilGuncelleEylemi,
 } from "./profil/eylemler";
-import {
-  cvSilEylemi,
-  cvYukleEylemi,
-  kazanimBelgeEkleEylemi,
-  kazanimBelgeSilEylemi,
-  kazanimEkleEylemi,
-  kazanimSilEylemi,
-} from "./profil/kazanim-eylemleri";
+import { cvSilEylemi, cvYukleEylemi } from "./profil/kazanim-eylemleri";
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import {
   MENTORLUK_DURUM_ETIKETLERI,
@@ -87,17 +76,12 @@ import {
 } from "@/lib/mentor/kurallar";
 import { mentorluguGetir } from "@/lib/mentor/veri";
 import { ogretmenKatkiSayilariGetir } from "@/lib/ogretmen/katki";
+import { yolculugumuGetir } from "@/lib/yolculuk/veri";
 import { katkiKartiMetni } from "@/lib/ogretmen/katki-ozeti";
 import { HAKKINDA_MAKS } from "@/lib/akis/kurallar";
 import { ekipSayimiGetir } from "@/lib/ekip/veri";
-import { hakkindaKaydetEylemi } from "./akis/eylemler";
+import { hakkindaKaydetEylemi } from "./profil/hakkinda-eylemi";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
-import { kazanimEkSinirlariniGetir } from "@/lib/kazanim/ek";
-import {
-  kazanimTipiGecerliMi,
-  kazanimTipiTanimi,
-  kazanimTipleri,
-} from "@/lib/kazanim/kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
 import {
   bekleyenIsleriGetir,
@@ -116,11 +100,8 @@ import {
   ogretmenKazanimlariGetir,
 } from "@/lib/kazanim/getir";
 import { katkiVerisiGetir } from "@/lib/ogrenci/katki";
-import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
-import { onayDurumlari } from "@/lib/kvkk/onay";
 import { kullaniciRolEtiketi } from "@/lib/yetki/etiketler";
 import { tarihSaatYaz } from "@/lib/tarih";
-import { belgeOnaylaEylemi } from "./profil/belge-eylemleri";
 import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
@@ -317,23 +298,18 @@ const DURUM_MESAJLARI: Record<string, string> = {
     "Katkı verebileceğiniz çalışma grupları kaydedildi.",
 };
 
-/** Kayıt ekleme formunun varsayılan türü — sekme listesinin ilki. */
-const VARSAYILAN_TUR = kazanimTipleri()[0].tip;
-
 export default async function PanelSayfasi({
   searchParams,
 }: {
   searchParams: Promise<{
     hata?: string;
     durum?: string;
-    tur?: string;
     bolum?: string;
   }>;
 }) {
   const {
     hata: seciimHatasi,
     durum: secimDurumu,
-    tur: istenenTur,
     bolum: acilacakBolum,
   } = await searchParams;
   const kullanici = await oturumKullanicisiZorunlu();
@@ -395,13 +371,7 @@ export default async function PanelSayfasi({
    * ama veri yine de sunucuda hazırlanmak zorunda: sayfada JavaScript yok ve
    * `<details>` açıldığında sunucuya gidilmiyor.
    */
-  const [
-    profilKaydi,
-    fotoSinirlari,
-    belgeSinirlari,
-    cvSinirlari,
-    programlar,
-  ] = await Promise.all([
+  const [profilKaydi, fotoSinirlari, cvSinirlari] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({
       where: { id: kullanici.id },
       select: {
@@ -495,24 +465,8 @@ export default async function PanelSayfasi({
     }),
     // Fotoğraf sınırları role bakılmadan alınır: bölüm herkeste var.
     profilFotoSinirlariniGetir(),
-    /*
-     * Destekleyici belge sınırları etkinlik ekleriyle ORTAKTIR: ikisi de aynı
-     * türde içerik taşıyor. Ayrışmaları gerekirse değişecek tek yer
-     * lib/kazanim/ek.ts.
-     */
-    kazanimEkSinirlariniGetir(),
     // CV artık öğretmende de var (7 Ağustos 2026); sınırlar ortak.
     cvSinirlariniGetir(),
-    /*
-     * Kazanım formunun "GençTek etkinliği" listesi, faaliyet formununkiyle
-     * AYNI kaynaktan gelir. Pasife alınmışlar teklif edilmez; geçmiş
-     * kayıtların bağlantısı korunur.
-     */
-    prisma.temelEtkinlikProgrami.findMany({
-      where: { aktif: true },
-      orderBy: [{ grup: "asc" }, { siraNo: "asc" }],
-      select: { id: true, ad: true, grup: true },
-    }),
     /*
      * "Rotam" hedefleri BURADA SORGULANMIYOR (14 Ağustos 2026 · istek: "rotam
      * kalksın"): bölüm Panelim'den kalktı, veri de onunla birlikte. Hedefler
@@ -586,8 +540,7 @@ export default async function PanelSayfasi({
    */
   const ogrenci = ogrenciMi(kullanici);
 
-  const [kazanim, katki, ogretmenKazanim, ogrencileri, belgeDurumlari] =
-    await Promise.all([
+  const [kazanim, katki, ogretmenKazanim, ogrencileri] = await Promise.all([
     // Rozetler ve katkı kartı öğrenciye özgüdür; öğretmenin karşılığı ayrı
     // fonksiyondan gelir (kaynakları bambaşka tablolar).
     ogrenci ? kazanimlariGetir(kullanici.id) : Promise.resolve(null),
@@ -612,8 +565,6 @@ export default async function PanelSayfasi({
        * her panel açılışında okunmasının da anlamı yok. Kayıtlar tabloda
        * duruyor.
        */
-      // KVKK ve onay belgeleri. Belge istenmiyorsa liste boş döner.
-      onayDurumlari(kullanici),
     ]);
 
   // Koordinatörün sorumlu olduğu il, kişinin kayıtlı ilinden farklı olabilir;
@@ -672,28 +623,29 @@ export default async function PanelSayfasi({
 
   const okulBilgisiVar = profilKaydi.kurumKodu !== null;
 
-  // CV hangi profil tablosundan okunacak — role bağlı.
-  const cv = ogrenci ? profilKaydi.ogrenciProfil : profilKaydi.ogretmenProfil;
-  const cvVar = Boolean(cv?.cvDepolamaYolu);
-  const cvYolu = ogrenci
-    ? `/panel/ogrenciler/${kullanici.id}/cv`
-    : `/panel/ogretmenler/${kullanici.id}/cv`;
-
-  const kazanimSahibi = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
-
   /*
-   * Kayıt ekleme formunun türü ADRESTEN gelir: alanlar türe göre değişiyor
-   * (derece yalnızca yarışmada var) ve sayfada JavaScript yok, dolayısıyla
-   * form sunucuda o türe göre basılmak zorunda.
+   * KAPALI BÖLÜMLERİN ÖZETLERİ (21 Ağustos 2026 · istek: "İletişim bilgilerim,
+   * Kayıtlarım, Özgeçmişim (CV) bunların da özetleri görülsün doldurunca
+   * mutlaka").
+   *
+   * YALNIZCA DOLU ALAN BASILIR (istek: "sadece doldurduğunda doldurduğu
+   * veriler gelsin"). Doldurulmuş alanın DEĞERİ başlığın altında duruyor;
+   * kişi kayıtlı telefonunu görmek için bölümü açmak zorunda kalmasın. Boş
+   * bölüm ise hiçbir şey yazmıyor: "henüz yok" satırları, ekranı bilgi değil
+   * eksik listesi gibi okutuyordu.
    */
-  const seciliTur =
-    istenenTur && kazanimTipiGecerliMi(istenenTur) ? istenenTur : VARSAYILAN_TUR;
-  const seciliTanim = kazanimTipiTanimi(seciliTur, kazanimSahibi);
-
-  const izinliBelgeTipleri = [
-    ...belgeSinirlari.izinliGorselTipleri,
-    ...belgeSinirlari.izinliBelgeTipleri,
-  ];
+  const kendiProfilim = ogrenci
+    ? profilKaydi.ogrenciProfil
+    : profilKaydi.ogretmenProfil;
+  const iletisimOzeti = [
+    kendiProfilim?.eposta,
+    kendiProfilim?.telefon,
+    // Kurum ve görev yalnızca dış kullanıcıda düzenleniyor; özet de onu izler.
+    disKullanici ? kurumAdi : null,
+    disKullanici ? gorevUnvani : null,
+  ].filter(Boolean) as string[];
+  const cvOzeti = kendiProfilim?.cvDosyaAdi ?? null;
+  const cvTarihi = kendiProfilim?.cvYuklenmeTarihi ?? null;
 
   /*
    * Adresin sonundaki sürüm damgası, yeni fotoğraf yüklendiğinde tarayıcının
@@ -898,10 +850,46 @@ export default async function PanelSayfasi({
    * öğretmen ve il koordinatörü). Herkese sorulsaydı öğrencinin ve merkezin
    * panelinde hiç kullanılmayan üç sayım daha açılırdı.
    */
+  /*
+   * SAYIMLAR ÖĞRENCİ DIŞINDAKİ HERKESTE (21 Ağustos 2026): "Görevlerim" kartı
+   * artık her rolde basılıyor ve sayısını buradan alıyor. Üç `count`
+   * sorgusundan ibaret; ayrıca katkı kartının özeti de aynı kaynaktan
+   * besleniyor — iki ayrı sorgu, aynı üç sayıyı iki kez saymak olurdu.
+   */
+  const ogretmenKatkiSayilari = ogrenci
+    ? null
+    : await ogretmenKatkiSayilariGetir(kullanici.id);
+
+  /*
+   * Katkı kartının özeti — yalnızca kartı BASILAN rollerde kuruluyor (danışman
+   * öğretmen ve il koordinatörü); metni herkes için hazırlamak, kullanılmayan
+   * bir cümle üretmek olurdu.
+   */
   const katkiOzeti =
-    danismanMi(kullanici) || ilKoordinatoruMu(kullanici)
-      ? katkiKartiMetni(await ogretmenKatkiSayilariGetir(kullanici.id))
+    ogretmenKatkiSayilari &&
+    (danismanMi(kullanici) || ilKoordinatoruMu(kullanici))
+      ? katkiKartiMetni(ogretmenKatkiSayilari)
       : null;
+
+  /*
+   * ÜST KARTLARIN SAYILARI (21 Ağustos 2026). Kartlar kendi sayfalarına
+   * götürüyor; buradaki tek iş, sayfaya girmeden önce okunacak sayıyı vermek.
+   *
+   * Görev sayısı temsilcilik ve organizasyonu TOPLAR: ikisi de "bu kişiye ne
+   * görev verilmiş" sorusunun yarısı ve kart tek sayı gösteriyor. Öğretmende
+   * karşılığı görev geçmişi ile düzenlediği etkinliklerdir.
+   */
+  const gorevSayisi = katki
+    ? katki.gorevler.length + katki.faaliyetler.length
+    : (ogretmenKatkiSayilari?.gorev ?? 0) +
+      (ogretmenKatkiSayilari?.faaliyet ?? 0);
+
+  /*
+   * Kartın gösterdiği seviye, sayfadakiyle AYNI hesaptan geliyor
+   * (lib/yolculuk/veri.ts): iki yerde iki ayrı formül olsaydı kart "Üretimde"
+   * derken sayfa "Harekette" diyebilirdi.
+   */
+  const yolculuk = await yolculugumuGetir(kullanici);
 
   const rolsuzMu = kullanici.roller.length === 0;
 
@@ -935,7 +923,6 @@ export default async function PanelSayfasi({
         */
         ustBaslik="Sektörün yeni liderleri"
         baslik={`${profilKaydi.ad} ${profilKaydi.soyad}`}
-        aciklama="Bugün sizi bekleyen işler, yaklaşan etkinlikleriniz ve kayıtlarınız aşağıda."
         eylem={
           <>
             <Link href="/panel/etkinlikler" className={SINIF_VITRIN_BUTON}>
@@ -977,15 +964,21 @@ export default async function PanelSayfasi({
           </>
         }
         /*
-          KİMLİK BLOĞU VİTRİNİN İÇİNDE (20 Ağustos 2026 · panel-profil
-          birleşmesi). Profil ekranı kendi kimlik kartıyla açılıyordu:
-          fotoğraf, ad, rol ve okul tek blokta. O ekran kapandı ve blok
-          buraya geldi — ama kendi kartı olarak DEĞİL, vitrinin yan
-          sütununda: vitrin zaten "Hoş geldiniz, {ad}" diyor, hemen altına
-          adı ikinci kez basan bir kart koymak aynı cümleyi tekrarlardı.
+          KİMLİK BAŞLIĞIN KENDİSİ (21 Ağustos 2026 · istek: "bu yazı kalksın
+          resim sola gelsin, isminin altına okul vs gelsin").
+
+          Önce vitrinin SAĞ kolonunda kendi kutusu vardı: fotoğraf, ad, rol ve
+          okul bir arada. Ad iki kez basılıyordu — bir kez başlık olarak, bir
+          kez de o kutunun içinde — ve okul adın yanındaki ayrı bir kutuda
+          kalıyordu. Blok dağıtıldı: fotoğraf başlığın soluna, rol ve okul adın
+          altına geçti; sağ kolon tümüyle kalktı.
+
+          "Bugün sizi bekleyen işler…" cümlesi de gitti: her açılışta aynı şeyi
+          söylüyordu ve hemen altındaki düğmeler zaten bugün nereye
+          gidileceğini yazıyor.
         */
-        yan={
-          <div className="flex flex-wrap items-center gap-4 rounded-kart border border-vitrin-cizgi bg-white/10 p-5">
+        gorsel={
+          <>
             {/*
               FOTOĞRAF DÜĞMESİ VE FORMU BURADA, TEK PARÇA (20 Ağustos 2026 ·
               istekler: "resim ekleme ve görüntüleme banner üzerine gelsin ve
@@ -1073,46 +1066,44 @@ export default async function PanelSayfasi({
                 )}
               </div>
             </details>
-            <div className="min-w-0 flex-1">
-              <p className="font-baslik text-lg leading-tight font-extrabold text-vitrin-metin">
-                {profilKaydi.ad} {profilKaydi.soyad}
+          </>
+        }
+        altBaslik={
+          <>
+            <p className="text-sm font-semibold text-vitrin-metin-yumusak">
+              {kullaniciRolEtiketi(kullanici)}
+            </p>
+            {/*
+              Okul satırı yalnızca okul kaydı olanda: dış kullanıcının (mezun,
+              paydaş) okulu yoktur ve boş satır eksik veri gibi görünürdü.
+            */}
+            {okulBilgisiVar && (
+              <p className="mt-1 text-sm text-vitrin-metin-yumusak">
+                {[
+                  profilKaydi.kurum?.ad,
+                  profilKaydi.ilce?.ad,
+                  profilKaydi.il?.ad,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
-              <p className="mt-1.5 text-sm font-semibold text-vitrin-metin-yumusak">
-                {kullaniciRolEtiketi(kullanici)}
-              </p>
-              {/*
-                Okul satırı yalnızca okul kaydı olanda: dış kullanıcının
-                (mezun, paydaş) okulu yoktur ve boş satır eksik veri gibi
-                görünürdü.
-              */}
-              {okulBilgisiVar && (
-                <p className="mt-1 text-sm text-vitrin-metin-yumusak">
-                  {[
-                    profilKaydi.kurum?.ad,
-                    profilKaydi.ilce?.ad,
-                    profilKaydi.il?.ad,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-              {/*
-                YAZILI İŞARET DE KALIYOR: örtü yalnızca imleçle görünüyor ve
-                dokunmatik ekranda hover yok — tıklanabilirliğin tek işareti
-                örtü olsaydı, telefondan bakan kullanıcı fotoğrafın bir düğme
-                olduğunu hiç fark etmezdi.
+            )}
+            {/*
+              YAZILI İŞARET DE KALIYOR: örtü yalnızca imleçle görünüyor ve
+              dokunmatik ekranda hover yok — tıklanabilirliğin tek işareti örtü
+              olsaydı, telefondan bakan kullanıcı fotoğrafın bir düğme olduğunu
+              hiç fark etmezdi.
 
-                Bağlantı DEĞİL, düz metin: gidilecek bir yer yok, form
-                fotoğrafın kendisine tıklanınca hemen orada açılıyor.
-              */}
-              <p className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-vitrin-metin-yumusak">
-                <Camera size={14} aria-hidden />
-                {fotoAdresi
-                  ? "Fotoğrafa tıklayarak değiştirin"
-                  : "Fotoğrafa tıklayarak ekleyin"}
-              </p>
-            </div>
-          </div>
+              Bağlantı DEĞİL, düz metin: gidilecek bir yer yok, form
+              fotoğrafın kendisine tıklanınca hemen orada açılıyor.
+            */}
+            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-vitrin-metin-yumusak">
+              <Camera size={14} aria-hidden />
+              {fotoAdresi
+                ? "Fotoğrafa tıklayarak değiştirin"
+                : "Fotoğrafa tıklayarak ekleyin"}
+            </p>
+          </>
         }
       />
 
@@ -1277,20 +1268,12 @@ export default async function PanelSayfasi({
                 olmayan öğrenci ise ne yapması gerektiğini değerin kendisinden
                 ("Atanmadı") okuyor.
               */
-              aciklama={
-                atama ? "Aktif danışman atamanız" : "Henüz danışman seçmediniz"
-              }
               yol="/panel/danisman-secim"
             />
             <OlcumKarti
               baslik="Çalışma grubu seçimim"
               Ikon={Layers}
               deger={String(grupSayisi)}
-              aciklama={
-                grupSayisi > 0
-                  ? "Seçtiğiniz çalışma grubu sayısı"
-                  : "Henüz çalışma grubu seçmediniz"
-              }
               yol="/panel/calisma-gruplari"
             />
             {/*
@@ -1311,7 +1294,6 @@ export default async function PanelSayfasi({
               baslik="Öz değerlendirme"
               Ikon={Compass}
               deger="Envanterler"
-              aciklama="Sonuçlar yalnızca sana görünür"
               yol="/panel/algoritmam"
             />
             {/*
@@ -1326,6 +1308,42 @@ export default async function PanelSayfasi({
             */}
           </>
         )}
+
+        {/*
+          ÜÇ KART, ÜÇ SAYFA (21 Ağustos 2026 · istekler: "Kayıtlarım ve katkı
+          nişanlarımı panelden kaldır alttan, üst alanda kart olarak gelsin
+          kendi sayfaları olsun" · "yaptığı görevler Görevlerim kart olarak
+          yukarı taşınacak").
+
+          Üçü de HERKESTE basılıyor: kayıt girmek, nişan kazanmak ve görev
+          almak öğretmende de var — kartların içeriği role göre değişiyor,
+          varlığı değil. Sayı kartın üstünde çünkü kartın işi, sayfaya girmeden
+          önce "burada bir şey var mı" sorusunu cevaplamak.
+        */}
+        <OlcumKarti
+          baslik={ogrenci ? "Bilişim Yolculuğum" : "Kayıtlarım"}
+          Ikon={Sparkles}
+          deger={String(profilKaydi.kazanimlar.length)}
+          yol="/panel/bilisim-yolculugum"
+        />
+        <OlcumKarti
+          baslik="Görevlerim"
+          Ikon={BadgeCheck}
+          deger={String(gorevSayisi)}
+          yol="/panel/gorevlerim"
+        />
+        {/*
+          "KATKI NİŞANLARIM" KARTI "GENÇTEK YOLCULUĞUM" OLDU (21 Ağustos 2026 ·
+          istek). Kart artık nişan sayısını değil SEVİYEYİ gösteriyor: yolculuk
+          bir merdiven ve kişinin ilk sorduğu şey "hangi basamaktayım".
+        */}
+        <OlcumKarti
+          baslik="GençTek Yolculuğum"
+          Ikon={Award}
+          deger={yolculuk.seviye.ad}
+          aciklama={`${yolculuk.toplamPuan} puan`}
+          yol="/panel/genctek-yolculugum"
+        />
 
         {danismanMi(kullanici) && (
           <>
@@ -1353,7 +1371,6 @@ export default async function PanelSayfasi({
               baslik="Öğrencilerim"
               Ikon={Users}
               deger={String(kapsamdakiOgrenciSayisi)}
-              aciklama="Kendi okulunuzdaki öğrenciler"
               yol="/panel/ogrenciler"
             />
             {/*
@@ -1389,12 +1406,9 @@ export default async function PanelSayfasi({
              * "—" yazmak yerine ne yapılacağı söyleniyor: öğretmen
              * koordinatöre ulaşmak istediğinde çıkmaz sokakta kalmasın.
              */
-            aciklama={
-              ilKoordinatorum
-                ? (ilKoordinatorum.eposta ??
-                  "E-posta girilmemiş — okulunuz üzerinden ulaşın")
-                : "İlinize henüz koordinatör atanmadı"
-            }
+            /* E-posta bir VERİ: koordinatör yoksa ya da adres girilmemişse
+               satır basılmıyor — kartın değeri zaten "Atanmadı" diyor. */
+            aciklama={ilKoordinatorum?.eposta ?? undefined}
           />
         )}
 
@@ -1414,7 +1428,6 @@ export default async function PanelSayfasi({
                   ton="uyari"
                   Ikon={ClipboardCheck}
                   deger={String(koordinatorOnayKuyrugu.etkinlik)}
-                  aciklama="İlinizde açıldı, yayına almanızı bekliyor"
                   yol="/panel/etkinlikler?onay=bekleyen"
                 />
                 <OlcumKarti
@@ -1422,7 +1435,6 @@ export default async function PanelSayfasi({
                   ton="uyari"
                   Ikon={ArrowRightLeft}
                   deger={String(koordinatorOnayKuyrugu.ilDisi)}
-                  aciklama="Öğrenciniz başka ilin etkinliğine başvurdu"
                   yol="/panel/etkinlikler#il-disi"
                 />
               </>
@@ -1445,7 +1457,6 @@ export default async function PanelSayfasi({
               baslik="Kayıtlı öğrenciler"
               Ikon={Users}
               deger={String(kapsamdakiOgrenciSayisi)}
-              aciklama="Tüm iller"
               yol="/panel/ogrenciler"
             />
             {/*
@@ -1469,7 +1480,6 @@ export default async function PanelSayfasi({
               ton="uyari"
               Ikon={ClipboardCheck}
               deger={String(onayBekleyenSayisi)}
-              aciklama="Tüm kapsamlar · ülke geneli"
               yol="/panel/etkinlikler?onay=bekleyen"
             />
             {katilim && (
@@ -1522,7 +1532,6 @@ export default async function PanelSayfasi({
             baslik="Ekiplerim"
             Ikon={UsersRound}
             deger={String(ekipSayim)}
-            aciklama="Üyesi olduğunuz ekipler ve sohbetleri"
             yol="/panel/ekipler"
           />
         )}
@@ -1549,10 +1558,12 @@ export default async function PanelSayfasi({
                 ? MENTORLUK_DURUM_ETIKETLERI[mentorlugum.durum]
                 : "Başvurulmadı"
             }
+            /* Kapsam bir VERİDİR (hangi gruplarda mentörlük), tanım değil:
+               mentörlüğü olmayanda satır hiç basılmıyor. */
             aciklama={
               mentorlugum
                 ? mentorKapsamiYaz(mentorlugum.grupAdlari, mentorlugum.konular)
-                : "Bildiğiniz konularda öğrencilere yol gösterin"
+                : undefined
             }
             /*
               ONAYLI MENTÖR KENDİ SAYFASINA GİDER, başvuru formuna değil
@@ -1635,20 +1646,16 @@ export default async function PanelSayfasi({
                 yol: "/panel/ogrenciler#danisman-talepleri",
                 Ikon: UserCheck,
               },
-              {
-                etiket: "Bekleyen bağlantı isteği",
-                deger: bosluklar.bekleyenBaglantiIstegi,
-                alt: "Öğrenciler iletişim için bekliyor",
-                yol: "/panel/yazismalar#istekler",
-                Ikon: Send,
-              },
-              {
-                etiket: "Belgesi eksik koordinatör",
-                deger: bosluklar.belgesiEksikKoordinator,
-                alt: "Taahhütname ya da gizlilik sözleşmesi onaylanmamış",
-                yol: "/panel/rol-envanteri",
-                Ikon: ShieldCheck,
-              },
+              /*
+                "Bekleyen bağlantı isteği" satırı kalktı (21 Ağustos 2026 ·
+                istek: "bağlantılarımdan normal mesaj göndermeyi tamamen
+                kaldır"): karara bağlanacak bir istek akışı yok.
+              */
+              /*
+                "Belgesi eksik koordinatör" satırı kalktı (21 Ağustos 2026 ·
+                istek: "kvkk olmayacak yani sadece çerez politikası"): artık
+                onaylanacak bir taahhütname ya da gizlilik sözleşmesi yok.
+              */
             ]
               /*
                * `null` = "bu rolde gösterilmez"; sıfırdan AYRI bir durumdur ve
@@ -1805,15 +1812,18 @@ export default async function PanelSayfasi({
                 <Pencil size={16} aria-hidden />
               </span>
             </div>
-            <p className="mt-3 whitespace-pre-line text-metin group-open:hidden">
-              {profilKaydi.hakkinda || (
-                <span className="text-metin-yumusak">
-                  Uzmanlıklarınızı ve üzerinde çalıştığınız projeleri yazmak
-                  için buraya tıklayın. Yazdığınız metin Akış&apos;ta da
-                  görünür.
-                </span>
-              )}
-            </p>
+            {/*
+              Metin YOKSA hiçbir şey basılmıyor (21 Ağustos 2026 · istekler:
+              "hakkımdanın açıklamasını da sil" · "sadece doldurduğunda
+              doldurduğu veriler gelsin"). Burada eskiden "yazmak için buraya
+              tıklayın" davetiyesi duruyordu; kart zaten başlığı ve kalemiyle
+              tıklanabilir olduğunu söylüyor.
+            */}
+            {profilKaydi.hakkinda && (
+              <p className="mt-3 whitespace-pre-line text-metin group-open:hidden">
+                {profilKaydi.hakkinda}
+              </p>
+            )}
           </summary>
 
           <form action={hakkindaKaydetEylemi} className="mt-4 space-y-3">
@@ -1916,7 +1926,6 @@ export default async function PanelSayfasi({
       <Kart>
         <KartBasligi
           baslik="Kimlik bilgileri"
-          aciklama={SALT_OKUNUR_ACIKLAMASI}
           Ikon={IdCard}
         />
         <div className="mb-5">
@@ -2037,9 +2046,9 @@ export default async function PanelSayfasi({
       {danismanMi(kullanici) && (
         <KatlanabilirKart
           baslik="YEĞİTEK Okul Sorumluluğu"
-          aciklama="Okulunuzda YEĞİTEK Okul Sorumlusu olarak görevliyseniz işaretleyin. Onay gerektirmez; listeyi proje yöneticisi görür."
           Ikon={ShieldCheck}
           capa="yegitek-sorumlulugum"
+          duzenlenebilir
           baslangictaAcik={acilacakBolum === "yegitek-sorumlulugum"}
         >
           <p className="text-metin">
@@ -2082,15 +2091,20 @@ export default async function PanelSayfasi({
           // alanları burada aramaz.
           disKullaniciMi(kullanici) ? "Bilgilerim" : "İletişim bilgilerim"
         }
-        aciklama={
-          ogrenciMi(kullanici)
-            ? "Bu alanları siz düzenleyebilirsiniz; profilinizde görünür."
-            : disKullaniciMi(kullanici)
-              ? "İletişim bilgileriniz, kurumunuz, göreviniz ve katkı açıklamanız. Hepsi profilinizde görünür."
-              : "Bu alanları siz düzenleyebilirsiniz; kapsamınızdaki kişiler size buradan ulaşır."
-        }
+        /*
+          ÖĞRENCİDE AÇIKLAMA YOK (21 Ağustos 2026 · istek: "Bu alanları siz
+          düzenleyebilirsiniz; profilinizde görünür. paneldeki bu açıklama
+          silinsin"). Başlık ve alanların kendisi zaten ne olduğunu söylüyordu.
+          Dış kullanıcıda ve öğretmende satır KALIYOR: orada açıklama başka bir
+          şey söylüyor — bölümün iletişim dışında ne taşıdığını ve bilgiyi
+          kimin göreceğini.
+        */
         Ikon={Mail}
         capa="iletisim-bilgilerim"
+        duzenlenebilir
+        ozet={
+          iletisimOzeti.length > 0 ? <p>{iletisimOzeti.join(" · ")}</p> : undefined
+        }
         baslangictaAcik={acilacakBolum === "iletisim-bilgilerim"}
       >
         <IletisimDuzenleme
@@ -2150,9 +2164,9 @@ export default async function PanelSayfasi({
       {destekVerisi && (
         <KatlanabilirKart
           baslik="Çalışma gruplarım"
-          aciklama="Hangi çalışma gruplarına katkı verebileceğinizi işaretleyin. Seçiminiz profilinizde görünür; onay gerektirmez."
           Ikon={Layers}
           capa="katki-alanlarim"
+          duzenlenebilir
           baslangictaAcik={acilacakBolum === "katki-alanlarim"}
         >
           {/*
@@ -2183,71 +2197,38 @@ export default async function PanelSayfasi({
         </KatlanabilirKart>
       )}
 
-      <KatlanabilirKart
-        baslik="Kayıtlarım"
-        aciklama="Katıldığın etkinlikler, sertifikaların, toplulukların, ürünlerin ve derecelerin. Kayıtlar profilinde GençTek Yolculuğum ve Bilişim Yolculuğum bölümlerinde görünür."
-        Ikon={Sparkles}
-        capa="kayitlarim"
-        /*
-          Tür adreste geldiyse bölüm AÇIK gelir: sekme bağlantısına tıklayan
-          kullanıcı, kapalı bir bölüme inip ne olduğunu anlamamalı.
-        */
-        baslangictaAcik={Boolean(istenenTur) || acilacakBolum === "kayitlarim"}
-      >
-        <KayitEklemeFormu
-          sahip={kazanimSahibi}
-          seciliTanim={seciliTanim}
-          programlar={programlar}
-          izinliBelgeTipleri={izinliBelgeTipleri}
-          belgeSinirlari={belgeSinirlari}
-          ekleEylemi={kazanimEkleEylemi}
-        />
+      {/*
+        "KAYITLARIM" BÖLÜMÜ KENDİ SAYFASINA TAŞINDI (21 Ağustos 2026 · istek:
+        "Kayıtlarım ve katkı nişanlarımı panelden kaldır alttan, üst alanda
+        kart olarak gelsin kendi sayfaları olsun, kayıtlarım ismi bilişim
+        yolculuğum olsun").
 
-        {/*
-          GRUPLU GÖRÜNÜM (20 Ağustos 2026 · birleşme). Profildeki "Bilişim
-          Yolculuğum" / "Ürünlerim ve katkılarım" kartı buydu ve o ekran
-          kapandı. Aşağıdaki "Girdiğim kayıtlar" listesinin TEKRARI DEĞİL:
-          orası yönetim yüzeyi (sil, belge ekle), burası kaydın başkasına
-          nasıl göründüğü — hangi grupta durduğu.
-
-          Hangi grubun kime gösterildiği TEK YERDE (lib/kazanim/kurallar.ts ·
-          BILISIM_YOLCULUGU_GRUPLARI · `sahipler`); burada ayrıca dallanma
-          yok.
-        */}
-        <div className="mt-8 border-t border-cizgi pt-6">
-          <h3 className="mb-4 text-base font-semibold text-baslik">
-            {ogrenci ? "Bilişim Yolculuğum" : "Ürünlerim ve katkılarım"}
-          </h3>
-          <KazanimGruplari
-            kazanimlar={profilKaydi.kazanimlar}
-            sahip={kazanimSahibi}
-          />
-        </div>
-
-        <div className="mt-8 border-t border-cizgi pt-6">
-          <h3 className="mb-4 text-base font-semibold text-baslik">
-            Girdiğim kayıtlar
-          </h3>
-          <KayitYonetimi
-            kazanimlar={profilKaydi.kazanimlar}
-            sahip={kazanimSahibi}
-            silmeEylemi={kazanimSilEylemi}
-            belgeEkleEylemi={kazanimBelgeEkleEylemi}
-            belgeSilEylemi={kazanimBelgeSilEylemi}
-            izinliBelgeTipleri={izinliBelgeTipleri}
-          />
-        </div>
-      </KatlanabilirKart>
+        Yeni adres: /panel/bilisim-yolculugum · panelde yerine üstteki
+        "Bilişim Yolculuğum" kartı var ve kayıt sayısını da o söylüyor.
+      */}
 
       <KatlanabilirKart
         baslik="Özgeçmişim (CV)"
-        aciklama={
-          ogrenciMi(kullanici)
-            ? "Danışmanın, il koordinatörün ve proje yöneticisi profilinden açabilir."
-            : "İl koordinatörünüz ve proje yöneticisi kaydınızdan açabilir."
-        }
+        /*
+          ÖĞRENCİDE AÇIKLAMA YOK (21 Ağustos 2026 · istek). Öğretmende satır
+          kalıyor: CV'yi kimin göreceği orada hâlâ sorulan bir soru.
+        */
         Ikon={FileText}
         capa="cvm"
+        duzenlenebilir
+        ozet={
+          cvOzeti ? (
+            <p>
+              {cvOzeti}
+              {cvTarihi && (
+                <span className="text-metin-yumusak">
+                  {" "}
+                  · {tarihYaz(cvTarihi)} tarihinde yüklendi
+                </span>
+              )}
+            </p>
+          ) : undefined
+        }
         baslangictaAcik={acilacakBolum === "cvm"}
       >
         <CvDuzenleme
@@ -2284,11 +2265,6 @@ export default async function PanelSayfasi({
         <Kart>
           <KartBasligi
             baslik="Öğrencilerim"
-            aciklama={
-              danismanMi(kullanici)
-                ? `Danışmanlığını yürüttüğünüz ${ogrencileri.length} öğrenci.`
-                : "Danışman öğretmen görevi almadınız; öğrenciler sizi seçim listesinde görmüyor."
-            }
             Ikon={Users}
           />
           {ogrencileri.length === 0 ? (
@@ -2330,7 +2306,6 @@ export default async function PanelSayfasi({
         <Kart>
           <KartBasligi
             baslik="İlimdeki kişiler"
-            aciklama="Sorumlu olduğunuz ilin GençTek kayıtları."
             Ikon={Users}
           />
           <dl className="grid gap-5 sm:grid-cols-3">
@@ -2375,36 +2350,14 @@ export default async function PanelSayfasi({
       )}
 
       {/*
-        KATKI KARTI — öğrencinin GençTek yolculuğu (görevleri, çalışma
-        grupları, katıldığı etkinlikler). EYLEMSİZ basılıyor: kazanım eylemleri
-        verilmediğinde silme ve belge formları hiç çıkmıyor
-        (bkz. KazanimEylemleri) — düzenleme yukarıdaki "Kayıtlarım" bölümünde.
-      */}
-      {ogrenci && katki && (
-        <div id="katilimlarim" className="scroll-mt-6">
-          <KatkiKarti
-            kendiMi
-            gorevler={katki.gorevler}
-            gruplar={katki.gruplar}
-            faaliyetler={katki.faaliyetler}
-            egitimOgretimYili={kullanici.egitimOgretimYili}
-            katilim={kazanim}
-            kazanimlar={profilKaydi.kazanimlar}
-          />
-        </div>
-      )}
+        "GENÇTEK YOLCULUĞUM" VE "KATKI NİŞANLARIM" KENDİ SAYFALARINA TAŞINDI
+        (21 Ağustos 2026 · istekler: "Şu bölüm kalkacak: GençTek Yolculuğum.
+        Ancak yaptığı görevler Görevlerim kart olarak yukarı taşınacak" ·
+        "Kayıtlarım ve katkı nişanlarımı panelden kaldır alttan").
 
-      {/*
-        SEFERLERİM (D7). Nişanlar HESAPLANIR, tabloda tutulmaz; düzenleme
-        yüzeyi yok.
+        Yeni adresler: /panel/gorevlerim ve /panel/nisanlarim. İkisinin de
+        panelde bir kartı var; kartlar sayıyı gösteriyor, sayfalar listeyi.
       */}
-      {ogrenci && kazanim && (
-        <KatkiNisanlariKarti
-          rozetler={kazanim.rozetler}
-          seferler={kazanim.seferler}
-          bosMesaji="Henüz seferin yok. İlk etkinliğine katıldığında burası dolmaya başlayacak."
-        />
-      )}
 
       {/*
         ÖĞRETMENİN GENÇTEK TARAFI. Katıldığı etkinlikler ÜRETİLEN BELGEDEN
@@ -2413,23 +2366,10 @@ export default async function PanelSayfasi({
       {ogretmenKazanim && <KatilimKarti kazanim={ogretmenKazanim} />}
 
       {/*
-        KATKI NİŞANLARI — öğretmende de basılır. Ölçütleri düzenlediği
-        faaliyetler, danışmanlığı ve paydaşlı etkinlikleridir. "Seferler"
-        (seviyeler) öğretmende hesaplanmaz ve o bölüm hiç basılmaz.
+        ÖĞRETMENİN KATKI NİŞANLARI DA /panel/nisanlarim ekranında (21 Ağustos
+        2026): iki rol aynı sayfayı kullanıyor, ölçütleri farklı kaynaklardan
+        besleniyor.
       */}
-      {ogretmenKazanim && (
-        <KatkiNisanlariKarti
-          rozetler={ogretmenKazanim.rozetler}
-          seferler={ogretmenKazanim.seferler}
-          bosMesaji={
-            // Dış kullanıcının danışmanlığı yok; ona olmayan bir yoldan
-            // bahsetmek, nişanı ulaşılmaz gösterirdi.
-            disKullanici
-              ? "Henüz nişan kazanmadınız. Bildirdiğiniz etkinlikler onaylandıkça ve katkılarınız arttıkça burası dolacak."
-              : "Henüz nişan kazanmadınız. Etkinlik düzenledikçe ve danışmanlık yürüttükçe burası dolacak."
-          }
-        />
-      )}
 
       {/*
         ROTAM EKRANDAN TAMAMEN KALKTI (20 Ağustos 2026 · istek: "rotam komple
@@ -2446,65 +2386,13 @@ export default async function PanelSayfasi({
       */}
 
       {/*
-        ÖZGEÇMİŞ — dosyanın görünen hâli. Yükleme yukarıdaki "Özgeçmişim (CV)"
-        bölümünde; burası kaydın başkasına nasıl göründüğünü söylüyor: kimin
-        açabildiği ve dosyanın ne zaman yüklendiği.
+        KVKK / ONAY BELGELERİ BÖLÜMÜ KALKTI (21 Ağustos 2026 · istek: "KVKK'lar
+        panelden kalkacak … kvkk olmasın"). Yerine uygulamanın açılışında bir
+        kez çıkan çerez bildirimi var (components/CerezBildirimi.tsx).
+
+        Metinler ve verilmiş onaylar DURUYOR (lib/kvkk/*, `kullanici_onayi`):
+        kalkan, kullanıcıdan onay isteyen yüzey.
       */}
-      <Kart>
-        <KartBasligi
-          baslik="Özgeçmiş (CV)"
-          aciklama={
-            ogrenci
-              ? "Danışmanınız, il koordinatörünüz ve proje yöneticisi kaydınızdan açabilir."
-              : "İl koordinatörünüz ve proje yöneticisi kaydınızdan açabilir."
-          }
-          Ikon={FileText}
-        />
-        {cvVar && cv ? (
-          <div className="flex flex-wrap items-center gap-3">
-            {/*
-              YENİ SEKMEDE AÇILIR: rota pdf'i `inline` gönderiyor, yani dosya
-              inmek yerine tarayıcının görüntüleyicisinde açılıyor.
-
-              `<Link>` DEĞİL `<a>`: hedef bir rota (route.ts), sayfa değil.
-              Ham `<a href>` basePath'i kendisi eklemediği için
-              `uygulamaYolu()` şart.
-            */}
-            <a
-              href={uygulamaYolu(cvYolu)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={SINIF_IKINCIL_BUTON}
-            >
-              <FileText size={15} aria-hidden />
-              {cv.cvDosyaAdi}
-            </a>
-            <span className="text-sm text-metin-yumusak">
-              {cv.cvYuklenmeTarihi
-                ? `${tarihSaatYaz(cv.cvYuklenmeTarihi)} tarihinde yüklendi`
-                : ""}
-            </span>
-          </div>
-        ) : (
-          <p className="text-metin-yumusak">Henüz CV yüklenmedi.</p>
-        )}
-      </Kart>
-
-      {/*
-        KVKK ONAYLARI — `id="kvkk"` taşıyor: üst şerit ile eski `/panel/kvkk`
-        ve `/panel/taahhut` adresleri buraya çapa ile geliyor. Taşınırsa o üç
-        bağlantı da yanlış yere düşer.
-
-        Onay bir "profil bilgisi" değil hukuki bir beyandır ve metnin okunduğu
-        yerde verilmelidir; bu yüzden bölüm katlanır DEĞİL ve kendi eylemiyle
-        basılıyor.
-      */}
-      <div id="kvkk" className="scroll-mt-6">
-        <OnayBelgeleriBolumu
-          durumlar={belgeDurumlari}
-          onaylaEylemi={belgeOnaylaEylemi}
-        />
-      </div>
 
       {/*
         ÖZDEĞERLENDİRME ENVANTERLERİ — Algoritmam (7 Ağustos 2026).

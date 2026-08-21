@@ -296,7 +296,7 @@ export default async function UrunDetaySayfasi({
         <Kart>
           {/* `?tur=URUN#kayit-ekle`: bkz. market listesindeki aynı bağlantı. */}
           <Link
-            href="/panel?tur=URUN#kayitlarim"
+            href="/panel/bilisim-yolculugum?tur=URUN"
             className="inline-flex items-center gap-1.5 text-sm text-vurgu-metin hover:underline"
           >
             <Pencil size={14} aria-hidden />

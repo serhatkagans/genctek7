@@ -465,6 +465,10 @@ export default async function OgrencilerSayfasi({
       {yolIziAdimlari && <YolIzi adimlar={yolIziAdimlari} />}
 
       <SayfaBasligi
+        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
+           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
+           zaten sol menüde duruyor. */
+        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
         baslik="Öğrenciler"
         aciklama={
           toplam > SAYFA_BOYUTU

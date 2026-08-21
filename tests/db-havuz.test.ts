@@ -1,4 +1,4 @@
-import { havuzSiniriniCoz } from "@/lib/db-havuz";
+import { baglantiKoptuMu, havuzSiniriniCoz } from "@/lib/db-havuz";
 
 /**
  * `connection_limit` çözümlemesi.
@@ -90,5 +90,46 @@ describe("havuzlayıcı uç", () => {
 
   it("pgbouncer=false kuralı açmaz", () => {
     expect(havuzSiniriniCoz(`${TEMEL}?connection_limit=6&pgbouncer=false`)).toBe(6);
+  });
+});
+
+/**
+ * KOPUK BAĞLANTI TANIMA (21 Ağustos 2026).
+ *
+ * Yereldeki `prisma dev` sunucusu ara ara bütün bağlantıları düşürüyor ve havuz
+ * ölü soketi sıradaki isteğe verince sayfa "Server has closed the connection"
+ * ile 500 dönüyor. `db.ts` bu durumda havuzu boşaltıp sorguyu BİR kez yeniden
+ * deniyor; hangi hatanın buna gireceği burada sınanıyor.
+ */
+describe("baglantiKoptuMu", () => {
+  it("bağlantının koptuğunu söyleyen hataları tanır", () => {
+    expect(baglantiKoptuMu(new Error("Server has closed the connection."))).toBe(
+      true,
+    );
+    expect(baglantiKoptuMu(new Error("Connection terminated unexpectedly"))).toBe(
+      true,
+    );
+    expect(baglantiKoptuMu(new Error("read ECONNRESET"))).toBe(true);
+    // Prisma hatayı uzun bir metnin içine gömüyor; alt dize araması şart.
+    expect(
+      baglantiKoptuMu(
+        new Error(
+          "Invalid `prisma.kullanici.findUniqueOrThrow()` invocation\n\nServer has closed the connection.",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("başka hataları TANIMAZ", () => {
+    /*
+     * Kısıt ihlalini ya da sorgu hatasını yeniden denemek hatayı gizlemek
+     * olurdu: ikinci deneme de aynı sonucu verir, kullanıcı yalnızca bekler.
+     */
+    expect(baglantiKoptuMu(new Error("Unique constraint failed"))).toBe(false);
+    expect(baglantiKoptuMu(new Error("Timed out fetching a connection"))).toBe(
+      false,
+    );
+    expect(baglantiKoptuMu(undefined)).toBe(false);
+    expect(baglantiKoptuMu("Server has closed the connection")).toBe(true);
   });
 });

@@ -108,6 +108,16 @@ export const BILDIRIM_KODLARI = {
    * bildirimin e-posta kopyası sohbet içeriğini dışarı taşımıyor.
    */
   EKIPTE_YENI_MESAJ: "EKIPTE_YENI_MESAJ",
+  /**
+   * GençTek görevine başvuru yapıldı; PROJE YÖNETİCİLERİNE gider
+   * (21 Ağustos 2026).
+   *
+   * Kuyruğun sessiz kalmaması için baştan konuldu: mentörlükte bu bildirim
+   * sonradan eklendi ve arada kalan başvurular haftalarca görülmedi.
+   */
+  ONAY_BEKLEYEN_GENCTEK_GOREVI: "ONAY_BEKLEYEN_GENCTEK_GOREVI",
+  /** Görev başvurusu karara bağlandı; BAŞVURANA gider, gerekçesiyle. */
+  GENCTEK_GOREV_KARARI: "GENCTEK_GOREV_KARARI",
   /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
   FAALIYET_ONAY_SONUCU: "FAALIYET_ONAY_SONUCU",
   DANISMANA_KOPYA_ULUSAL_BASVURU: "DANISMANA_KOPYA_ULUSAL_BASVURU",
@@ -447,6 +457,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Başvuruyu yapan kişiye gider. Onaylandıysa Mentörlüğüm sekmesi açılmıştır; reddedildiyse gerekçe yazılıdır.",
     degiskenler: ["sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_GENCTEK_GOREVI,
+    baslik: "Onay bekleyen GençTek görev başvurusu",
+    aciklama:
+      "Bir kullanıcı panodaki GençTek görevlerinden birine başvurduğunda proje yöneticilerine gider. Kararı yalnızca merkez verir.",
+    degiskenler: ["basvuranAdSoyad", "gorevAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.GENCTEK_GOREV_KARARI,
+    baslik: "GençTek görev başvurusu sonucu",
+    aciklama:
+      "Başvuruyu yapan kişiye gider. Reddedildiyse gerekçe yazılıdır; onaylandıysa görev listesinde yer alır.",
+    degiskenler: ["gorevAdi", "sonuc", "gerekce"],
   },
   {
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_PANO_ILANI,

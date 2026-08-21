@@ -49,12 +49,26 @@ import {
  */
 const YOL = "/panel";
 
+/**
+ * Kayıt formlarının yeni evi (21 Ağustos 2026 · istek: "Kayıtlarım … kendi
+ * sayfaları olsun, kayıtlarım ismi bilişim yolculuğum olsun").
+ *
+ * Kayıt eylemleri panele değil buraya dönüyor: kişi kaydı hangi ekranda
+ * girdiyse iletiyi de orada okumalı. CV eylemleri panelde kaldı — o bölüm
+ * taşınmadı.
+ */
+const KAYIT_YOLU = "/panel/bilisim-yolculugum";
+
 function panele(capa: string, sorgu: string): never {
   redirect(`${YOL}?bolum=${capa}&${sorgu}#${capa}`);
 }
 
+function kayitlaraDon(sorgu: string): never {
+  redirect(`${KAYIT_YOLU}?${sorgu}`);
+}
+
 function hataylaDon(mesaj: string): never {
-  panele("kayitlarim", `hata=${encodeURIComponent(mesaj)}`);
+  kayitlaraDon(`hata=${encodeURIComponent(mesaj)}`);
 }
 
 /** CV iki yerde görünüyor: panel ve kişinin envanterdeki detayı. */
@@ -94,6 +108,8 @@ function cvSahibi(kullanici: OturumKullanicisi): "OGRENCI" | "OGRETMEN" {
  */
 function kazanimYollariniTazele(kullanici: OturumKullanicisi): void {
   revalidatePath(YOL);
+  revalidatePath(KAYIT_YOLU);
+  revalidatePath("/panel/gorevlerim");
   revalidatePath("/panel/kazanimlarim");
   revalidatePath(
     ogrenciMi(kullanici)
@@ -193,14 +209,13 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   // Tür adreste taşınır: art arda üç ürün girecek kişi her seferinde sekmeyi
   // yeniden seçmek zorunda kalmasın.
   if (ekUyarisi) {
-    panele(
-      "kayitlarim",
+    kayitlaraDon(
       `tur=${karar.kayit.tip}&hata=${encodeURIComponent(
         `Kayıt eklendi ancak belge yüklenemedi — ${ekUyarisi}`,
       )}`,
     );
   }
-  panele("kayitlarim", `tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
+  kayitlaraDon(`tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
 }
 
 /** Var olan bir kazanım kaydına destekleyici belge ekler. */
@@ -239,7 +254,7 @@ export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  panele("kayitlarim", "durum=belge-eklendi");
+  kayitlaraDon("durum=belge-eklendi");
 }
 
 /** Destekleyici belgeyi kaldırır. */
@@ -261,7 +276,7 @@ export async function kazanimBelgeSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  panele("kayitlarim", "durum=belge-silindi");
+  kayitlaraDon("durum=belge-silindi");
 }
 
 export async function kazanimSilEylemi(veri: FormData): Promise<void> {
@@ -294,7 +309,7 @@ export async function kazanimSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  panele("kayitlarim", "durum=kazanim-silindi");
+  kayitlaraDon("durum=kazanim-silindi");
 }
 
 export async function cvYukleEylemi(veri: FormData): Promise<void> {

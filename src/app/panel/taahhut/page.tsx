@@ -13,5 +13,10 @@ import { permanentRedirect } from "next/navigation";
  * zincirlemek tarayıcıyı gereksiz bir tur attırırdı.
  */
 export default function TaahhutSayfasi(): never {
-  permanentRedirect("/panel#kvkk");
+  /*
+   * 21 Ağustos 2026: hedef `/panel#kvkk` idi; belge bölümü panelden kalkınca
+   * çapa da kalktı (istek: "kvkk olmasın"). Adres yine 404 vermiyor — yer
+   * imlerinde ve eski e-postalarda duruyor.
+   */
+  permanentRedirect("/panel");
 }

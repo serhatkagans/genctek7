@@ -146,3 +146,27 @@ export function havuzSiniriniCoz(adres: string): number {
   const sayi = Number.parseInt(deger, 10);
   return Number.isFinite(sayi) && sayi > 0 ? sayi : VARSAYILAN_HAVUZ_SINIRI;
 }
+
+/**
+ * "Bağlantı koptu" hatalarının izleri.
+ *
+ * Yereldeki `prisma dev` sunucusu ara ara bütün bağlantıları düşürüyor; havuz
+ * ölü soketi sıradaki isteğe verdiğinde sayfa 500 dönüyor. Hangi hatanın
+ * "kopukluk" sayılacağı BURADA duruyor çünkü karar saf: mesaj metnine bakıyor,
+ * veritabanına gitmiyor ve birim testle sınanabiliyor (db.ts, Prisma
+ * istemcisini içeri aldığı için testte yüklenemiyor).
+ *
+ * Liste DAR TUTULDU: sorgu hatası, kısıt ihlali ya da zaman aşımı buraya
+ * girmemeli — onları yeniden denemek hatayı gizlemek olur.
+ */
+export const KOPUK_BAGLANTI_IZLERI = [
+  "Server has closed the connection",
+  "Connection terminated",
+  "ECONNRESET",
+];
+
+export function baglantiKoptuMu(hata: unknown): boolean {
+  const mesaj =
+    hata instanceof Error ? hata.message : typeof hata === "string" ? hata : "";
+  return KOPUK_BAGLANTI_IZLERI.some((iz) => mesaj.includes(iz));
+}

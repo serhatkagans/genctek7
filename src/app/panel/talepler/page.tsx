@@ -1,4 +1,6 @@
 import {
+  BadgeCheck,
+  CalendarClock,
   ClipboardCheck,
   Filter,
   GraduationCap,
@@ -14,6 +16,8 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KartIzgarasi,
+  PosterKart,
   Rozet,
   SayfaBasligi,
   SINIF_GIRDI,
@@ -23,7 +27,6 @@ import { KisayolKarti } from "@/components/YonetimKartlari";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
-  GIZLILIK_UYARISI,
   PANO_ILANI_DURUM_ETIKETLERI,
   PANO_KATEGORILERI,
   PANODA_GORUNEN_ONAY_DURUMLARI,
@@ -33,15 +36,13 @@ import {
   talepTuruGecerliMi,
 } from "@/lib/iletisim/kurallar";
 import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
-import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
+import { tarihYaz } from "@/lib/tarih";
 import {
   mentorlukBasvurabilirMi,
-  panodaEslesmeArayabilirMi,
   panodaIlanAcabilirMi,
   panoIlaniOnaylayabilirMi,
   panoIlaniOnayGerekiyorMu,
 } from "@/lib/yetki/izinler";
-import { baglantiIstegiGonderEylemi } from "../yazismalar/baglanti-eylemleri";
 import { IlanDuzenlemeFormu } from "./formlar";
 import { talepKapatEylemi } from "./eylemler";
 
@@ -96,8 +97,6 @@ const DURUM_MESAJLARI: Record<string, string> = {
   duzenlendi: "İlan güncellendi.",
   "duzenlendi-onaya":
     "İlanınız güncellendi ve yeniden proje yöneticisinin onayına düştü; karar verilene kadar panoda görünmez.",
-  "istek-gonderildi":
-    "Bağlantı isteğiniz gönderildi. Danışman öğretmeniniz ya da il koordinatörünüz onayladığında yazışma açılır.",
   kapatildi: "İlanınız kapatıldı; listede görünmüyor.",
 };
 
@@ -116,16 +115,16 @@ export default async function TaleplerSayfasi({
   const { durum, hata, grup, ara, tur } = await searchParams;
 
   /*
-   * ÜÇ AYRI YETKİ, ÜÇ AYRI SORU:
+   * İKİ AYRI YETKİ, İKİ AYRI SORU:
    * - `acabilir`: ilan açma kartları basılsın mı (proje yöneticisi dâhil
    *   herkes · 14 Ağustos 2026).
-   * - `baglantiKurabilir`: ilanın altındaki bağlantı isteği kutusu. Merkez
-   *   burada hâlâ dışarıda — ilan açmak açık bir metin yazmaktır, bağlantı
-   *   isteği ise kişiye yönelen ve onaydan geçen bir temastır.
    * - `onaylayabilir`: onay kuyruğu kartı.
+   *
+   * "Bağlantı kurabilir mi" sorusu 21 Ağustos 2026'da düştü: bağlantı isteği
+   * akışı tümüyle kalktı (istek: "bağlantılarımdan normal mesaj göndermeyi
+   * tamamen kaldır").
    */
   const acabilir = panodaIlanAcabilirMi(kullanici);
-  const baglantiKurabilir = panodaEslesmeArayabilirMi(kullanici);
   const mentorBasvurabilir = mentorlukBasvurabilirMi(kullanici);
   const onayaDuser = panoIlaniOnayGerekiyorMu(kullanici);
   const onaylayabilir = panoIlaniOnaylayabilirMi(kullanici);
@@ -258,9 +257,13 @@ export default async function TaleplerSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        AÇIKLAMA SATIRI KALKTI (21 Ağustos 2026 · istek). Kimin göreceği
+        kuralı değişmedi — pano yalnızca giriş yapmış kullanıcıya açık; kalkan,
+        her açılışta başlığın altında duran metin.
+      */}
       <SayfaBasligi
         baslik="Pano"
-        aciklama="Teknik destek, duyuru, ekip arkadaşı ve mentör ilanları. Pano ekosistem dışına açık değildir; ilanları yalnızca sisteme girmiş kullanıcılar görür."
         rozet={
           <>
             <Rozet cesit="vurgu">{talepler.length} ilan</Rozet>
@@ -290,25 +293,6 @@ export default async function TaleplerSayfasi({
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       {/*
-        Uyarı panoda da gösteriliyor: kullanıcı iletişimi buradan başlatıyor ve
-        kuralı ilk temasta bilmeli. Metin tek bir sabitten geliyor.
-      */}
-      <BilgiKutusu cesit="uyari">{GIZLILIK_UYARISI}</BilgiKutusu>
-
-      {/*
-        BAĞLANTI KUTUSU BASILMIYORSA SEBEBİ YAZILI (13 Ağustos 2026'daki
-        gerekçenin devamı): kutunun sessizce yok olması "sayfa yarım açıldı"
-        izlenimi verirdi. 14 Ağustos 2026'da ilan açma merkeze açılınca metin de
-        daraldı — kapalı kalan tek şey bağlantı isteği.
-      */}
-      {!baglantiKurabilir && (
-        <BilgiKutusu cesit="bilgi">
-          İlan açabilirsiniz; ilanlara bağlantı isteği gönderemezsiniz. Merkezin
-          duyuru kanalı ayrıdır (Mesaj Gönder).
-        </BilgiKutusu>
-      )}
-
-      {/*
         KARTLAR EN ÜSTTE (14 Ağustos 2026 · istek: "en üstte kart olsun o
         sayfaya gitsin"). Her kart bir sayfaya gidiyor; formların hiçbiri artık
         panonun içinde değil.
@@ -318,24 +302,39 @@ export default async function TaleplerSayfasi({
           <>
             <KisayolKarti
               baslik="Destek / duyuru talebi aç"
-              aciklama="Teknik destek, duyuru, ekip arkadaşı arama ya da genel ilan"
               Ikon={LifeBuoy}
               yol="/panel/talepler/yeni"
+              ton="olumlu"
             />
             <KisayolKarti
               baslik="Mentör talebi aç"
-              aciklama="Yol gösterecek bir mentöre sorun; havuzdaki mentörler görür"
               Ikon={GraduationCap}
               yol="/panel/talepler/mentor-talebi"
+              ton="olumlu"
             />
           </>
         )}
+        {/*
+          GENÇTEK GÖREVLERİ (21 Ağustos 2026 · istek: "Panoda yeni kart GençTek
+          Görevlerim isminde kart olsun, içinde başvur butonları olacak").
+
+          Kart HERKESTE basılıyor: görevler role göre kısıtlı değil, merkezin
+          açtığı çağrılardır ve kimin uygun olduğuna başvurunun kararı karar
+          veriyor. Başvuru formları kartın açtığı sayfada — pano ilan listesi
+          ekranıdır, form barındırmıyor (14 Ağustos kararı).
+        */}
+        <KisayolKarti
+          baslik="GençTek Görevleri"
+          Ikon={BadgeCheck}
+          yol="/panel/talepler/genctek-gorevleri"
+          ton="olumlu"
+        />
         {mentorBasvurabilir && (
           <KisayolKarti
             baslik="Mentör olmak için başvur"
-            aciklama="Bildiğiniz konularda öğrencilere yol gösterin; başvurunuz onaydan geçer"
             Ikon={Handshake}
             yol="/panel/talepler/mentor-basvuru"
+            ton="olumlu"
           />
         )}
         {/*
@@ -346,13 +345,20 @@ export default async function TaleplerSayfasi({
         {onaylayabilir && (
           <KisayolKarti
             baslik="Pano ilanları (onay)"
+            /*
+              Açıklama yerine yalnızca SAYI kalıyor (21 Ağustos 2026 · istek:
+              panodaki açıklamalar kalksın): "kaç ilan kararımı bekliyor"
+              tanım değil, karar verdiren bilgidir. Sıfırken satır hiç
+              basılmıyor.
+            */
             aciklama={
               bekleyenSayisi > 0
-                ? `${bekleyenSayisi} ilan kararınızı bekliyor · düzenleme ve silme`
-                : "Bekleyen ilan yok · düzenleme ve silme"
+                ? `${bekleyenSayisi} ilan kararınızı bekliyor`
+                : undefined
             }
             Ikon={ClipboardCheck}
             yol="/panel/talepler/onaylar"
+            ton="uyari"
           />
         )}
       </div>
@@ -436,161 +442,119 @@ export default async function TaleplerSayfasi({
         </button>
       </form>
 
-      <Kart>
-        <KartBasligi
-          baslik="Panodaki ilanlar"
-          aciklama={`${talepler.length} ilan${filtreVar ? " (filtreli)" : ""}`}
-          Ikon={Megaphone}
-        />
+      {/*
+        KART DÜZENİ (21 Ağustos 2026 · istek: "panodaki ilanlar kart düzeni
+        gibi özet olacak, aynı etkinlikler gibi").
+
+        İlanlar önce alt alta, TAM METİNLERİYLE basılıyordu: altmış ilanlık bir
+        panoda ekranın tamamı tek bir kaydırma sütunuydu ve hangi ilanın nerede
+        bittiği okunmuyordu. Şimdi etkinliklerle aynı bileşen (PosterKart) ve
+        aynı ızgara kullanılıyor — kart özeti taşıyor, metnin tamamı ve
+        bağlantı isteği kutusu ilanın kendi sayfasında (talepler/[id]).
+
+        İçerikten ilk satırlar özet olarak basılıyor: başlık tek başına "ne
+        aradığını" söylemeyebiliyor ve kartın işi, açmaya değer olup olmadığını
+        söylemek.
+      */}
+      <section id="ilanlar" className="scroll-mt-6 space-y-4">
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
+            <Megaphone size={18} className="text-vurgu-metin" aria-hidden />
+            Panodaki ilanlar
+          </h2>
+          <p className="text-sm text-metin-yumusak">
+            {talepler.length} ilan{filtreVar ? " (filtreli)" : ""}
+          </p>
+        </div>
+
         {talepler.length === 0 ? (
-          <p className="text-metin-yumusak">
+          <Kart className="text-metin-yumusak">
             {filtreVar
               ? "Aramanıza uyan ilan yok."
               : "Panoda henüz ilan yok. İlkini siz açabilirsiniz."}
-          </p>
+          </Kart>
         ) : (
-          <ul className="space-y-4">
+          <KartIzgarasi>
             {talepler.map((talep) => {
               const roller = acanRolleri(talep.acan.roller);
               return (
-                <li
-                  key={talep.id}
-                  id={`talep-${talep.id}`}
-                  className="scroll-mt-24 rounded-kart border border-cizgi p-4"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="font-semibold text-baslik">{talep.baslik}</h3>
-                    <span className="flex flex-wrap items-center gap-2">
-                      {/*
-                        Kategori rozeti önce basılıyor: ilanın NE ARADIĞI, hangi
-                        çalışma alanına ait olduğundan önce okunmalı. Türü
-                        olmayan eski ilanlar da açıkça etiketleniyor — rozetsiz
-                        bırakmak onları "duyuru" sanılabilir hâle getirirdi.
-                      */}
-                      <span className="rounded-full bg-rol-ogrenci-zemin px-2.5 py-0.5 text-xs font-medium text-rol-ogrenci-metin">
-                        {talep.tur
-                          ? TALEP_TURU_ETIKETLERI[talep.tur]
-                          : TALEP_TURU_BELIRTILMEMIS}
+                <li key={talep.id} id={`talep-${talep.id}`} className="scroll-mt-24">
+                  <PosterKart
+                    baslik={talep.baslik}
+                    yol={`/panel/talepler/${talep.id}`}
+                    ton={talep.acan.id === kullanici.id ? "vurgu" : "notr"}
+                    vurguluCerceve={talep.acan.id === kullanici.id}
+                    Ikon={Megaphone}
+                    kalanGun={
+                      <>
+                        <CalendarClock size={11} aria-hidden />
+                        {tarihYaz(talep.sonGecerlilik)}
+                      </>
+                    }
+                    ustSerit={
+                      <span className="flex items-center gap-1.5">
+                        {roller.length > 0 ? (
+                          roller.map((rolKodu) => (
+                            <RolEtiketi key={rolKodu} rolKodu={rolKodu} />
+                          ))
+                        ) : (
+                          <RolsuzEtiketi />
+                        )}
+                        <span className="truncate">
+                          {talep.acan.ad} {talep.acan.soyad}
+                        </span>
                       </span>
-                      {talep.calismaGrubu && (
-                        <span className="rounded-full bg-vurgu-zemin px-2.5 py-0.5 text-xs font-medium text-vurgu-metin">
-                          {talep.calismaGrubu.ad}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <p className="mt-2 whitespace-pre-line text-metin">
-                    {talep.icerik}
-                  </p>
-                  {/*
-                    Rol rozeti adın YANINDA duruyor, satırın sonunda değil:
-                    panoda okunan ilk şey "bunu kim yazmış" ve bir öğrencinin
-                    destek talebiyle öğretmenin talebi aynı ağırlıkta değil.
-                    Rolsüz öğretmen de nötr bir etiketle görünür — etiketsiz
-                    bırakılsaydı öğrenci sanılırdı.
-                  */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-metin-yumusak">
-                    {roller.length > 0 ? (
-                      roller.map((rolKodu) => (
-                        <RolEtiketi key={rolKodu} rolKodu={rolKodu} />
-                      ))
-                    ) : (
-                      <RolsuzEtiketi />
-                    )}
-                    <span>
-                      {talep.acan.ad} {talep.acan.soyad}
-                      {" · "}
-                      {talep.acan.sinif ?? talep.acan.brans ?? "—"}
-                      {" · "}
-                      {talep.acan.kurum?.ad ?? talep.acan.il?.ad ?? "—"}
-                      {" · "}
-                      {tarihYaz(talep.sonGecerlilik)} tarihine kadar
-                    </span>
-                  </div>
-
-                  {/*
-                    MENTÖR CEVAPLARI (13 Ağustos 2026). Cevaplar mentör
-                    sayfasından yazılıyor, okunacakları yer burası: ilan sahibi
-                    bildirimle geliyor ve cevabı ilanının altında buluyor.
-
-                    BAĞLANTI KUTUSUNDAN ÖNCE basılıyor — önce "cevap geldi mi",
-                    sonra "birebir konuşmak ister miyim". Sıra ters olsaydı
-                    cevap, bir formun altında gözden kaçardı.
-
-                    Gizleme düğmesi BURADA YOK: gözetim rolleri cevabı görüyor
-                    ama kaldırma işi tek ekranda toplandı (mentör sayfası ve
-                    eylem); panodaki her satıra düğme koymak, öğrencinin gördüğü
-                    listeyi moderasyon aracına çevirirdi.
-                  */}
-                  {talep.cevaplar.length > 0 && (
-                    <div className="mt-3 border-t border-cizgi pt-3">
-                      <p className="text-sm font-medium text-metin">
-                        Mentör cevapları ({talep.cevaplar.length})
-                      </p>
-                      <ul className="mt-2 space-y-2">
-                        {talep.cevaplar.map((cevap) => (
-                          <li
-                            key={cevap.id}
-                            className="rounded-kart bg-zemin px-3 py-2"
-                          >
-                            <p className="text-sm font-medium text-metin">
-                              {cevap.yazan.ad} {cevap.yazan.soyad}
-                              <span className="ml-2 font-normal text-metin-yumusak">
-                                {tarihSaatYaz(cevap.olusturmaTarihi)}
-                              </span>
-                            </p>
-                            <p className="mt-1 whitespace-pre-line text-metin">
-                              {cevap.icerik}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/*
-                    Kendi ilanına istek gönderilmez. İletişim bilgisi burada
-                    GÖSTERİLMEZ: taraflar ancak onaydan sonra ve sistem
-                    üzerinden konuşur.
-                  */}
-                  {baglantiKurabilir && talep.acan.id !== kullanici.id && (
-                    <form
-                      action={baglantiIstegiGonderEylemi}
-                      className="mt-3 flex flex-wrap items-end gap-2 border-t border-cizgi pt-3"
-                    >
-                      <input type="hidden" name="talepId" value={talep.id} />
-                      <label className="block grow">
-                        <span className="text-sm font-medium text-metin">
-                          Kendinizi tanıtın
-                        </span>
-                        <input
-                          type="text"
-                          name="mesaj"
-                          required
-                          maxLength={1000}
-                          placeholder="Neden bağlanmak istediğinizi kısaca yazın."
-                          className={SINIF_GIRDI}
-                        />
-                      </label>
-                      <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                        <Handshake size={16} aria-hidden />
-                        Bağlantı isteği gönder
-                      </button>
-                    </form>
-                  )}
+                    }
+                    rozetler={
+                      <>
+                        {/*
+                          Kategori rozeti önce basılıyor: ilanın NE ARADIĞI,
+                          hangi çalışma alanına ait olduğundan önce okunmalı.
+                          Türü olmayan eski ilanlar da açıkça etiketleniyor —
+                          rozetsiz bırakmak onları "duyuru" sanılabilir hâle
+                          getirirdi.
+                        */}
+                        <Rozet cesit="vurgu">
+                          {talep.tur
+                            ? TALEP_TURU_ETIKETLERI[talep.tur]
+                            : TALEP_TURU_BELIRTILMEMIS}
+                        </Rozet>
+                        {talep.calismaGrubu && (
+                          <Rozet>{talep.calismaGrubu.ad}</Rozet>
+                        )}
+                        {talep.cevaplar.length > 0 && (
+                          <Rozet cesit="olumlu">
+                            {talep.cevaplar.length} mentör cevabı
+                          </Rozet>
+                        )}
+                      </>
+                    }
+                    altBilgi={
+                      <span className="line-clamp-3 whitespace-pre-line">
+                        {talep.icerik}
+                      </span>
+                    }
+                    eylem={
+                      <Link
+                        href={`/panel/talepler/${talep.id}`}
+                        className={SINIF_IKINCIL_BUTON}
+                      >
+                        İncele
+                      </Link>
+                    }
+                  />
                 </li>
               );
             })}
-          </ul>
+          </KartIzgarasi>
         )}
-      </Kart>
+      </section>
 
       {kendiTalepleri.length > 0 && (
         <Kart>
-          <KartBasligi
-            baslik="Açık ilanlarım"
-            aciklama="Kendi ilanlarınızı buradan düzenleyip kapatabilirsiniz."
-          />
+          {/* Açıklama satırı kalktı (21 Ağustos 2026 · istek): düzenleme ve
+              kapatma düğmeleri satırların içinde zaten duruyor. */}
+          <KartBasligi baslik="Açık ilanlarım" />
           <ul className="divide-y divide-cizgi">
             {kendiTalepleri.map((talep) => {
               /*

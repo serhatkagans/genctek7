@@ -1,7 +1,4 @@
-import {
-  LogOut,
-  ShieldAlert,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cikisEylemi } from "@/app/giris/eylemler";
@@ -12,7 +9,6 @@ import {
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
-import { ilkGirisKilidiVarMi, onayDurumlari } from "@/lib/kvkk/onay";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import { uygulamaYolu } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
@@ -38,26 +34,19 @@ export default async function PanelDuzeni({
   }
 
   /*
-   * İLK GİRİŞ KAPISI. Sisteme hiç onay vermeden girilmez: kayıt akışı olmadığı
-   * için belgelerin okutulacağı tek an budur (bkz. app/onay/page.tsx).
+   * İLK GİRİŞ KAPISI VE ONAY ŞERİDİ KALKTI (21 Ağustos 2026 · istek: "KVKK'lar
+   * panelden kalkacak, açılışta çerez politikası ile ilgili popup gelecek bir
+   * kerelik, sonra bir daha okuma yok, kvkk olmasın").
    *
-   * Kapı yalnızca GERÇEK ilk girişte kapalıdır. Sonradan eklenen belge ya da
-   * güncellenen metin kimseyi dışarıda bırakmaz — onlar aşağıdaki şeritle
-   * duyurulur. Sebebi pratik: bir metin güncellemesi tüm ilin koordinatörünü
-   * aynı anda kapıda bırakabilir ve acil bir işin ortasında sistemin
-   * kilitlenmesi korumaktan çok zarar verir; erişimler zaten kayda geçiyor.
+   * Sisteme giren kişi artık hiçbir belge kapısından geçmiyor; yerine
+   * uygulamanın açılışında BİR KEZ çıkan çerez bildirimi var
+   * (bkz. components/CerezBildirimi.tsx).
+   *
+   * VERİ VE METİNLER SİLİNMEDİ (lib/kvkk/*, kullanici_onayi tablosu, yönetim
+   * ekranındaki metin düzenleme): daha önce verilmiş onaylar hukuken kayıttır
+   * ve ekran kararıyla silinmezler. Kalkan yalnızca kullanıcıdan onay ISTEYEN
+   * yüzeyler.
    */
-  if (await ilkGirisKilidiVarMi(kullanici)) {
-    redirect("/onay");
-  }
-
-  /*
-   * Onayı bekleyen belgeler tek şeritte toplanır. Belge başına ayrı şerit
-   * basılsaydı yeni koordinatör panelin üçte birini uyarı olarak görürdü.
-   */
-  const bekleyenBelgeler = (await onayDurumlari(kullanici)).filter(
-    (durum) => durum.gerekiyorMu,
-  );
 
   /*
    * MENÜ KÜÇÜLDÜ (7 Ağustos 2026 · istek: "menü sayısı azalacak").
@@ -121,15 +110,10 @@ export default async function PanelDuzeni({
    * BAĞLANTILARIM ve AKIŞ EKLENDİ (13 Ağustos 2026 · inceleme bulgusu).
    * İkisi de Market'le aynı durumdaydı: sayfa açıktı, kapısı yoktu.
    *
-   *   · Bağlantılarım — bu roller panodan bağlantı isteği GÖNDEREBİLİYOR
-   *     (bkz. panodaEslesmeArayabilirMi) ve istek onaylanınca yazışma
-   *     açılıyor. Sekme basılmadığı için mezun, onaylanan bağlantısının
-   *     mesajını okuyacak hiçbir yol bulamıyordu: bildirimin "git" düğmesi de
-   *     yok (BildirimHedefTipi yalnızca FAALIYET ve EKIP). Panel'deki kutu ise
-   *     ona "onaylanan bağlantılar üzerinden yazışabilirsiniz" diyordu.
-   *   · Akış — sayfanın ve eylemlerinin hiçbirinde rol kapısı yok
-   *     (bkz. akis/eylemler.ts): dış kullanıcı gönderi ve yorum yazabiliyor.
-   *     Menüde karşılığı olmaması, ekranı kapatmıyor yalnızca gizliyordu.
+   *   · Bağlantılarım — bu roller yazışmalara erişebiliyor. Sekme
+   *     basılmadığı için mezun, açılmış bir yazışmanın mesajını okuyacak
+   *     hiçbir yol bulamıyordu: bildirimin "git" düğmesi de yok
+   *     (BildirimHedefTipi yalnızca FAALIYET ve EKIP).
    *
    * YETKİ DEĞİŞMEDİ, yalnızca kapı açıldı: iki sayfa da baştan beri bu
    * rollere açıktı ve kapsam filtreleri yerinde duruyor.
@@ -167,8 +151,6 @@ export default async function PanelDuzeni({
     // Sıra iç kullanıcı menüsüyle aynı: aynı sekmenin iki rolde farklı yerde
     // durması, ekranı birine anlatırken "sende kaçıncı sırada?" sorusunu
     // doğururdu.
-    // Akış 14 Ağustos 2026'da Bağlantılarım'ın içine girdi; ayrı sekmesi yok
-    // (bkz. aşağıdaki not ve akis/AkisBolumu.tsx).
     baglantilar.push({
       yol: "/panel/yazismalar",
       etiket: "Bağlantılarım",
@@ -193,7 +175,6 @@ export default async function PanelDuzeni({
         kullanici={kullanici}
         tema={tema}
         baglantilar={baglantilar}
-        bekleyenBelgeler={bekleyenBelgeler}
       >
         {children}
       </PanelCercevesi>
@@ -288,13 +269,10 @@ export default async function PanelDuzeni({
   });
 
   /*
-   * "AKIŞ" SEKMESİ KALKTI (14 Ağustos 2026 · istek: "akış bağlantılarım içine
-   * gelecek"). 12 Ağustos'ta ayrı sekme yapılmıştı; gerekçesi "öğrenci kime
-   * yazdığını ekrandan ayırt edebilmeli" idi ve o gerekçe bir SEKME değil bir
-   * AYRIM istiyor: akış artık Bağlantılarım sayfasının içinde, kendi başlığı ve
-   * kendi kalıcı uyarısıyla ayrı bir bölüm (bkz. akis/AkisBolumu.tsx).
-   *
-   * `/panel/akis` adresi duruyor ve `#akis` çapasına yönlendiriyor.
+   * AKIŞ TAMAMEN KALKTI (21 Ağustos 2026 · istek: "akışı da kaldır"). 12
+   * Ağustos'ta ayrı sekme, 14 Ağustos'ta Bağlantılarım'ın içinde bir bölümdü;
+   * şimdi bölüm de eylemleri de yok. `/panel/akis` adresi 404 vermesin diye
+   * duruyor ve Bağlantılarım'a yönlendiriyor.
    */
 
   /*
@@ -450,7 +428,6 @@ export default async function PanelDuzeni({
       kullanici={kullanici}
       tema={tema}
       baglantilar={baglantilar}
-      bekleyenBelgeler={bekleyenBelgeler}
     >
       {children}
     </PanelCercevesi>
@@ -468,13 +445,11 @@ function PanelCercevesi({
   kullanici,
   tema,
   baglantilar,
-  bekleyenBelgeler,
   children,
 }: {
   kullanici: NonNullable<Awaited<ReturnType<typeof oturumKullanicisi>>>;
   tema: Awaited<ReturnType<typeof aktifTema>>;
   baglantilar: GezinmeBaglantisi[];
-  bekleyenBelgeler: Awaited<ReturnType<typeof onayDurumlari>>;
   children: React.ReactNode;
 }) {
   return (
@@ -537,9 +512,37 @@ function PanelCercevesi({
           </Link>
 
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm font-semibold text-ust-bar-metin">
-              {kullanici.ad} {kullanici.soyad}
-            </p>
+            {/*
+              ROL ADIN ALTINDA (21 Ağustos 2026 · istek: "sol menü üstündeki
+              YETKİM / Öğrenci kalksın, öğrenci adının altına öğrenci yazısı
+              gelsin — sağ üstteki öğrenci adı").
+
+              Kenar çubuğunun tepesindeki "Yetkim" kutusu kalktı: menünün
+              başında duran bir kutu, menüyü aşağı itiyordu ve rol bilgisi
+              zaten kimliğin bir parçası — adın altında duracağı yer burası.
+
+              Birden fazla rol yan yana basılıyor: il koordinatörü aynı anda
+              danışman olabiliyor ve rollerden yalnızca birini yazmak, kişinin
+              menüde neden fazladan başlık gördüğünü açıklamazdı.
+            */}
+            <div className="text-right">
+              <p className="text-sm font-semibold text-ust-bar-metin">
+                {kullanici.ad} {kullanici.soyad}
+              </p>
+              <div className="mt-1 flex flex-wrap justify-end gap-1">
+                {kullanici.roller.length === 0 ? (
+                  <RolsuzEtiketi />
+                ) : (
+                  kullanici.roller.map((rol) => (
+                    <RolEtiketi
+                      key={rol.rolKodu}
+                      rolKodu={rol.rolKodu}
+                      ekBilgi={rol.ilKodu}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
             <form action={cikisEylemi}>
               <button
                 type="submit"
@@ -554,35 +557,6 @@ function PanelCercevesi({
       </header>
 
       {/*
-        Onay bekleyen belge şeridi ekranı KİLİTLEMEZ, uyarır. Belgeler ad ad
-        yazılıyor: "bir belgeniz bekliyor" demek, kişiyi hangi metni açacağını
-        aramaya bırakırdı.
-      */}
-      {bekleyenBelgeler.length > 0 && (
-        <div className="border-b border-uyari-cizgi bg-uyari-zemin">
-          <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-6 py-2.5 text-sm text-uyari-metin">
-            <ShieldAlert size={16} className="shrink-0" aria-hidden />
-            <span>
-              Onayınız bekleniyor:{" "}
-              {bekleyenBelgeler.map((durum) => durum.tanim.baslik).join(" · ")}.
-              Metni güncellenen belgelerde önceki onayınız eski metne aitti.
-            </span>
-            {/*
-              Şerit, metin güncellendiğinde yeniden onayın alındığı TEK yoldur:
-              sekme kalktığı için kullanıcının belgeye kendiliğinden uğrayacağı
-              bir yer yok. Çapa Panel'in en altındaki bölüme gider.
-            */}
-            <Link
-              href="/panel#kvkk"
-              className="font-semibold underline underline-offset-2"
-            >
-              Belgeleri aç
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/*
         GÖVDE: kenar çubuğu + içerik.
 
         Kenar çubuğu dar ekranda GİZLENMİYOR, üste geçiyor: PanelGezinme 1024
@@ -594,28 +568,9 @@ function PanelCercevesi({
         <aside className="yazdirma-disi lg:w-56 lg:shrink-0">
           <div className="lg:sticky lg:top-24">
             {/*
-              KAPSAM KUTUSU. Rol etiketleri menü barından buraya taşındı:
-              kullanıcının hangi yetkiyle baktığı, menünün neden o uzunlukta
-              olduğunu açıklayan bilgidir — menünün başında durması gerekir.
+              "YETKİM" KUTUSU KALKTI (21 Ağustos 2026 · istek). Roller üst
+              barda, adın hemen altında basılıyor.
             */}
-            <div className="mb-6 rounded-kart border border-cizgi bg-kart p-4 shadow-kart">
-              <p className="text-[11px] font-bold tracking-widest text-metin-yumusak uppercase">
-                Yetkim
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {kullanici.roller.length === 0 ? (
-                  <RolsuzEtiketi />
-                ) : (
-                  kullanici.roller.map((rol) => (
-                    <RolEtiketi
-                      key={rol.rolKodu}
-                      rolKodu={rol.rolKodu}
-                      ekBilgi={rol.ilKodu}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
 
             <PanelGezinme baglantilar={baglantilar} />
           </div>

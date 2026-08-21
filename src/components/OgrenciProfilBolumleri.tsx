@@ -469,7 +469,7 @@ export function UrunlerKarti({
                 Henüz ürün eklemedin. Geliştirdiğin bir site, uygulama, oyun ya
                 da film varsa{" "}
                 <Link
-                  href="/panel?tur=URUN#kayitlarim"
+                  href="/panel/bilisim-yolculugum?tur=URUN"
                   className="font-medium text-vurgu-metin underline underline-offset-2"
                 >
                   Panel&apos;den ekleyebilirsin
@@ -481,7 +481,7 @@ export function UrunlerKarti({
                 Henüz ürün eklemediniz. Geliştirdiğiniz bir site, uygulama, ders
                 materyali ya da film varsa{" "}
                 <Link
-                  href="/panel?tur=URUN#kayitlarim"
+                  href="/panel/bilisim-yolculugum?tur=URUN"
                   className="font-medium text-vurgu-metin underline underline-offset-2"
                 >
                   Panel&apos;den ekleyebilirsiniz
@@ -534,7 +534,7 @@ export function UrunlerKarti({
 
       {kendiMi && urunler.length > 0 && (
         <Link
-          href="/panel?tur=URUN#kayitlarim"
+          href="/panel/bilisim-yolculugum?tur=URUN"
           className="mt-4 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
         >
           Yeni ürün ekle

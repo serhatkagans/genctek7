@@ -57,13 +57,16 @@ import {
   kontenjanDurumu,
   type PencereDurumu,
 } from "@/lib/faaliyet/kurallar";
+import {
+  KATILIM_BICIMI_ETIKETLERI,
+  KATILIM_BICIMLERI,
+} from "@/lib/kazanim/kurallar";
 import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
   danismanMi,
   faaliyetDisaAktarabilirMi,
   ilKoordinatoruMu,
-  ogrenciMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -688,7 +691,7 @@ export default async function FaaliyetlerSayfasi({
     Number.parseInt(tekil(parametreler.sayfa) ?? "1", 10) || 1,
   );
 
-  const [toplam, faaliyetler, gruplar] = await Promise.all([
+  const [toplam, faaliyetler, gruplar, iller] = await Promise.all([
     prisma.faaliyet.count({ where: nerede }),
     prisma.faaliyet.findMany({
       where: nerede,
@@ -732,6 +735,17 @@ export default async function FaaliyetlerSayfasi({
       where: { aktif: true },
       orderBy: { siraNo: "asc" },
       select: { id: true, ad: true },
+    }),
+    /*
+     * İL SÜZGECİNİN LİSTESİ (21 Ağustos 2026 · istek: "illere göre de arama
+     * yapabilsin tümü ya da il seç"). Liste kapsamla daraltılmıyor: süzgeç
+     * yalnızca daraltır, kapsam filtresi kimin neyi göreceğini zaten
+     * söylüyor — başka bir ili seçen kişi boş liste görür, o ilin
+     * etkinliklerini değil.
+     */
+    prisma.il.findMany({
+      orderBy: { ad: "asc" },
+      select: { ilKodu: true, ad: true },
     }),
   ]);
 
@@ -967,9 +981,53 @@ export default async function FaaliyetlerSayfasi({
           )}
         </div>
 
+        {/*
+          SÜZGEÇLERİN SIRASI (21 Ağustos 2026 · geri bildirim: "etkinliklerde
+          kapsam ve katılım biçimi aynı olmuş").
+
+          İki alan farklı şeyler soruyor ama yan yana iki açılır liste olarak
+          birbirinin kopyası gibi duruyordu. Ayrım artık etikette YAZILI:
+          kapsam KİMLERİN başvurabildiğini, katılım biçimi etkinliğin NEREDE
+          yapıldığını söylüyor. Katılım biçimi de açılır liste değil, tek
+          bakışta okunan bir düğme şeridi — üç seçenekli bir alan için liste
+          zaten fazlaydı.
+        */}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className={SINIF_ETIKET}>Kapsam</span>
+            <span className={SINIF_ETIKET}>Ara</span>
+            <input
+              type="search"
+              name="ara"
+              defaultValue={filtreler.arama ?? ""}
+              placeholder="Etkinlik adı ya da açıklamasında ara"
+              className={SINIF_GIRDI}
+            />
+          </label>
+
+          <label className="block">
+            <span className={SINIF_ETIKET}>İl</span>
+            <select
+              name="il"
+              defaultValue={filtreler.ilKodu ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm iller</option>
+              {iller.map((il) => (
+                <option key={il.ilKodu} value={il.ilKodu}>
+                  {il.ad}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/*
+            ETKİNLİK KATEGORİSİ SÜZGECİ KALKTI (20 Ağustos 2026 · istek:
+            "filtre kısmından da etkinlik kategorisi kalksın"). Kategori
+            oluşturma formunda da sorulmuyor artık; kayıtlı etkinliklerin
+            rozeti yerinde duruyor.
+          */}
+          <label className="block">
+            <span className={SINIF_ETIKET}>Kapsam — kimler başvurabilir</span>
             <select
               name="kapsam"
               defaultValue={filtreler.kapsam ?? ""}
@@ -984,12 +1042,6 @@ export default async function FaaliyetlerSayfasi({
             </select>
           </label>
 
-          {/*
-            ETKİNLİK KATEGORİSİ SÜZGECİ KALKTI (20 Ağustos 2026 · istek:
-            "filtre kısmından da etkinlik kategorisi kalksın"). Kategori
-            oluşturma formunda da sorulmuyor artık; kayıtlı etkinliklerin
-            rozeti yerinde duruyor.
-          */}
           <label className="block">
             <span className={SINIF_ETIKET}>Çalışma grubu</span>
             <select
@@ -1006,6 +1058,43 @@ export default async function FaaliyetlerSayfasi({
             </select>
           </label>
         </div>
+
+        {/*
+          KATILIM BİÇİMİ DÜĞME ŞERİDİ. `<input type="radio">` + etiket:
+          JavaScript yok, seçili olan işaretli geliyor ve form gönderilince
+          `bicim` parametresi olarak gidiyor. "Hepsi" boş değer taşıyor —
+          süzgeci kaldırmanın karşılığı.
+        */}
+        <fieldset className="mt-4">
+          <legend className={SINIF_ETIKET}>
+            Katılım biçimi — etkinlik nerede yapılıyor
+          </legend>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[
+              { deger: "", etiket: "Hepsi" },
+              ...KATILIM_BICIMLERI.map((bicim) => ({
+                deger: bicim as string,
+                etiket: KATILIM_BICIMI_ETIKETLERI[bicim],
+              })),
+            ].map((secenek) => (
+              <label
+                key={secenek.deger || "hepsi"}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-cizgi px-3.5 py-1.5 text-sm font-medium text-metin transition hover:border-vurgu has-checked:border-vurgu has-checked:bg-vurgu-zemin has-checked:text-vurgu-metin"
+              >
+                <input
+                  type="radio"
+                  name="bicim"
+                  value={secenek.deger}
+                  defaultChecked={
+                    (filtreler.katilimBicimi ?? "") === secenek.deger
+                  }
+                  className="h-3.5 w-3.5 accent-[var(--renk-birincil)]"
+                />
+                {secenek.etiket}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-metin">
@@ -1173,12 +1262,11 @@ export default async function FaaliyetlerSayfasi({
         </div>
       )}
 
-      {ogrenciMi(kullanici) && (
-        <BilgiKutusu>
-          Çalışma grubu etiketleri yalnızca bilgi amaçlıdır; başvurunuzu
-          kısıtlamaz. Kapsamınıza giren her etkinliğe başvurabilirsiniz.
-        </BilgiKutusu>
-      )}
+      {/*
+        ÇALIŞMA GRUBU NOTU KALKTI (21 Ağustos 2026 · istek). Kural değişmedi —
+        etiketler başvuruyu kısıtlamıyor; kalkan, listenin altında her açılışta
+        duran bilgi kutusuydu.
+      */}
     </div>
   );
 }

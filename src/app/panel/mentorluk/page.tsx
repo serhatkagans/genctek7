@@ -141,6 +141,10 @@ export default async function MentorlukKuyruguSayfasi({
   return (
     <div className="space-y-6">
       <SayfaBasligi
+        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
+           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
+           zaten sol menüde duruyor. */
+        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
         baslik="Mentörlük başvuruları"
         aciklama={
           bekleyenler.length > 0
@@ -182,9 +186,9 @@ export default async function MentorlukKuyruguSayfasi({
       */}
       <BilgiKutusu cesit="uyari">
         Kuyruğa <strong>öğrenci başvuruları</strong> da düşer: onaylanan öğrenci
-        akran mentörü olur, yani panodaki ilanlara açıkta cevap yazar. Birebir
-        yazışma bundan ayrıdır ve yine bağlantı isteği ile danışman/koordinatör
-        onayından geçer — mentörlük o kapıyı açmaz.
+        akran mentörü olur, yani panodaki ilanlara açıkta cevap yazar.
+        Mentörlük birebir yazışma hakkı vermez — yazışma yalnızca kendi okulu
+        içinde ve okul temsilcileriyle açılır.
       </BilgiKutusu>
 
       <Kart>

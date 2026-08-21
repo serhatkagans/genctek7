@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
-import type { Kapsam } from "@/generated/prisma/enums";
+import type { Kapsam, KatilimBicimi } from "@/generated/prisma/enums";
 import { KAPSAMLAR } from "@/lib/faaliyet/kurallar";
+import { KATILIM_BICIMLERI } from "@/lib/kazanim/kurallar";
 import { faaliyetKapsamFiltresi } from "@/lib/yetki/kapsam";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import {
@@ -26,6 +27,26 @@ export interface FaaliyetFiltreleri {
    * beslendiği için CSV'nin kümesi ekrandakiyle aynı kaldı.
    */
   calismaGrubuId: number | null;
+  /**
+   * İL SÜZGECİ (21 Ağustos 2026 · istek: "etkinlikleri filtrelerken illere
+   * göre de arama yapabilsin tümü ya da il seç").
+   *
+   * Etkinliğin ili İKİ YERDEN gelebiliyor: il kapsamlı etkinlikte kendi
+   * `ilKodu` sütunundan, okul kapsamlısında düzenleyen kurumun ilinden. Süzgeç
+   * ikisine birden bakıyor — yalnızca sütuna bakılsaydı bir ildeki okul
+   * etkinliklerinin hiçbiri o ilin listesine düşmezdi.
+   */
+  ilKodu: string | null;
+  /**
+   * SERBEST METİN ARAMASI (aynı istek: "yarışma ara (metin araması)
+   * kısmından elle girebilsin").
+   *
+   * Ad VE açıklamada aranıyor: etkinliğin adı çoğu kez program adıdır
+   * ("TEKNOFEST Hazırlık"), aranan sözcük ise açıklamanın içinde geçiyor.
+   */
+  arama: string | null;
+  /** Yüz yüze / çevrim içi / karma (aynı istek). */
+  katilimBicimi: KatilimBicimi | null;
   yalnizcaAcik: boolean;
   yalnizcaBenim: boolean;
   /**
@@ -110,12 +131,26 @@ export function faaliyetFiltreleriniCoz(
 ): FaaliyetFiltreleri {
   const kapsam = tekil(parametreler.kapsam);
   const grup = Number.parseInt(tekil(parametreler.grup) ?? "", 10);
+  const il = (tekil(parametreler.il) ?? "").trim();
+  const arama = (tekil(parametreler.ara) ?? "").trim();
+  const bicim = tekil(parametreler.bicim);
 
   return {
     // Tanınmayan değer sessizce düşer; filtre yalnızca daralttığı için
     // geçersiz bir değeri reddetmek yerine yok saymak yeterli.
     kapsam: KAPSAMLAR.includes(kapsam as Kapsam) ? (kapsam as Kapsam) : null,
     calismaGrubuId: Number.isFinite(grup) ? grup : null,
+    /*
+     * İl kodu iki haneli metindir ("06"); sayıya çevrilmiyor çünkü baştaki
+     * sıfır kaybolurdu. Biçimi tutmayan değer yok sayılır.
+     */
+    ilKodu: /^\d{2}$/.test(il) ? il : null,
+    // Boş arama `null` olur: `faaliyetFiltresiVarMi` boş dizgeyi "filtre var"
+    // sayıp "Filtreleri temizle" bağlantısını yakardı.
+    arama: arama || null,
+    katilimBicimi: KATILIM_BICIMLERI.includes(bicim as KatilimBicimi)
+      ? (bicim as KatilimBicimi)
+      : null,
     yalnizcaAcik: tekil(parametreler.acik) === "1",
     yalnizcaBenim: tekil(parametreler.benim) === "1",
     yalnizcaRaporsuz: tekil(parametreler.raporsuz) === "1",
@@ -155,6 +190,25 @@ export function faaliyetListeFiltresi(
   if (Object.keys(zaman).length > 0) kosullar.push(zaman);
 
   if (filtreler.kapsam) kosullar.push({ kapsam: filtreler.kapsam });
+  if (filtreler.ilKodu) {
+    kosullar.push({
+      OR: [
+        { ilKodu: filtreler.ilKodu },
+        { kurum: { ilKodu: filtreler.ilKodu } },
+      ],
+    });
+  }
+  if (filtreler.arama) {
+    kosullar.push({
+      OR: [
+        { ad: { contains: filtreler.arama, mode: "insensitive" } },
+        { aciklama: { contains: filtreler.arama, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (filtreler.katilimBicimi) {
+    kosullar.push({ katilimBicimi: filtreler.katilimBicimi });
+  }
   if (filtreler.calismaGrubuId !== null) {
     kosullar.push({
       calismaGruplari: { some: { calismaGrubuId: filtreler.calismaGrubuId } },

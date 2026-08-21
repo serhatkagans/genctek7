@@ -37,18 +37,28 @@ describe("mentörlük başvurusunun kabulü", () => {
     if (karar.olurMu) expect(karar.grupIdleri).toEqual([2]);
   });
 
-  it("yalnızca serbest konu yazılmışsa da kabul eder", () => {
-    // "hatta mümkünse diğer mentörlük konuları ekleyebilsin" — sabit grup
-    // listesi mentörlüğün tamamını taşımıyor.
+  it("serbest konu yazılsa da grup seçilmemişse reddeder", () => {
+    /*
+     * 21 Ağustos 2026 · istek: "listeden bir tik seçmeden başvurusu
+     * onaylanmasın". Grupsuz mentörlük panodaki ilanlarla eşleşmiyordu:
+     * eşleştirme çalışma grubu üzerinden yürüyor.
+     */
     const karar = mentorlukKabulEdilirMi(girdi({ konular: "  Arduino  " }));
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("serbest konu grupla birlikte kırpılarak saklanır", () => {
+    const karar = mentorlukKabulEdilirMi(
+      girdi({ grupIdleri: ["1"], konular: "  Arduino  " }),
+    );
     expect(karar.olurMu).toBe(true);
     if (karar.olurMu) {
       expect(karar.konular).toBe("Arduino");
-      expect(karar.grupIdleri).toEqual([]);
+      expect(karar.grupIdleri).toEqual([1]);
     }
   });
 
-  it("ikisi de boşsa reddeder", () => {
+  it("hiçbir grup seçilmemişse reddeder", () => {
     /*
      * Boş bir mentörlük, öğrencinin hangi konuda başvuracağını bilemeyeceği
      * bir kayıttır: panoda görünür ama hiçbir ilana eşleşmez.
@@ -75,16 +85,20 @@ describe("mentörlük başvurusunun kabulü", () => {
   });
 
   it("sayıya çevrilemeyen kimliği eler", () => {
+    // Elemeden sonra geriye grup kalmıyor: serbest konu dolu olsa bile
+    // başvuru kabul edilmez.
     const karar = mentorlukKabulEdilirMi(
       girdi({ grupIdleri: ["abc"], konular: "Robotik" }),
     );
-    expect(karar.olurMu).toBe(true);
-    if (karar.olurMu) expect(karar.grupIdleri).toEqual([]);
+    expect(karar.olurMu).toBe(false);
   });
 
   it("konu üst sınırını aşarsa reddeder", () => {
     const karar = mentorlukKabulEdilirMi(
-      girdi({ konular: "x".repeat(MENTOR_KONULARI_AZAMI + 1) }),
+      girdi({
+        grupIdleri: ["1"],
+        konular: "x".repeat(MENTOR_KONULARI_AZAMI + 1),
+      }),
     );
     expect(karar.olurMu).toBe(false);
   });

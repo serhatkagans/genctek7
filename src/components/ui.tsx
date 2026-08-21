@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Download, FileText } from "lucide-react";
+import { ArrowLeft, Check, Download, FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -126,6 +126,16 @@ export function SayfaBasligi({
   /**
    * Başlığın üstündeki geri bağlantısı. Varsayılan Panel'dir; kendi geri
    * bağlantısı olan ekranlar `null` geçer (bkz. aşağıdaki not).
+   *
+   * YÖNETİM PANELİNDEN AÇILAN EKRANLAR "/panel/yonetim" GEÇER (21 Ağustos
+   * 2026 · istekler: "yönetim panelinin navigasyonunda hep panele link var
+   * Panel şeklinde, o panel zaten soldaki menüde var" · "yönetim panelindeki
+   * tüm kartların yönetim paneli yolunu gösteren navigasyonu olsun").
+   *
+   * Varsayılan "Panel", kişiyi GELDİĞİ yere değil bir üst basamağa
+   * atıyordu; üstelik Panel sol menüde zaten duruyor, yani bağlantı hiçbir
+   * yeni yol açmıyordu. Geri bağlantısının işi, kartın açtığı ekrandan
+   * kartların durduğu ekrana dönmektir.
    */
   geri?: { yol: string; etiket: string } | null;
 }) {
@@ -324,15 +334,33 @@ export function OlcuSeridi({ children }: { children: React.ReactNode }) {
 export function Vitrin({
   ustBaslik,
   baslik,
+  altBaslik,
   aciklama,
   eylem,
+  gorsel,
   yan,
   className = "",
 }: {
   ustBaslik?: React.ReactNode;
   baslik: React.ReactNode;
+  /**
+   * Başlığın hemen altına, açıklamadan ÖNCE basılan satırlar (rol, okul).
+   *
+   * `aciklama`dan ayrı bir alan: açıklama bir cümle ve `<p>` olarak basılıyor,
+   * buraya gelen içerik ise kendi içinde birden çok satır taşıyabiliyor —
+   * `<p>` içine `<p>` koymak geçersiz HTML olurdu.
+   */
+  altBaslik?: React.ReactNode;
   aciklama?: React.ReactNode;
   eylem?: React.ReactNode;
+  /**
+   * Başlık kolonunun SOLUNA basılan görsel (profil fotoğrafı gibi).
+   *
+   * Sağdaki `yan` kolonundan farkı: `yan` kendi başına duran bir kutu, bu ise
+   * başlığın parçası — dar ekranda başlığın üstüne kayar, yan yana durduğunda
+   * ise adla aynı hizada kalır.
+   */
+  gorsel?: React.ReactNode;
   /** Sağ kolona basılacak içerik (özet kutusu, kısayollar). */
   yan?: React.ReactNode;
   className?: string;
@@ -348,14 +376,26 @@ export function Vitrin({
               {ustBaslik}
             </span>
           )}
-          <h1 className="mt-4 text-3xl leading-tight font-extrabold text-vitrin-metin sm:text-[34px]">
-            {baslik}
-          </h1>
-          {aciklama && (
-            <p className="mt-3 max-w-[54ch] text-vitrin-metin-yumusak">
-              {aciklama}
-            </p>
-          )}
+          <div
+            className={
+              gorsel ? "mt-4 flex flex-wrap items-center gap-5" : undefined
+            }
+          >
+            {gorsel && <div className="shrink-0">{gorsel}</div>}
+            <div className="min-w-0">
+              <h1
+                className={`text-3xl leading-tight font-extrabold text-vitrin-metin sm:text-[34px] ${gorsel ? "" : "mt-4"}`}
+              >
+                {baslik}
+              </h1>
+              {altBaslik && <div className="mt-2">{altBaslik}</div>}
+              {aciklama && (
+                <p className="mt-3 max-w-[54ch] text-vitrin-metin-yumusak">
+                  {aciklama}
+                </p>
+              )}
+            </div>
+          </div>
           {eylem && <div className="mt-6 flex flex-wrap gap-3">{eylem}</div>}
         </div>
         {yan && <div className="min-w-0">{yan}</div>}
@@ -382,6 +422,8 @@ export function KatlanabilirKart({
   Ikon,
   baslangictaAcik = false,
   capa,
+  duzenlenebilir = false,
+  ozet,
   children,
 }: {
   baslik: string;
@@ -390,6 +432,31 @@ export function KatlanabilirKart({
   baslangictaAcik?: boolean;
   /** Adres çapası; eylemler işlem sonrası bu bölüme geri döner. */
   capa?: string;
+  /**
+   * Bölüm bir FORM açıyorsa `true` (21 Ağustos 2026 · istek: "paneldeki
+   * iletişim bilgileri özgeçmişim vs de bulunan sağdaki aç kapa alanı
+   * silinsin, hakkımda alanı gibi kalem işareti kalsın düzenlenebilir
+   * anlamında").
+   *
+   * "Aç / Kapat" rozeti yerine kalem basılır: rozet bölümün ne yaptığını
+   * değil, kutunun ne yapacağını söylüyordu. Panelde bu kutuların içi hep
+   * düzenleme formu — kalem, açmadan önce bunu söylüyor.
+   *
+   * Varsayılan `false`: aynı kart okunacak bir liste de taşıyabiliyor
+   * (yazışmalardaki istek listeleri gibi) ve orada kalem yanlış söz verirdi.
+   */
+  duzenlenebilir?: boolean;
+  /**
+   * Kapalıyken başlığın altında görünen özet (21 Ağustos 2026 · istek:
+   * "İletişim bilgilerim, Kayıtlarım, Özgeçmişim (CV) bunların da özetleri
+   * görülsün doldurunca mutlaka").
+   *
+   * Kapalı kutu, içinin dolu mu boş mu olduğunu söylemiyordu: kişi kayıtlı
+   * telefonunu görmek için bile bölümü açmak zorundaydı. Özet AÇILINCA
+   * gizleniyor — formun kendisi zaten aynı değerleri gösteriyor ve iki kopya
+   * yan yana durursa hangisinin güncel olduğu belirsizleşir.
+   */
+  ozet?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -409,18 +476,36 @@ export function KatlanabilirKart({
               {baslik}
             </h2>
             {/*
-              Etiket açık/kapalı durumuna göre değişiyor: "Aç / kapat" her iki
-              durumda aynı yazdığı için düğmenin ne yapacağı okunmuyordu.
-              Değişim CSS ile — `<details>` açıkken group-open sınıfı geliyor,
-              JavaScript'e gerek yok.
+              İki işaret, iki iş: düzenleme bölümünde kalem, okunacak bölümde
+              "Aç / Kapat" rozeti. Rozetin etiketi açık/kapalı durumuna göre
+              değişiyor — "Aç / kapat" her iki durumda aynı yazdığı için
+              düğmenin ne yapacağı okunmuyordu.
+
+              Kalem yalnızca KAPALIYKEN görünür (Hakkımda kartındaki gibi):
+              form açıkken düzenleme işaretinin durması, tıklanacak ikinci bir
+              şey varmış gibi görünürdü.
+
+              Değişim CSS ile — `<details>` açıkken `group-open` sınıfı
+              geliyor, JavaScript'e gerek yok.
             */}
-            <span className="rounded-full bg-zemin px-3 py-1 text-xs font-semibold text-vurgu-metin">
-              <span className="group-open:hidden">Aç</span>
-              <span className="hidden group-open:inline">Kapat</span>
-            </span>
+            {duzenlenebilir ? (
+              <span className="text-metin-yumusak transition group-hover:text-vurgu-metin group-open:hidden">
+                <Pencil size={16} aria-hidden />
+              </span>
+            ) : (
+              <span className="rounded-full bg-zemin px-3 py-1 text-xs font-semibold text-vurgu-metin">
+                <span className="group-open:hidden">Aç</span>
+                <span className="hidden group-open:inline">Kapat</span>
+              </span>
+            )}
           </div>
           {aciklama && (
             <p className="mt-1.5 text-sm text-metin-yumusak">{aciklama}</p>
+          )}
+          {ozet && (
+            <div className="mt-3 text-sm text-metin group-open:hidden">
+              {ozet}
+            </div>
           )}
         </summary>
         <div className="border-t border-cizgi px-6 py-5">{children}</div>

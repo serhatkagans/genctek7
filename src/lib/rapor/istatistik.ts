@@ -1,7 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import type { OnayBelgesi } from "@/generated/prisma/enums";
 import { prisma } from "../db";
-import { belgeGuncellemeTarihleri } from "../kvkk/onay";
 import { bekleyenTalepSayisi } from "../danisman/talep";
 import {
   danismanMi,
@@ -10,7 +8,6 @@ import {
   projeYoneticisiMi,
 } from "../yetki/izinler";
 import {
-  baglantiKarariFiltresi,
   ogrenciKapsamFiltresi,
   raporlanabilirFaaliyetFiltresi,
 } from "../yetki/kapsam";
@@ -182,13 +179,6 @@ export interface MerkezBoslugu {
   bekleyenFaaliyetOnayi: number;
   /** Kaynak ilin kararını bekleyen il dışı başvurular. */
   bekleyenIlDisiBasvuru: number;
-  /** Karara bağlanmamış bağlantı istekleri. */
-  bekleyenBaglantiIstegi: number;
-  /**
-   * Göreve bağlı belgelerinden (taahhütname, gizlilik sözleşmesi) en az birini
-   * onaylamamış ya da onayı eskimiş koordinatörler.
-   */
-  belgesiEksikKoordinator: number;
   /**
    * Karara bağlanmamış danışman DEĞİŞİKLİĞİ talepleri (20 Ağustos 2026).
    *
@@ -200,49 +190,21 @@ export interface MerkezBoslugu {
   bekleyenDanismanTalebi: number;
 }
 
-export async function merkezBosluklariniGetir(
-  /**
-   * Belgelerin son güncelleme tarihleri; bir belgede null ise metin hiç
-   * değişmemiştir (bkz. lib/kvkk/onay.ts · belgeGuncellemeTarihleri).
-   */
-  belgeGuncellemeleri: Map<OnayBelgesi, Date | null>,
-): Promise<MerkezBoslugu> {
+/*
+ * BELGE EKSİĞİ SAYACI KALKTI (21 Ağustos 2026 · istek: "kvkk olmayacak yani
+ * sadece çerez politikası"). Koordinatörden taahhütname ve gizlilik sözleşmesi
+ * onayı istenmiyor; "belgesi eksik koordinatör" diye bir iş de kalmadı — bu
+ * yüzden fonksiyon artık belge güncelleme tarihlerini de almıyor.
+ */
+export async function merkezBosluklariniGetir(): Promise<MerkezBoslugu> {
   const simdi = new Date();
   const bitmisKosulu = bitmisFaaliyetKosulu(simdi);
-
-  /*
-   * Belge eksiği: hiç onaylamamış YA DA metin onaydan sonra güncellenmiş
-   * olanlar. İkincisi olmasaydı metin değiştiğinde herkes "onaylı" görünmeye
-   * devam ederdi (bkz. lib/kvkk/kurallar.ts · onayiGerekiyorMu).
-   *
-   * Koordinatörün göreve bağlı İKİ belgesi var; birini onaylayıp diğerini
-   * atlayan da bu sayıya girer, çünkü ikisi ayrı yükümlülüktür.
-   */
-  const koordinatorBelgeleri: OnayBelgesi[] = [
-    "TAAHHUTNAME",
-    "GIZLILIK_SOZLESMESI",
-  ];
-
-  const belgeEksigi = koordinatorBelgeleri.flatMap((belge) => {
-    const guncelleme = belgeGuncellemeleri.get(belge) ?? null;
-    const kosullar: Prisma.KullaniciWhereInput[] = [
-      { onaylar: { none: { belge } } },
-    ];
-    if (guncelleme !== null) {
-      kosullar.push({
-        onaylar: { some: { belge, onayTarihi: { lt: guncelleme } } },
-      });
-    }
-    return kosullar;
-  });
 
   const [
     danismansizOgrenci,
     raporsuzFaaliyet,
     bekleyenFaaliyetOnayi,
     bekleyenIlDisiBasvuru,
-    bekleyenBaglantiIstegi,
-    belgesiEksikKoordinator,
     bekleyenDanismanTalebi,
   ] = await Promise.all([
     prisma.kullanici.count({
@@ -257,14 +219,6 @@ export async function merkezBosluklariniGetir(
     }),
     prisma.faaliyet.count({ where: { onayDurumu: "BEKLIYOR" } }),
     prisma.basvuru.count({ where: { kaynakIlOnayDurumu: "BEKLIYOR" } }),
-    prisma.baglantiIstegi.count({ where: { onayDurumu: "BEKLIYOR" } }),
-    prisma.kullanici.count({
-      where: {
-        aktif: true,
-        roller: { some: { rolKodu: "IL_KOORDINATOR", bitisTarihi: null } },
-        OR: belgeEksigi,
-      },
-    }),
     prisma.danismanTalebi.count({ where: { durum: "BEKLIYOR" } }),
   ]);
 
@@ -273,8 +227,6 @@ export async function merkezBosluklariniGetir(
     raporsuzFaaliyet,
     bekleyenFaaliyetOnayi,
     bekleyenIlDisiBasvuru,
-    bekleyenBaglantiIstegi,
-    belgesiEksikKoordinator,
     bekleyenDanismanTalebi,
   };
 }
@@ -326,7 +278,7 @@ export async function bekleyenIsleriGetir(
    * panel açılışına bir gidiş dönüş eklerdi.
    */
   if (projeYoneticisiMi(kullanici)) {
-    return merkezBosluklariniGetir(await belgeGuncellemeTarihleri());
+    return merkezBosluklariniGetir();
   }
 
   const koordinatorMu = ilKoordinatoruMu(kullanici);
@@ -341,12 +293,8 @@ export async function bekleyenIsleriGetir(
    */
   const sorumluIl = koordinatorMu ? koordinatorIlKodu(kullanici) : null;
 
-  const [
-    danismansizOgrenci,
-    raporsuzFaaliyet,
-    bekleyenBaglantiIstegi,
-    bekleyenDanismanTalebi,
-  ] = await Promise.all([
+  const [danismansizOgrenci, raporsuzFaaliyet, bekleyenDanismanTalebi] =
+    await Promise.all([
       koordinatorMu
         ? prisma.kullanici.count({
             where: {
@@ -374,16 +322,6 @@ export async function bekleyenIsleriGetir(
           ],
         },
       }),
-      /*
-       * Ekranda karar verilebilen istekle BİREBİR aynı filtre
-       * (bkz. yazismalar/page.tsx). Ayrı bir koşul yazılsaydı sayaç "3 istek
-       * bekliyor" derken açılan listede iki satır çıkabilirdi.
-       */
-      prisma.baglantiIstegi.count({
-        where: {
-          AND: [{ onayDurumu: "BEKLIYOR" }, baglantiKarariFiltresi(kullanici)],
-        },
-      }),
       bekleyenTalepSayisi(kullanici.id, sorumluIl),
     ]);
 
@@ -392,8 +330,6 @@ export async function bekleyenIsleriGetir(
     raporsuzFaaliyet,
     bekleyenFaaliyetOnayi: null,
     bekleyenIlDisiBasvuru: null,
-    bekleyenBaglantiIstegi,
-    belgesiEksikKoordinator: null,
     bekleyenDanismanTalebi,
   };
 }

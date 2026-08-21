@@ -1,20 +1,21 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 /**
- * ESKİ AKIŞ EKRANI — 14 Ağustos 2026'da "Bağlantılarım" içinde eridi.
+ * ESKİ AKIŞ EKRANI — 21 Ağustos 2026'da kaldırıldı.
  *
- * İstek: "akış bağlantılarım içine gelecek". Bölümün kendisi
- * `akis/AkisBolumu.tsx` dosyasında duruyor ve `/panel/yazismalar` sayfasının
- * içinde, bağlantı listesinin altında basılıyor.
+ * İstek: "Akış · Kendini tanıt, çalışmanı paylaş · 2 gönderi — akışı da
+ * kaldır." Bölüm 12 Ağustos'ta ayrı sekme, 14 Ağustos'ta Bağlantılarım'ın
+ * içinde bir bölümdü; şimdi bölüm de (`AkisBolumu.tsx`) eylemleri de
+ * (`eylemler.ts`) silindi.
  *
  * ADRES SİLİNMEDİ, YÖNLENDİRİYOR: `/panel/akis` bildirimlerde, yer imlerinde
- * ve eski gönderi bağlantılarında (`#gonderi-…`) geçiyordu. Emsali
- * `/panel/baglantilar` — o da 12 Ağustos'ta aynı şekilde yönlendirmeye
- * dönüştü.
+ * ve eski gönderi bağlantılarında geçiyordu; 404 yerine Bağlantılarım'a
+ * düşüyor. Emsali `/panel/baglantilar`.
  *
- * ÇAPA TAŞINMIYOR: sunucu yönlendirmesi adresin `#parça`sını göremez (tarayıcı
- * onu isteğe hiç koymaz). Kişi akış bölümüne sayfanın içinden iniyor.
+ * VERİ DURUYOR: `gonderi` ve `yorum` tabloları ile kişilerin "Hakkımda"
+ * metinleri yerinde. Metni düzenleyen eylem, onu basan tek ekranın (Panel'deki
+ * "Hakkımda" kartı) yanına taşındı: `profil/hakkinda-eylemi.ts`.
  */
 export default function AkisYonlendirmesi(): never {
-  redirect("/panel/yazismalar#akis");
+  permanentRedirect("/panel/yazismalar");
 }

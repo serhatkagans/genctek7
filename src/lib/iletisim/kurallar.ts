@@ -348,6 +348,55 @@ export function baglantiIstegiGonderilebilirMi(girdi: {
   return { olurMu: true };
 }
 
+/**
+ * ONAY GEREKTİRMEYEN YAZIŞMA (21 Ağustos 2026 · istek: "Bağlantılarım kısmı
+ * değişecek, kendi okulundaki herkesi görecek mesaj atacak, okul
+ * temsilcilerinin hepsini görecek mesaj atabilecek").
+ *
+ * Kural şuraya kadar değişmedi: birebir yazışma, danışman öğretmenin ya da il
+ * koordinatörünün onayından geçen bir bağlantıyla açılır. Bu fonksiyon iki
+ * İSTİSNA tanımlıyor ve ikisinin de ortak gerekçesi, tarafların BİRBİRİNİ
+ * ZATEN TANIYOR OLMASI:
+ *
+ *   · AYNI OKUL — aynı binadaki iki kişinin konuşmak için onay beklemesi,
+ *     sistemin dışında zaten var olan bir teması sistem içinde yasaklamaktı.
+ *   · OKUL TEMSİLCİSİ — görevi tam olarak "kendisine ulaşılabilmesi"dir;
+ *     temsilciye yazmak için onay istemek, görevi işlevsiz bırakıyordu.
+ *
+ * GÖZETİM DEĞİŞMEDİ: bu yolla açılan yazışmayı da danışman öğretmen, il
+ * koordinatörü ve proje yöneticisi okuyabiliyor (bkz. yazismaKapsamFiltresi).
+ * Kalkan onay kapısıdır, denetim değil.
+ *
+ * Dış kullanıcının (mezun, paydaş) kurum kodu YOKTUR: iki tarafın da kodu
+ * dolu ve eşit olmalı, yoksa "okulsuz" iki kişi aynı okuldan sayılırdı.
+ */
+export function dogrudanYazisilabilirMi(girdi: {
+  isteyenId: number;
+  hedefId: number;
+  isteyenKurumKodu: number | null;
+  hedefKurumKodu: number | null;
+  /** Hedef, yürürlükteki dönemde okul temsilcisi mi? */
+  hedefOkulTemsilcisiMi: boolean;
+}): { olurMu: boolean; neden?: string } {
+  if (girdi.isteyenId === girdi.hedefId) {
+    return { olurMu: false, neden: "Kendinize mesaj gönderemezsiniz." };
+  }
+
+  const ayniOkul =
+    girdi.isteyenKurumKodu !== null &&
+    girdi.isteyenKurumKodu === girdi.hedefKurumKodu;
+
+  if (ayniOkul || girdi.hedefOkulTemsilcisiMi) {
+    return { olurMu: true };
+  }
+
+  return {
+    olurMu: false,
+    neden:
+      "Bu kişiyle doğrudan yazışamazsınız; panodan bağlantı isteği gönderin.",
+  };
+}
+
 export interface IstekKarari {
   onaylandiMi: boolean;
   gerekce: string;

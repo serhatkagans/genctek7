@@ -27,13 +27,10 @@ import {
   TEMEL_ETKINLIK_GRUPLARI,
 } from "@/lib/faaliyet/kurallar";
 import {
-  bilisimYolculuguGruplari,
-  GENCTEK_YOLCULUGU_TIPLERI,
   KATILIM_BICIMI_ETIKETLERI,
   KATILIM_BICIMLERI,
+  type KazanimGrubu,
   type KazanimSahibi,
-  kazanimTipiArsivlenmisMi,
-  kazanimTipiTanimi,
   type KazanimTipiTanimi,
   kazanimTipleri,
 } from "@/lib/kazanim/kurallar";
@@ -522,8 +519,15 @@ export function MentorlukDuzenleme({
           <legend className="text-sm font-medium text-metin">
             Hangi çalışma gruplarında mentörlük yapabilirsiniz?
           </legend>
+          {/*
+            ZORUNLU OLDUĞU BURADA YAZIYOR (21 Ağustos 2026 · istek: "listeden
+            bir tik seçmeden başvurusu onaylanmasın"). Kuralı yalnızca sunucu
+            uygulasaydı kişi formu gönderdikten SONRA hatayla karşılaşırdı;
+            kural yine sunucuda (bkz. mentorlukKabulEdilirMi), bu satır onu
+            önceden söylüyor.
+          */}
           <p className="mt-1 mb-2 text-sm text-metin-yumusak">
-            Birden fazla seçebilirsiniz.
+            En az bir grup işaretleyin; birden fazla seçebilirsiniz.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {gruplar.map((grup) => (
@@ -549,23 +553,29 @@ export function MentorlukDuzenleme({
           "mentörlükte yazan Diğer mentörlük konularınız yerine uzmanlığınız ve
           yetkinliğiniz hakkında bilgilendiriniz yazsın").
 
-          Alan aynı alan (`konular`) ve yine listede olmayanlar için: değişen,
-          ne yazılacağının sorulma biçimi. "Diğer konularınız" bir kutu
-          doldurtuyordu; yeni metin kişiden kendini anlatmasını istiyor —
-          panoda mentörü seçen öğrencinin okuduğu satır da bu.
+          "(listede olmayanlar)" KALKTI (21 Ağustos 2026 · istek: "buradaki
+          listede olmayanları kaldıralım · Bizleri bilgilendiriniz.,
+          kullandığınız programlar deneyimleriniz, katıldığınız organizasyonlar
+          vb yazsın").
+
+          Alan artık yukarıdaki listenin ARTIĞI değil: grup seçimi neyi
+          yapabildiğini söylüyor, bu alan bunu neye dayanarak söylediğini —
+          kullanılan programlar, deneyim, katılınan organizasyonlar. Panoda
+          mentörü seçen öğrencinin okuduğu satır da bu.
         */}
         <label className="block">
           <span className="text-sm font-medium text-metin">
-            Uzmanlığınız ve yetkinliğiniz hakkında bilgilendiriniz{" "}
-            <span className="font-normal text-metin-yumusak">
-              (listede olmayanlar)
-            </span>
+            Uzmanlığınız ve yetkinliğiniz hakkında bilgilendiriniz
+          </span>
+          <span className="mt-1 mb-2 block text-sm text-metin-yumusak">
+            Bizleri bilgilendiriniz: kullandığınız programlar, deneyimleriniz,
+            katıldığınız organizasyonlar vb.
           </span>
           <textarea
             name="konular"
-            rows={2}
+            rows={3}
             maxLength={MENTOR_KONULARI_AZAMI}
-            placeholder="3B tasarım, Arduino, girişimcilik…"
+            placeholder="Fusion 360 ve Arduino ile çalışıyorum; TEKNOFEST 2025 robotik yarışmasına katıldım…"
             defaultValue={mevcut?.konular ?? ""}
             className={SINIF_GIRDI}
           />
@@ -683,23 +693,6 @@ export function CvDuzenleme({
 // Kazanım kayıtları: ekleme formu + mevcut kayıtların yönetimi
 // ---------------------------------------------------------------------------
 
-const SINIF_SEKME =
-  "rounded-full border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
-const SINIF_SEKME_SECILI =
-  "rounded-full border border-vurgu bg-vurgu-zemin px-3 py-1.5 text-sm font-semibold text-vurgu-metin";
-
-/**
- * "GençTek Yolculuğum" tarafında ELLE girilebilen tipler.
- *
- * Bugün yalnızca akran eğitimi: temsilcilikler atamayla, katılım belgeyle
- * düşüyor ve ikisi de forma girilmiyor. Arşivlenmiş tipler elenir.
- */
-function gencTekTipleri(sahip: KazanimSahibi): KazanimTipiTanimi[] {
-  return GENCTEK_YOLCULUGU_TIPLERI.filter(
-    (tip) => !kazanimTipiArsivlenmisMi(tip),
-  ).map((tip) => kazanimTipiTanimi(tip, sahip));
-}
-
 export interface KayitProgrami {
   id: number;
   ad: string;
@@ -712,141 +705,75 @@ export interface BelgeSinirlari {
 }
 
 /**
- * "Yeni kayıt ekle" formu.
+ * BİR GRUBUN kendi "yeni kayıt ekle" formu.
  *
  * Profilden Panelim'e TAŞINDI (7 Ağustos 2026), kopyalanmadı: aynı kaydın iki
  * ayrı formdan girilmesi, birine eklenen alanın öbüründe eksik kalması
  * demek olurdu.
  *
+ * HER BAŞLIK KENDİ FORMUNU BASIYOR (21 Ağustos 2026 · istek: "ürünlerim
+ * altında kendi formu, deneyimlerim altında kendi formu, gençtek yolculuğum
+ * altında kendi formu olacak; bu üç başlık için ortak form olmasın").
+ *
+ * ÖNCESİ: tek bir form vardı, üstünde bütün grupların sekmeleri sıralanıyordu
+ * ve hangi başlığa kayıt girildiği yalnızca seçili sekmeden anlaşılıyordu.
+ * Başlıklar formun sahibi değil, formun ayarı gibi duruyordu. Şimdi bölüm
+ * neyse form odur; sayfa grupları dolaşıp her birine bunu basıyor
+ * (bkz. kayitEklemeGruplari · app/panel/bilisim-yolculugum).
+ *
+ * BİLEŞEN YİNE TEK: alanları tanımlayan yer burası. Üç forma üç ayrı JSX
+ * yazılsaydı, birine eklenen alan öbürlerinde eksik kalırdı — dosyanın en
+ * baştaki kararı bu.
+ *
  * Sayfada JAVASCRIPT YOK: türe göre alan gösterip gizlemenin yolu olmadığı
  * için form, seçili tür neyse sunucuda ona göre basılır ve tür adreste taşınır
- * (`?tur=...`).
+ * (`?tur=...`). Bu yüzden tek tipli gruplarda (Ürünlerim, Topluluklarım,
+ * GençTek) hiç tür seçimi basılmaz: seçecek bir şey yok.
  */
 export function KayitEklemeFormu({
-  sahip,
+  grup,
+  tanimlar,
   seciliTanim,
   programlar,
   izinliBelgeTipleri,
   belgeSinirlari,
   ekleEylemi,
 }: {
-  sahip: KazanimSahibi;
+  grup: KazanimGrubu;
+  /** Grubun elle girilebilen tipleri; biri seçili olan. */
+  tanimlar: KazanimTipiTanimi[];
   seciliTanim: KazanimTipiTanimi;
   programlar: KayitProgrami[];
   izinliBelgeTipleri: string[];
   belgeSinirlari: BelgeSinirlari;
   ekleEylemi: Eylem;
 }) {
-  const gencTekTanimlari = gencTekTipleri(sahip);
-
   return (
     <>
       {/*
-        SEKMELER GRUPLU (7 Ağustos 2026 · istek): "Yeni Kayıt Ekle (Ürünlerim
-        Ekle · Deneyimlerim Ekle · Topluluklarım/Ekiplerim Ekle)".
-
-        Yedi düz sekme yerine profildeki üç başlıkla AYNI gruplama kullanılıyor
-        — kullanıcı kaydı nereye gireceğini, profilinde nerede göreceğine
-        bakarak buluyor.
-
-        ÇOK TİPLİ GRUP ARTIK LİSTE (10 Ağustos 2026 · istek: "Deneyimlerim …
-        bunu 4 ayrı seçenek olmasın, formda aşağı açılan listeden seçsin").
-        Tek tipten oluşan grupta (Ürünlerim, Topluluklarım) tek düğme var, ona
-        liste açmak anlamsız olurdu; birden çok tip varsa (Deneyimlerim: dış
-        etkinlik, derece, sertifika, diğer) dört sekme yerine tek aşağı açılan
-        liste basılıyor. Tipler BİRLEŞMEDİ — alan kuralları tipe göre değişiyor
-        ve form hangi tipi basacağını bilmek zorunda — yalnızca seçim biçimi
-        değişti.
-
-        Akran eğitimi bu üç grubun DIŞINDA: GençTek İÇİNDE yapılan bir iştir ve
-        profilde "GençTek Yolculuğum" altında görünür.
+        ÇOK TİPLİ GRUPTA LİSTE (10 Ağustos 2026 · istek: "Deneyimlerim … bunu 4
+        ayrı seçenek olmasın, formda aşağı açılan listeden seçsin"). Tipler
+        BİRLEŞMEDİ — alan kuralları tipe göre değişiyor — yalnızca seçim biçimi
+        değişti. Liste artık kendi bölümünün içinde: seçilen tür yalnızca bu
+        formu değiştiriyor, öbür başlıkların formuna dokunmuyor.
       */}
-      <nav className="mb-5 space-y-3" aria-label="Kayıt türü">
-        {bilisimYolculuguGruplari(sahip).map(({ grup, tanimlar }) => (
-          <div key={grup.kod} className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-metin-yumusak">
-              {grup.baslik}:
-            </span>
-            {tanimlar.length === 1 ? (
-              <Link
-                href={`/panel?tur=${tanimlar[0].tip}#kayitlarim`}
-                className={
-                  tanimlar[0].tip === seciliTanim.tip
-                    ? SINIF_SEKME_SECILI
-                    : SINIF_SEKME
-                }
-              >
-                Ekle
-              </Link>
-            ) : (
-              <KayitTuruSecici
-                etiket={grup.baslik}
-                secenekler={tanimlar.map((tanim) => ({
-                  tip: tanim.tip,
-                  baslik: tanim.baslik,
-                }))}
-                seciliTip={
-                  tanimlar.some((tanim) => tanim.tip === seciliTanim.tip)
-                    ? seciliTanim.tip
-                    : null
-                }
-              />
-            )}
+      {tanimlar.length > 1 && (
+        <div className="mb-4">
+          <span className="block text-sm font-medium text-metin">
+            Kayıt türü
+          </span>
+          <div className="mt-1.5">
+            <KayitTuruSecici
+              etiket={grup.baslik}
+              secenekler={tanimlar.map((tanim) => ({
+                tip: tanim.tip,
+                baslik: tanim.baslik,
+              }))}
+              seciliTip={seciliTanim.tip}
+            />
           </div>
-        ))}
-
-        {/*
-          GENÇTEK YOLCULUĞUM SATIRI DA ÖBÜR GRUPLAR GİBİ DAVRANIR (11 Ağustos
-          2026 · istek: "GençTek Yolculuğum: Verdiğim akran eğitimleri — bu
-          alan 'Ekle' olsun").
-
-          Satır tek düğme basıyor ve düğmenin üstünde grubun adı zaten yazılı;
-          düğmeye tipin tam başlığını ("Verdiğim akran eğitimleri") yazmak,
-          yanındaki "Ürünlerim: Ekle" ve "Topluluklarım / Ekiplerim: Ekle"
-          satırlarının arasında tek başına bir cümle gibi duruyordu. Ne
-          eklendiği düğmenin altındaki tür açıklamasında (`seciliTanim.
-          aciklama`) yazıyor.
-
-          TEK/ÇOK AYRIMI KORUNDU: bugün elle girilebilen tek GençTek tipi akran
-          eğitimi (temsilcilikler atamayla, katılım belgeyle düşüyor). İkinci
-          bir tip açılırsa "Ekle" hangisini ekleyeceğini söylemez olur; o
-          durumda satır, Deneyimlerim'deki gibi aşağı açılan listeye döner.
-        */}
-        {gencTekTanimlari.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-metin-yumusak">
-              GençTek Yolculuğum:
-            </span>
-            {gencTekTanimlari.length === 1 ? (
-              <Link
-                href={`/panel?tur=${gencTekTanimlari[0].tip}#kayitlarim`}
-                className={
-                  gencTekTanimlari[0].tip === seciliTanim.tip
-                    ? SINIF_SEKME_SECILI
-                    : SINIF_SEKME
-                }
-              >
-                Ekle
-              </Link>
-            ) : (
-              <KayitTuruSecici
-                etiket="GençTek Yolculuğum"
-                secenekler={gencTekTanimlari.map((tanim) => ({
-                  tip: tanim.tip,
-                  baslik: tanim.baslik,
-                }))}
-                seciliTip={
-                  gencTekTanimlari.some(
-                    (tanim) => tanim.tip === seciliTanim.tip,
-                  )
-                    ? seciliTanim.tip
-                    : null
-                }
-              />
-            )}
-          </div>
-        )}
-      </nav>
+        </div>
+      )}
 
       <p className="mb-4 text-sm text-metin-yumusak">{seciliTanim.aciklama}</p>
 
@@ -1188,11 +1115,6 @@ export function KayitYonetimi({
               {kayitlar.length}
             </span>
           </h3>
-          {ARSIV_NOTLARI[tanim.tip] && (
-            <p className="mt-1 text-sm text-uyari-metin">
-              {ARSIV_NOTLARI[tanim.tip]}
-            </p>
-          )}
           <div className="mt-2">
             <KazanimListesi kazanimlar={kayitlar} {...eylemler} />
           </div>
@@ -1202,17 +1124,13 @@ export function KayitYonetimi({
   );
 }
 
-/**
- * Kapatılmış tiplerin kullanıcıya açıklaması.
- *
- * Kayıtları hiçbir uyarı olmadan profilden kaldırmak, kullanıcıya "verim
- * kayboldu" dedirtirdi. Not, kaydın hâlâ burada olduğunu ve neden profilde
- * görünmediğini söylüyor.
+/*
+ * ARŞİV NOTU KALKTI (21 Ağustos 2026 · istek: "Bu kayıt türü kapatıldı ve
+ * profilinizde görünmüyor … bu yazı kalkacak"). Kapatılmış tipin kayıtları
+ * listede duruyor; başlığın altında duran uzun uyarı, listeyi okumadan önce
+ * okunması gereken bir metin hâline gelmişti. Kaydın neden profile düşmediği
+ * bilgisi kayıt formunda zaten yazıyor (bkz. lib/kazanim/kurallar.ts).
  */
-const ARSIV_NOTLARI: Partial<Record<KazanimTipi, string>> = {
-  GENCTEK_ETKINLIGI:
-    "Bu kayıt türü kapatıldı ve profilinizde görünmüyor. GençTek etkinliklerine katılımınız artık etkinlik sonunda alınan yoklamadan (ve adınıza üretilen belgeden) kendiliğinden düşüyor. Eski kayıtlarınız burada duruyor; isterseniz silebilirsiniz.",
-};
 
 /*
  * "PROFİLİMDE NASIL GÖRÜNÜYOR" VE "PANELDEN DÜZENLE" BAĞLANTILARI SİLİNDİ

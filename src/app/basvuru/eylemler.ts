@@ -29,7 +29,6 @@ export async function basvuruEylemi(veri: FormData): Promise<void> {
     paydasId: metin("paydasId"),
     gorevUnvani: metin("gorevUnvani"),
     beyan: metin("beyan"),
-    aydinlatmaOnayi: veri.get("aydinlatmaOnayi") === "evet",
     /*
      * MENTÖRLÜK (7 Ağustos 2026 · tek form). tur=MENTOR ise işaret gizli
      * alandan "evet" gelir; mezun ve paydaşta onay kutusundan.

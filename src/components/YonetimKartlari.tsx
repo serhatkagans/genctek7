@@ -114,6 +114,7 @@ export function BirimKarti({
   uyarilar,
   yol,
   baglantilar,
+  Ikon = School,
 }: {
   ad: string;
   /** İkinci satır: okul türü, görevdeki danışman, ilçe sayısı gibi. */
@@ -137,6 +138,8 @@ export function BirimKarti({
    * (öğrenci listesi, öğretmen listesi) ve ikisi de aynı ağırlıkta.
    */
   baglantilar?: readonly { etiket: string; yol: string }[];
+  /** Poster bandındaki filigran; basamağa göre değişir (il, ilçe, okul). */
+  Ikon?: React.ComponentType<{ size?: number; className?: string }>;
 }) {
   const icerik = (
     <>
@@ -218,14 +221,35 @@ export function BirimKarti({
     </>
   );
 
-  const sinif = "rounded-kart border border-cizgi bg-kart p-5 shadow-kart";
+  /*
+    POSTER BANDI BİRİM KARTINDA DA (21 Ağustos 2026 · aynı istek). Rengi
+    kartın kendi durumundan geliyor: eksiği olan birim amber, olmayan kırmızı
+    bantla açılıyor — bant böylece süs değil, listeyi tararken "burada iş var"
+    diyen ilk işaret. İnce (h-10): birim kartı sayı taşıyor, poster onların
+    üstünde bir blok gibi durmamalı.
+  */
+  const ton = uyarilar && uyarilar.length > 0 ? "uyari" : "vurgu";
+  const govde = (
+    <>
+      <div className={`poster poster-${ton} grid h-10 place-items-center`}>
+        <Ikon size={18} className="text-white/50" aria-hidden />
+      </div>
+      <div className="p-5">{icerik}</div>
+    </>
+  );
+
+  const sinif =
+    "block overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart";
 
   return yol ? (
-    <Link href={yol} className={`${sinif} block transition hover:border-vurgu`}>
-      {icerik}
+    <Link
+      href={yol}
+      className={`${sinif} transition hover:-translate-y-1 hover:border-vurgu hover:shadow-yuksek`}
+    >
+      {govde}
     </Link>
   ) : (
-    <div className={sinif}>{icerik}</div>
+    <div className={sinif}>{govde}</div>
   );
 }
 
@@ -243,27 +267,65 @@ export function KisayolKarti({
   aciklama,
   Ikon,
   yol,
+  ton = "vurgu",
 }: {
   baslik: string;
-  aciklama: string;
+  /**
+   * İSTEĞE BAĞLI (21 Ağustos 2026 · istek: panodaki açıklamaların kalkması).
+   * Kartın adı yeterince anlatıyorsa satır hiç basılmaz; verilirse başlığın
+   * altında durur.
+   */
+  aciklama?: string;
   Ikon: React.ComponentType<{ size?: number; className?: string }>;
   yol: string;
+  /**
+   * Poster bandının rengi. RENK BİLGİ TAŞIR, süs değil — panelin ölçüm
+   * kartlarındaki aileyle aynı sözlük:
+   *
+   *   · `vurgu`  — kişi ve kayıt envanterleri (Öğrenciler, Okullar, Paydaşlar)
+   *   · `uyari`  — eksik ya da karar bekleyen iş (Okul Eksik Durumları, onay
+   *                kuyrukları, hata kayıtları)
+   *   · `olumlu` — kişinin KENDİ işi (Mentörlüğüm, Ekiplerim, başvuru/talep
+   *                açma kartları)
+   *   · `notr`   — sistem ve denetim ekranları (Ayarlar, Erişim Kayıtları)
+   *
+   * Varsayılan `vurgu`: yönetim panosundaki kartların çoğu bir envanterdir.
+   */
+  ton?: "vurgu" | "olumlu" | "uyari" | "notr";
 }) {
   return (
+    /*
+      PANELDEKİ ÖLÇÜM KARTIYLA AYNI GÖRÜNÜM (21 Ağustos 2026 · istek: "yönetim
+      panellerindeki vs tüm kartları paneldeki kartlar gibi süslü renkli yap").
+
+      Kartlar düz beyaz kutulardı: panelin üstünde poster bantlı, renkli ve
+      imlece yükselerek karşılık veren kartlar dururken yönetim panosu aynı
+      sistemin başka bir tasarımı gibi görünüyordu. Bant `OlcumKarti`taki
+      ölçüyle aynı (h-16) ve ikon posterin içinde yarı saydam bir filigran —
+      posterin üstüne çıplak metin basılmıyor (bkz. globals.css · .poster).
+    */
     <Link
       href={yol}
-      className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 shadow-kart transition hover:border-vurgu hover:shadow-yuksek"
+      className="group flex h-full flex-col overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart transition hover:-translate-y-1 hover:border-vurgu hover:shadow-yuksek focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vurgu"
     >
-      <Ikon size={20} className="mt-0.5 shrink-0 text-vurgu-metin" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-baslik">{baslik}</p>
-        <p className="mt-0.5 text-sm text-metin-yumusak">{aciklama}</p>
+      <div
+        className={`poster poster-${ton} relative grid h-16 place-items-center`}
+      >
+        <Ikon size={26} className="text-white/50" aria-hidden />
       </div>
-      <ChevronRight
-        size={18}
-        className="mt-0.5 shrink-0 text-metin-yumusak"
-        aria-hidden
-      />
+      <div className="flex flex-1 items-start gap-3 p-5">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-baslik">{baslik}</p>
+          {aciklama && (
+            <p className="mt-0.5 text-sm text-metin-yumusak">{aciklama}</p>
+          )}
+        </div>
+        <ChevronRight
+          size={18}
+          className="mt-0.5 shrink-0 text-metin-yumusak transition group-hover:text-vurgu-metin"
+          aria-hidden
+        />
+      </div>
     </Link>
   );
 }

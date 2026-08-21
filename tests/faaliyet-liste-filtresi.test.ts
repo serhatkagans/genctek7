@@ -162,3 +162,84 @@ describe("zamanGecerliMi", () => {
     expect(zamanGecerliMi("bitmis")).toBe(false);
   });
 });
+
+/**
+ * İL / METİN / KATILIM BİÇİMİ SÜZGEÇLERİ (21 Ağustos 2026 · istek:
+ * "etkinlikleri filtrelerken illere göre de arama yapabilsin tümü ya da il
+ * seç, yarışma ara (metin araması) kısmından elle girebilsin, çevrimiçi
+ * yüzyüze şeklinde seçebilsin").
+ */
+describe("etkinlik liste filtreleri · il, arama ve katılım biçimi", () => {
+  it("il kodunu okur; iki hane olmayanı yok sayar", () => {
+    // Kod METİNDİR: sayıya çevrilseydi "06" baştaki sıfırı kaybederdi.
+    expect(faaliyetFiltreleriniCoz({ il: "06" }).ilKodu).toBe("06");
+    expect(faaliyetFiltreleriniCoz({ il: "6" }).ilKodu).toBeNull();
+    expect(faaliyetFiltreleriniCoz({ il: "abc" }).ilKodu).toBeNull();
+    expect(faaliyetFiltreleriniCoz(BOS_PARAMETRE).ilKodu).toBeNull();
+  });
+
+  it("il süzgeci kurumun iline de bakar", () => {
+    /*
+     * Etkinliğin ili iki yerden gelebiliyor: il kapsamlıda kendi sütunundan,
+     * okul kapsamlıda düzenleyen kurumun ilinden. Yalnızca sütuna bakılsaydı
+     * bir ildeki okul etkinliklerinin hiçbiri o ilin listesine düşmezdi.
+     */
+    const filtre = faaliyetListeFiltresi(
+      projeYoneticisiYap(),
+      faaliyetFiltreleriniCoz({ il: "34" }),
+      new Date(),
+    );
+    expect(filtre.AND).toContainEqual({
+      OR: [{ ilKodu: "34" }, { kurum: { ilKodu: "34" } }],
+    });
+  });
+
+  it("arama metni ad ve açıklamada birden aranır, boşsa süzgeç yok", () => {
+    const filtreler = faaliyetFiltreleriniCoz({ ara: "  yarışma  " });
+    expect(filtreler.arama).toBe("yarışma");
+    // Boş arama `null`: boş dizge "filtre var" sayılıp "Filtreleri temizle"
+    // bağlantısını yakardı.
+    expect(faaliyetFiltreleriniCoz({ ara: "   " }).arama).toBeNull();
+
+    const filtre = faaliyetListeFiltresi(
+      ogrenciYap(),
+      filtreler,
+      new Date(),
+    );
+    expect(filtre.AND).toContainEqual({
+      OR: [
+        { ad: { contains: "yarışma", mode: "insensitive" } },
+        { aciklama: { contains: "yarışma", mode: "insensitive" } },
+      ],
+    });
+  });
+
+  it("katılım biçimini tanır, uydurmayı düşürür", () => {
+    expect(faaliyetFiltreleriniCoz({ bicim: "ONLINE" }).katilimBicimi).toBe(
+      "ONLINE",
+    );
+    expect(faaliyetFiltreleriniCoz({ bicim: "UZAKTAN" }).katilimBicimi).toBeNull();
+
+    const filtre = faaliyetListeFiltresi(
+      ogrenciYap(),
+      faaliyetFiltreleriniCoz({ bicim: "YUZ_YUZE" }),
+      new Date(),
+    );
+    expect(filtre.AND).toContainEqual({ katilimBicimi: "YUZ_YUZE" });
+  });
+
+  it("yeni süzgeçler 'filtre var' sayılır", () => {
+    expect(
+      faaliyetFiltresiVarMi(faaliyetFiltreleriniCoz({ il: "34" })),
+    ).toBe(true);
+    expect(
+      faaliyetFiltresiVarMi(faaliyetFiltreleriniCoz({ ara: "robot" })),
+    ).toBe(true);
+    expect(
+      faaliyetFiltresiVarMi(faaliyetFiltreleriniCoz({ bicim: "KARMA" })),
+    ).toBe(true);
+    expect(faaliyetFiltresiVarMi(faaliyetFiltreleriniCoz(BOS_PARAMETRE))).toBe(
+      false,
+    );
+  });
+});

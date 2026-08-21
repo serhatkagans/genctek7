@@ -137,34 +137,19 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
     yardim:
       "Tek CSV indirmesinde en fazla kaç kayıt olabilir. Sınır aşıldığında indirme yapılmaz, filtre daraltılması istenir.",
   },
-  {
-    anahtar: AYAR_ANAHTARLARI.KVKK_AYDINLATMA_METNI,
-    baslik: "KVKK aydınlatma metni",
-    bicim: "uzun-metin",
-    yardim:
-      "Boş bırakılırsa koddaki varsayılan metin gösterilir. Metni değiştirmek öğrencilerden YENİDEN ONAY ister.",
-  },
-  {
-    anahtar: AYAR_ANAHTARLARI.KVKK_ACIK_RIZA_METNI,
-    baslik: "KVKK açık rıza metni",
-    bicim: "uzun-metin",
-    yardim:
-      "Boş bırakılırsa koddaki varsayılan metin gösterilir. Bu metin TÜM kullanıcılara gösterilir; değiştirmek herkesten YENİDEN ONAY ister. Rızaya bağlanmayan bir işlemi metne eklemeyin — açık rıza yalnızca kanunî dayanağı olmayan işlemleri kapsar.",
-  },
-  {
-    anahtar: AYAR_ANAHTARLARI.KOORDINATOR_TAAHHUTNAME_METNI,
-    baslik: "İl koordinatörü taahhütnamesi",
-    bicim: "uzun-metin",
-    yardim:
-      "Görevin nasıl yürütüleceğine ilişkin taahhüt. Boş bırakılırsa koddaki varsayılan metin gösterilir. Metni değiştirmek tüm il koordinatörlerinden YENİDEN ONAY ister.",
-  },
-  {
-    anahtar: AYAR_ANAHTARLARI.GIZLILIK_SOZLESMESI_METNI,
-    baslik: "İl koordinatörü gizlilik sözleşmesi",
-    bicim: "uzun-metin",
-    yardim:
-      "Eriştiği kişisel veriye ilişkin gizlilik yükümlülükleri. Taahhütnameden AYRI bir belgedir. Boş bırakılırsa koddaki varsayılan metin gösterilir; değiştirmek YENİDEN ONAY ister.",
-  },
+  /*
+   * DÖRT BELGE METNİ YÖNETİLEBİLİR AYARLARDAN ÇIKTI (21 Ağustos 2026 · istek:
+   * "kvkk olmayacak yani sadece çerez politikası").
+   *
+   * Metinler hiçbir ekranda gösterilmiyor ve hiçbir yerde onay istenmiyor;
+   * düzenleme kutusunu bırakmak, yöneticiye kimsenin okumayacağı bir metni
+   * güncelletmek olurdu.
+   *
+   * ANAHTARLAR VE VARSAYILAN METİNLER DURUYOR (AYAR_ANAHTARLARI,
+   * lib/kvkk/kurallar.ts): daha önce kaydedilmiş metinler `sistem_ayari`
+   * satırlarında ve verilmiş onaylar `kullanici_onayi` tablosunda — ekran
+   * kararıyla hukuki kayıt silinmez.
+   */
 ];
 
 /**

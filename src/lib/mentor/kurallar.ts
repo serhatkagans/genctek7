@@ -119,10 +119,14 @@ export type MentorlukKarari =
 /**
  * Başvurunun kabul edilip edilmeyeceği.
  *
- * EN AZ BİR ALAN DOLU OLMALI: ya bir çalışma grubu seçilmeli ya da serbest
- * konu yazılmalı. İkisi de boş bir mentörlük, öğrencinin hangi konuda
- * başvuracağını bilemeyeceği bir kayıttır — panoda görünür ama hiçbir ilana
- * eşleşmez.
+ * EN AZ BİR ÇALIŞMA GRUBU ZORUNLU (21 Ağustos 2026 · istek: "mentör başvurusu
+ * yaparken listeden bir tik seçmeden başvurusu onaylanmasın").
+ *
+ * Önce serbest konu metni tek başına yeterliydi; o başvurular hiçbir çalışma
+ * grubuna bağlanmıyordu ve panoda ilan eşleştirmesi gruplar üzerinden
+ * yürüdüğü için mentör hiçbir ilana düşmüyordu. Serbest metin KALDIRILMADI:
+ * grubun taşımadığı uzmanlığı anlatmaya devam ediyor, ama artık tek başına
+ * bir başvuru kuramıyor.
  *
  * GRUP KİMLİKLERİ LİSTEYE KARŞI DOĞRULANIR: form girdisine güvenilseydi
  * kapatılmış ya da hiç var olmayan bir gruba mentörlük beyan edilebilirdi.
@@ -150,11 +154,11 @@ export function mentorlukKabulEdilirMi(
     };
   }
 
-  if (secilenler.length === 0 && !konular) {
+  if (secilenler.length === 0) {
     return {
       olurMu: false,
       neden:
-        "En az bir çalışma grubu seçin ya da mentörlük yapabileceğiniz konuları yazın. İkisi de boş bırakılırsa öğrenciler size hangi konuda başvuracağını bilemez.",
+        "Listeden en az bir çalışma grubu işaretleyin. Grup seçilmeyen bir mentörlük panodaki ilanlarla eşleşmez; serbest metin tek başına yeterli değildir.",
     };
   }
 

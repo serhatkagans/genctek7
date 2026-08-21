@@ -148,6 +148,24 @@ export function mentorlukOnaylayabilirMi(
   return projeYoneticisiMi(kullanici);
 }
 
+/**
+ * GençTek görev ilanlarını açar ve başvuruları karara bağlar mı?
+ *
+ * MENTÖRLÜKLE AYNI KAPI (21 Ağustos 2026 · istek: "yönetim panelinde yeni kart
+ * gençtek görevlerini görebilsin"): görevler ülke genelinde tek bir ekipten
+ * yönetiliyor ve ilan merkezin çağrısıdır — bir ilin koordinatörünün ülke
+ * çapında geçerli bir göreve kişi alması, kapsamının dışında bir karar olurdu.
+ *
+ * "Kendi başvurusunu karara bağlayamaz" kuralı burada DEĞİL, kural katmanında
+ * (lib/gorev/kurallar.ts · gorevKarariGecerliMi): bu fonksiyon "kim karar
+ * verebilir" sorusunu cevaplıyor, o koşul "hangi kayda" sorusunu.
+ */
+export function gencTekGoreviYonetebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
 /** İl koordinatörünün sorumlu olduğu il. Rol yoksa null. */
 export function koordinatorIlKodu(
   kullanici: OturumKullanicisi,
@@ -564,6 +582,14 @@ export function talepPanosuGorebilirMi(_kullanici: OturumKullanicisi): boolean {
  * Merkez personeli dışarıda: YEĞİTEK'in takım arkadaşı ya da mentör araması
  * diye bir durum yok, onun duyuru kanalı ayrı (bkz. /panel/duyurular). Panoyu
  * okuması ise serbest (bkz. talepPanosuGorebilirMi).
+ */
+/*
+ * 21 Ağustos 2026: bu kapının ÇAĞIRANI KALMADI. Bağlantı isteği akışı tümüyle
+ * kalktı (istek: "bağlantılarımdan normal mesaj göndermeyi tamamen kaldır") ve
+ * doğrudan yazışma kendi kuralından geçiyor (lib/iletisim/kurallar.ts ·
+ * dogrudanYazisilabilirMi). Tanım duruyor: kimin kişiye YÖNELEN bir temas
+ * kurabileceği sorusu, istek akışı geri gelirse aynı cevabı vermeli — ve
+ * testleri o cevabı tutuyor.
  */
 export function panodaEslesmeArayabilirMi(
   kullanici: OturumKullanicisi,

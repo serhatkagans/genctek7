@@ -15,5 +15,10 @@ import { permanentRedirect } from "next/navigation";
  * gereken tam da bu kişi.
  */
 export default function KvkkSayfasi(): never {
-  permanentRedirect("/panel#kvkk");
+  /*
+   * 21 Ağustos 2026: hedef `/panel#kvkk` idi; belge bölümü panelden kalkınca
+   * çapa da kalktı (istek: "kvkk olmasın"). Adres yine 404 vermiyor — yer
+   * imlerinde ve eski e-postalarda duruyor.
+   */
+  permanentRedirect("/panel");
 }

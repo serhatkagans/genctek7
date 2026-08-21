@@ -119,20 +119,16 @@ export default async function MarketSayfasi({
       <BilgiKutusu>
         <span className="flex flex-wrap items-center gap-1.5">
           <Info size={15} aria-hidden />
-          <strong>Ürün eklemek için:</strong> ürünlerinizi Panel
-          ekranındaki &quot;Kayıtlarım&quot; bölümünden ekleyebilirsiniz.
+          <strong>Ürün eklemek için:</strong> ürünlerinizi &quot;Bilişim
+          Yolculuğum&quot; ekranından ekleyebilirsiniz.
           {/*
-            ADRESTEKİ ÜÇ PARÇA DA GEREKLİ (7 Ağustos 2026'da Panel'e taşındı):
-              · `?tur=URUN` → kayıt formunu Ürünlerim sekmesinde açar
-                (form sekmeli ve varsayılan sekme ürün değil).
-              · `#kayitlarim` → Panel uzun bir sayfa; çıpasız bağlantı kişiyi
-                tepeye bırakıyor ve form ekranda görünmüyordu.
-              · Bölüm KATLI geldiği için `?tur=` aynı zamanda onu AÇIK basar.
-            Çıpanın adı Panel'deki bölümden gelir (`capa="kayitlarim"`) —
-            uydurulmuş bir ad kullanılırsa bağlantı sessizce tepeye düşer.
+            `?tur=URUN` kayıt formunu Ürünlerim türünde açar: form türe göre
+            basılıyor ve varsayılan tür ürün değil. Çapa 21 Ağustos 2026'da
+            kalktı — bölüm kendi sayfasına taşındığı için (istek: "kayıtlarım
+            … kendi sayfaları olsun") form zaten ekranın en üstünde.
           */}
           <Link
-            href="/panel?tur=URUN#kayitlarim"
+            href="/panel/bilisim-yolculugum?tur=URUN"
             className="font-medium text-vurgu-metin underline underline-offset-2"
           >
             Ürün ekleme formuna git

@@ -21,9 +21,14 @@ import type { KazanimTipi } from "@/generated/prisma/enums";
  * fazladan tıklamayla aynı sonuç — bileşen istemci tarafına bağımlı değil.
  */
 
-/** Kayıt bölümünün adresi; seçim buraya `?tur=` ile döner. */
-const KAYIT_YOLU = "/panel";
-const KAYIT_CAPASI = "#kayitlarim";
+/**
+ * Kayıt ekranının adresi; seçim buraya `?tur=` ile döner.
+ *
+ * 21 Ağustos 2026'da Panel'in içindeki katlanır bölümden kendi sayfasına
+ * taşındı (istek: "kayıtlarım ismi bilişim yolculuğum olsun … kendi sayfaları
+ * olsun"). Çapaya artık gerek yok: sayfa tek işi yapıyor ve form en üstte.
+ */
+const KAYIT_YOLU = "/panel/bilisim-yolculugum";
 
 export function KayitTuruSecici({
   etiket,
@@ -45,9 +50,7 @@ export function KayitTuruSecici({
         aria-label={`${etiket} — kayıt türü`}
         defaultValue={seciliTip ?? ""}
         onChange={(olay) =>
-          yonlendirici.push(
-            `${KAYIT_YOLU}?tur=${olay.target.value}${KAYIT_CAPASI}`,
-          )
+          yonlendirici.push(`${KAYIT_YOLU}?tur=${olay.target.value}`)
         }
         className="rounded-full border border-cizgi bg-kart px-3 py-1.5 text-sm font-medium text-metin outline-none focus:border-vurgu"
       >

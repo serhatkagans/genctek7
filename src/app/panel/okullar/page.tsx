@@ -118,6 +118,10 @@ export default async function OkullarSayfasi({
   return (
     <div className="space-y-6">
       <SayfaBasligi
+        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
+           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
+           zaten sol menüde duruyor. */
+        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
         baslik="Okullar"
         aciklama={
           merkezMi

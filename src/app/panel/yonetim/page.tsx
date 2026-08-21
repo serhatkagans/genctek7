@@ -6,6 +6,7 @@ import {
   GraduationCap,
   Handshake,
   LifeBuoy,
+  Map as Harita,
   MapPin,
   Megaphone,
   Search,
@@ -47,6 +48,7 @@ import {
   ilOzetleriniGetir,
 } from "@/lib/rapor/yonetim-ozeti";
 import {
+  gencTekGoreviYonetebilirMi,
   hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
@@ -252,6 +254,7 @@ export default async function YonetimSayfasi({
             }
             Ikon={TriangleAlert}
             yol="/panel/okul-eksikleri"
+            ton="uyari"
           />
           {(merkezMi || ilKoordinatoruMu(kullanici)) && (
             <KisayolKarti
@@ -278,6 +281,20 @@ export default async function YonetimSayfasi({
               yol="/panel/rol-envanteri"
             />
           )}
+          {/*
+            GENÇTEK GÖREVLERİ (21 Ağustos 2026 · istek: "yönetim panelinde yeni
+            kart gençtek görevlerini görebilsin"). Mentörlük kartının yanında:
+            ikisi de merkezin karara bağladığı başvuru kuyruğu.
+          */}
+          {gencTekGoreviYonetebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="GençTek Görevleri"
+              aciklama="Görev ilanları, gelen başvurular ve kararları"
+              Ikon={BadgeCheck}
+              yol="/panel/genctek-gorevleri"
+              ton="uyari"
+            />
+          )}
           {mentorlukOnaylayabilirMi(kullanici) && (
             <KisayolKarti
               baslik="Mentörler"
@@ -301,6 +318,7 @@ export default async function YonetimSayfasi({
               aciklama="Onay bekleyen öğrenci ilanları, ilan düzenleme ve silme"
               Ikon={Megaphone}
               yol="/panel/talepler/onaylar"
+              ton="uyari"
             />
           )}
           {/*
@@ -326,12 +344,14 @@ export default async function YonetimSayfasi({
                 aciklama="Teknik destek, duyuru, ekip arkadaşı arama ya da genel ilan"
                 Ikon={LifeBuoy}
                 yol="/panel/talepler/yeni"
+                ton="olumlu"
               />
               <KisayolKarti
                 baslik="Mentör talebi aç"
                 aciklama="Yol gösterecek bir mentöre sorun; havuzdaki mentörler görür"
                 Ikon={GraduationCap}
                 yol="/panel/talepler/mentor-talebi"
+                ton="olumlu"
               />
             </>
           )}
@@ -341,6 +361,7 @@ export default async function YonetimSayfasi({
               aciklama="Bildiğiniz konularda öğrencilere yol gösterin; başvurunuz onaydan geçer"
               Ikon={Handshake}
               yol="/panel/talepler/mentor-basvuru"
+              ton="olumlu"
             />
           )}
           {/*
@@ -368,6 +389,7 @@ export default async function YonetimSayfasi({
               aciklama="Size gelen mentörlük talepleri ve verdiğiniz cevaplar"
               Ikon={Compass}
               yol="/panel/mentorlugum"
+              ton="olumlu"
             />
           )}
           {/*
@@ -407,6 +429,7 @@ export default async function YonetimSayfasi({
               aciklama="İlinizde kurduğunuz ekipler, üyeleri ve ekip sohbetleri"
               Ikon={UsersRound}
               yol="/panel/ekipler"
+              ton="olumlu"
             />
           )}
           {/*
@@ -430,6 +453,7 @@ export default async function YonetimSayfasi({
             aciklama="Biten etkinliklerin raporları, raporu eksik olanlar ve program / çalışma grubu istatistiği (CSV)"
             Ikon={FileText}
             yol="/panel/raporlar"
+            ton="notr"
           />
           {/*
             MERKEZİN ÜÇ EKRANI (11 Ağustos 2026). Panonun kuruluş gerekçesi
@@ -448,18 +472,21 @@ export default async function YonetimSayfasi({
                 aciklama="Kimin hangi kaydı görüntülediği — KVKK denetimi"
                 Ikon={ShieldCheck}
                 yol="/panel/erisim-loglari"
+                ton="notr"
               />
               <KisayolKarti
                 baslik="Mesaj Gönder"
                 aciklama="Seçilen kitleye toplu bildirim ve duyuru"
                 Ikon={Megaphone}
                 yol="/panel/duyurular"
+                ton="notr"
               />
               <KisayolKarti
                 baslik="Sistem Ayarları"
                 aciklama="Çalışma grupları, etkinlik programları ve sistem ayarları"
                 Ikon={Settings}
                 yol="/panel/ayarlar"
+                ton="notr"
               />
             </>
           )}
@@ -484,6 +511,7 @@ export default async function YonetimSayfasi({
               aciklama="Kullanıcının bildirdiği hata kimliğinin karşılığı: hangi adres, hangi hata, ne zaman"
               Ikon={Bug}
               yol="/panel/hata-kayitlari"
+              ton="uyari"
             />
           )}
         </div>
@@ -598,6 +626,7 @@ export default async function YonetimSayfasi({
               {iller.map((il) => (
                 <BirimKarti
                   key={il.ilKodu}
+                  Ikon={MapPin}
                   ad={il.ad}
                   /*
                    * İlçe sayısı kartın alt satırında: tıklanınca ne kadar liste
@@ -628,6 +657,7 @@ export default async function YonetimSayfasi({
             {ilceler.map((ilce) => (
               <BirimKarti
                 key={ilce.ilceKodu}
+                Ikon={Harita}
                 ad={ilce.ad}
                 okulSayisi={ilce.okulSayisi}
                 ogretmenSayisi={ilce.ogretmenSayisi}

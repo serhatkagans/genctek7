@@ -101,10 +101,18 @@ export function PanelGezinme({
       <ul className="hidden lg:block">
         {gruplar.map((grup) => (
           <li key={grup.ad} className="mb-5">
-            <p className="mb-1.5 px-3 text-[11px] font-bold tracking-widest text-metin-yumusak uppercase">
-              {grup.ad}
-            </p>
-            <ul className="space-y-0.5">
+            {/*
+              GRUP BAŞLIKLARI BASILMIYOR (21 Ağustos 2026 · istek: "sol
+              menüdeki başlıklar kalksın Genel Çalışma Ekosistem bunlar
+              yani").
+
+              Gruplama DURUYOR: bağlantılar aynı sırada ve gruplar arasında
+              boşluk var — kaybolan yalnızca üstteki küçük etiket. Ekran
+              okuyucu grubun adını yine duyuyor (`aria-label`); onu da
+              kaldırmak, görünürde boşlukla ayrılmış bir yığını okuyucu için
+              tek bir uzun listeye çevirirdi.
+            */}
+            <ul className="space-y-0.5" aria-label={grup.ad}>
               {grup.ogeler.map((baglanti) => {
                 const secili = aktifMi(yol, baglanti);
                 const Ikon = baglanti.ikon ? IKONLAR[baglanti.ikon] : null;

@@ -43,7 +43,6 @@ function girdiYap(
     gorevUnvani: "",
     beyan:
       "Yazılım alanında akran eğitimi vermek ve mezun olduğum okulun öğrencilerine mentorluk yapmak istiyorum.",
-    aydinlatmaOnayi: true,
     mentorlukIstiyor: false,
     mentorlukKonulari: "",
     mentorlukGrupIdleri: [],
@@ -289,13 +288,12 @@ describe("başvuru girdisi", () => {
     expect(karar.olurMu && karar.kayit.eposta).toBe("deniz.yildirim@ornek.com");
   });
 
-  test("aydınlatma metni onaylanmadan başvuru alınmaz", () => {
-    const karar = disBasvuruGirdisiniCoz(
-      girdiYap({ aydinlatmaOnayi: false }),
-      SIMDI,
-    );
-    expect(karar.olurMu).toBe(false);
-  });
+  /*
+   * "Aydınlatma metni onaylanmadan başvuru alınmaz" TESTİ KALKTI
+   * (21 Ağustos 2026 · istek: "kvkk olmayacak yani sadece çerez politikası").
+   * Kutu formdan, şart da kuraldan kalktı; testi tutmak, artık var olmayan bir
+   * davranışı savunmak olurdu.
+   */
 
   test("şifre ile tekrarı tutmuyorsa reddedilir", () => {
     const karar = disBasvuruGirdisiniCoz(

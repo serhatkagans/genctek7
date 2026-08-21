@@ -108,14 +108,6 @@ export default async function YeniFaaliyetSayfasi({
     }),
   ]);
 
-  // Adı sabit programlar. Pasife alınmışlar yeni faaliyette teklif edilmez;
-  // geçmiş faaliyetlerin bağlantısı korunur.
-  const programlar = await prisma.temelEtkinlikProgrami.findMany({
-    where: { aktif: true },
-    orderBy: [{ grup: "asc" }, { siraNo: "asc" }],
-    select: { id: true, ad: true, grup: true },
-  });
-
   // Sınır koda gömülü değil, sistem ayarından gelir; kullanıcıya da o yazılır.
   const gorselMaksBayt = await ayarSayi(
     AYAR_ANAHTARLARI.GORSEL_MAKS_BAYT,
@@ -206,71 +198,28 @@ export default async function YeniFaaliyetSayfasi({
               etkinliklerin kategori rozeti yerinde duruyor.
             */}
 
-            <label className="block">
-              <span className={SINIF_ETIKET}>
-                Program{" "}
-                <span className="text-metin-yumusak">
-                  (listede yoksa &quot;Diğer&quot;)
-                </span>
-              </span>
-              <select
-                name="temelEtkinlikProgramiId"
-                defaultValue=""
-                className={SINIF_GIRDI}
-              >
-                {/*
-                  "Diğer": listede olmayan bir etkinlik de açılabilsin. Eskiden
-                  bu kategorilerde ad ZORUNLU olarak listeden geliyordu; listede
-                  olmayan etkinliği açmak isteyen kişi kategoriyi İl Etkinliği'ne
-                  çevirmek zorunda kalıp etkinliğin gerçek niteliğini
-                  kaybediyordu.
-                */}
-                {/*
-                  İSTEK ÜZERİNE SADECE "DİĞER" (20 Ağustos 2026): açıklama
-                  cümlesi seçeneğin içinden çıktı, aşağıdaki yardım satırında
-                  duruyor. Kalın yazılıyor ki listedeki program adlarının
-                  arasında kaybolmasın.
-                */}
-                <option value="" className="font-semibold">
-                  Diğer
-                </option>
-                <optgroup label="Temel Etkinlik">
-                  {programlar
-                    .filter((program) => program.grup === "TEMEL_ETKINLIK")
-                    .map((program) => (
-                      <option key={program.id} value={program.id}>
-                        {program.ad}
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="Çalışma Grubu Etkinliği">
-                  {programlar
-                    .filter(
-                      (program) => program.grup === "CALISMA_GRUBU_ETKINLIGI",
-                    )
-                    .map((program) => (
-                      <option key={program.id} value={program.id}>
-                        {program.ad}
-                      </option>
-                    ))}
-                </optgroup>
-              </select>
-              <span className="mt-1 block text-sm text-metin-yumusak">
-                Program seçerseniz etkinliğin adı programdan gelir;
-                &quot;Diğer&quot;de adı aşağıya siz yazarsınız.
-              </span>
-            </label>
+            {/*
+              PROGRAM ALANI KALKTI (21 Ağustos 2026 · istek: "yeni etkinlik
+              oluştururken Program (listede yoksa 'Diğer') bu alan
+              olmayacak").
+
+              Alan iki iş yapıyordu: etkinliğin adını sabit listeden getirmek
+              ve kategoriyi belirlemek. Açanların çoğu zaten "Diğer"i seçip adı
+              elle yazıyordu; liste, iki adım öteden gelen bir soruyu formun
+              başına koyuyordu.
+
+              SUNUCU TARAFI DEĞİŞMEDİ (eylemler.ts · faaliyetOlusturEylemi):
+              program gönderilmediğinde kategori İl Etkinliği olur ve ad
+              aşağıdaki alandan gelir — kural zaten böyleydi. Kayıtlı
+              etkinliklerin program bağlantısı ve rozeti yerinde duruyor.
+            */}
 
             <label className="block">
-              <span className={SINIF_ETIKET}>
-                Etkinlik adı{" "}
-                <span className="text-metin-yumusak">
-                  (&quot;Diğer&quot; seçtiyseniz zorunlu)
-                </span>
-              </span>
+              <span className={SINIF_ETIKET}>Etkinlik adı</span>
               <input
                 type="text"
                 name="ad"
+                required
                 maxLength={250}
                 className={SINIF_GIRDI}
                 placeholder="Örn. Robot Futbol Ligi"
@@ -429,10 +378,10 @@ export default async function YeniFaaliyetSayfasi({
               </label>
             </div>
             <label className="block">
-              <span className={SINIF_ETIKET}>
-                Tanıtıcı görsel{" "}
-                <span className="text-metin-yumusak">(isteğe bağlı)</span>
-              </span>
+              {/* "(isteğe bağlı)" notu kalktı (21 Ağustos 2026 · istek):
+                  alan zaten `required` değil ve altındaki satır biçim ile
+                  boyut sınırını söylüyor. */}
+              <span className={SINIF_ETIKET}>Tanıtıcı görsel</span>
               <input
                 type="file"
                 name="kapakGorseli"

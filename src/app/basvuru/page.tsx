@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   GraduationCap,
   Send,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,8 +17,6 @@ import {
 import { prisma } from "@/lib/db";
 import { disTuruMu, SIFRE_ALT_SINIRI } from "@/lib/dis-kimlik/kurallar";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
-import { belgeMetniGetir } from "@/lib/kvkk/onay";
-import { belgeTanimi } from "@/lib/kvkk/kurallar";
 import { basvuruEylemi } from "./eylemler";
 
 /**
@@ -192,7 +189,7 @@ export default async function BasvuruSayfasi({
   const mezunMu = secilenTur === "MEZUN";
   const mentorMu = secilenTur === "MENTOR";
 
-  const [okullar, paydaslar, aydinlatma, calismaGruplari] = await Promise.all([
+  const [okullar, paydaslar, calismaGruplari] = await Promise.all([
     mezunMu
       ? prisma.kurum.findMany({
           where: { ilKodu: secilenIl },
@@ -207,7 +204,6 @@ export default async function BasvuruSayfasi({
           orderBy: { ad: "asc" },
         })
       : Promise.resolve([]),
-    belgeMetniGetir(belgeTanimi("AYDINLATMA")),
     /*
      * Çalışma grupları HER TÜRDE çekiliyor: mentörlük yalnızca MENTOR türüne
      * özel değil — mezun ve paydaş da "ayrıca mentörlük yapmak istiyorum"
@@ -515,34 +511,13 @@ export default async function BasvuruSayfasi({
           </p>
         </Kart>
 
-        <Kart>
-          <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-baslik">
-            <ShieldCheck size={18} className="text-vurgu-metin" />
-            KVKK aydınlatma metni
-          </h2>
-          <p className="text-sm text-metin-yumusak">
-            Başvurunuzla birlikte kişisel verileriniz işlenmeye başlar. Metni
-            okumadan başvuru alınmaz.
-          </p>
-          <details className="mt-4 rounded-kart border border-cizgi bg-zemin p-4">
-            <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
-              Aydınlatma metnini oku
-            </summary>
-            <pre className="mt-3 max-h-80 overflow-y-auto text-sm whitespace-pre-wrap text-metin">
-              {aydinlatma.metin}
-            </pre>
-          </details>
-          <label className="mt-4 flex gap-2 text-sm text-metin">
-            <input
-              type="checkbox"
-              name="aydinlatmaOnayi"
-              value="evet"
-              required
-              className="mt-0.5"
-            />
-            <span>Aydınlatma metnini okudum ve anladım.</span>
-          </label>
-        </Kart>
+        {/*
+          KVKK AYDINLATMA KARTI VE ONAY KUTUSU KALKTI (21 Ağustos 2026 ·
+          istekler: "kvkk olmasın" · "kvkk olmayacak yani sadece çerez
+          politikası"). Başvuru artık belge okutmuyor; uygulamanın açılışında
+          bir kez çıkan çerez bildirimi dışında hiçbir metin onaya
+          bağlanmıyor.
+        */}
 
         <button type="submit" className={SINIF_BIRINCIL_BUTON}>
           <Send size={16} aria-hidden />

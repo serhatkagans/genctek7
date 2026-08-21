@@ -473,9 +473,9 @@ model Kullanici {
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
 
   /// Öğrencinin açtığı danışman değişikliği talepleri.
-  danismanTaleplerim     DanismanTalebi[] @relation("DanismanTalebiOgrencisi")
+  danismanTaleplerim            DanismanTalebi[] @relation("DanismanTalebiOgrencisi")
   /// Kendisinden istenen danışmanlıklar — onay kuyruğu.
-  bekleyenDanismanlikler DanismanTalebi[] @relation("DanismanTalebiDanismani")
+  bekleyenDanismanlikler        DanismanTalebi[] @relation("DanismanTalebiDanismani")
   /// Karara bağladığı talepler (öğretmen ya da il koordinatörü).
   kararVerdigiDanismanTalepleri DanismanTalebi[] @relation("DanismanTalebiKararVereni")
   /// Talep açıldığı anda danışmanı olduğu öğrencilerin talepleri.
@@ -512,6 +512,9 @@ model Kullanici {
   /// Mentörlük kaydı — öğretmende de dış kullanıcıda da aynı tablo.
   mentorluk             Mentorluk?  @relation("MentorlukSahibi")
   kararVerdigiMentorluk Mentorluk[] @relation("MentorlukKararVeren")
+
+  gencTekGorevBasvurulari      GencTekGorevBasvurusu[] @relation("GencTekGorevBasvuranı")
+  kararVerdigiGorevBasvurulari GencTekGorevBasvurusu[] @relation("GencTekGorevKararVeren")
 
   /// Katkı verebileceğini bildirdiği çalışma grupları (mentörlükten ayrı).
   destekGruplari KullaniciDestekGrubu[] @relation("DestekGrubuSahibi")
@@ -730,6 +733,76 @@ model MentorlukCalismaGrubu {
   @@id([mentorlukKullaniciId, calismaGrubuId])
   @@index([calismaGrubuId], map: "mentorluk_calisma_grubu_grup_idx")
   @@map("mentorluk_calisma_grubu")
+}
+
+/// GENÇTEK GÖREVİ — merkezin açtığı, kullanıcıların başvurduğu görev ilanı
+/// (21 Ağustos 2026).
+///
+/// İSTEK: "Panoda yeni kart GençTek Görevlerim isminde kart olsun, içinde
+/// başvur butonları olacak, mesela eba asistan test ekibi, senaryoyu yapacak
+/// oyun ekibi, tekno girişim değerlendirme ekibi; yönetim panelinde yeni kart
+/// GençTek görevlerini görebilsin" · "daha başka görevler de olacak şimdilik
+/// 3 tane".
+///
+/// GÖREVLER KODA GÖMÜLMEDİ, TABLODA: "daha başka görevler de olacak" cümlesi
+/// bunu söylüyor — yeni bir görev açmak sürüm çıkmayı gerektirmemeli. İlk üç
+/// görev göç dosyasında oluşturuluyor, sonrakiler Yönetim Paneli'nden.
+///
+/// ETKİNLİK (Faaliyet) DEĞİLDİR ve onun tablosuna sığdırılmadı: etkinliğin
+/// tarihi, başvuru penceresi, kapsamı, yoklaması ve belgesi var; görev ilanı
+/// ise açık kaldığı sürece başvurulabilen bir çağrıdır. Aynı tabloya
+/// konsalardı faaliyetin yarım düzine zorunlu alanı burada anlamsız değerlerle
+/// doldurulurdu.
+model GencTekGorevi {
+  id              Int      @id @default(autoincrement())
+  ad              String   @db.VarChar(200)
+  aciklama        String   @db.Text
+  /// Alınacak kişi sayısı. NULL = sınır yok; sıfır değil, çünkü sıfır
+  /// "kimse alınmayacak" demek olurdu.
+  kontenjan       Int?
+  /// Panodaki sıra. Ada göre sıralamak, listeyi merkezin öncelik sırasından
+  /// koparırdı.
+  siraNo          Int      @default(0) @map("sira_no")
+  /// Kapatılan görev SİLİNMEZ: başvuruları ve kararları kayıttır. Kapalı görev
+  /// panoda görünmez, yeni başvuru kabul etmez.
+  aktif           Boolean  @default(true)
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  basvurular GencTekGorevBasvurusu[]
+
+  @@index([aktif, siraNo])
+  @@map("genctek_gorevi")
+}
+
+/// Bir göreve yapılan başvuru ve kararı.
+///
+/// KİŞİ BAŞINA GÖREV BAŞINA TEK SATIR (`@@unique`): reddedilen kişi yeniden
+/// başvurduğunda aynı satır BEKLIYOR'a döner. Her başvuru yeni satır açsaydı
+/// aynı kişinin aynı göreve on başvurusu kuyruğu doldururdu ve "bu kişinin
+/// durumu ne" sorusunun tek cevabı kalmazdı (aynı desen: Mentorluk).
+model GencTekGorevBasvurusu {
+  id          Int    @id @default(autoincrement())
+  gorevId     Int    @map("gorev_id")
+  kullaniciId Int    @map("kullanici_id")
+  /// Başvuranın kendini anlattığı metin; kararın dayanağı budur.
+  mesaj       String @db.Text
+
+  onayDurumu            OnayDurumu @default(BEKLIYOR) @map("onay_durumu")
+  kararVerenKullaniciId Int?       @map("karar_veren_kullanici_id")
+  kararTarihi           DateTime?  @map("karar_tarihi") @db.Timestamptz(6)
+  /// Rette ZORUNLU (uygulama katmanında): gerekçesiz ret, kişiye tekrar
+  /// başvururken neyi düzelteceğini söylemez.
+  retGerekcesi          String?    @map("ret_gerekcesi") @db.Text
+  olusturmaTarihi       DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  gorev      GencTekGorevi @relation(fields: [gorevId], references: [id], onDelete: Cascade)
+  kullanici  Kullanici     @relation("GencTekGorevBasvuranı", fields: [kullaniciId], references: [id], onDelete: Cascade)
+  kararVeren Kullanici?    @relation("GencTekGorevKararVeren", fields: [kararVerenKullaniciId], references: [id])
+
+  @@unique([gorevId, kullaniciId])
+  @@index([onayDurumu])
+  @@index([kullaniciId])
+  @@map("genctek_gorev_basvurusu")
 }
 
 /// Onaylanmış dış kullanıcının giriş kimliği.

@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { Map as Harita, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
 import {
@@ -103,6 +103,7 @@ export default async function IlKirilimiSayfasi({
             {ilceler.map((ilce) => (
               <BirimKarti
                 key={ilce.ilceKodu}
+                Ikon={Harita}
                 ad={ilce.ad}
                 uyarilar={birimUyarilari(ilce)}
                 okulSayisi={ilce.okulSayisi}

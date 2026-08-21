@@ -424,6 +424,49 @@ export function bilisimYolculuguGruplari(
 }
 
 /**
+ * "GençTek Yolculuğum" da bir kayıt grubudur.
+ *
+ * 21 AĞUSTOS 2026 · istek: "ürünlerim altında kendi formu, deneyimlerim
+ * altında kendi formu, gençtek yolculuğum altında kendi formu olacak; bu üç
+ * başlık için ortak form olmasın." Ekleme ekranı artık grupları dolaşıp her
+ * birine kendi formunu basıyor ve GençTek bloğu elle kurulmuş bir istisna
+ * olarak kalsaydı, öbürlerine eklenen her alan onda eksik kalırdı.
+ *
+ * TİPLER AYNI KAYNAKTAN: `GENCTEK_YOLCULUGU_TIPLERI`. Bugün elle girilebilen
+ * tek tip akran eğitimi — temsilcilikler atamayla, katılım belgeyle düşer ve
+ * ikisi de forma girilmez; arşivlenmişler `kayitEklemeGruplari` içinde elenir.
+ */
+export const GENCTEK_YOLCULUGU_GRUBU: KazanimGrubu = {
+  kod: "GENCTEK_YOLCULUGUM",
+  baslik: "GençTek Yolculuğum",
+  aciklama:
+    "GençTek içinde yaptığın işler. Yukarıdakiler senin GençTek dışında ürettiklerin; buradaki kayıt GençTek'in kendi programında yaptığın iştir.",
+  tipler: GENCTEK_YOLCULUGU_TIPLERI,
+};
+
+/**
+ * Kayıt ekleme ekranının bölümleri — her biri kendi formunu basar.
+ *
+ * Sıra ekrandaki sırayla aynıdır: önce Bilişim Yolculuğum grupları, en sonda
+ * GençTek Yolculuğum. Tanımı boş kalan grup (hepsi arşivlenmişse ya da o
+ * sahipte görünmüyorsa) hiç basılmaz.
+ */
+export function kayitEklemeGruplari(
+  sahip: KazanimSahibi = "OGRENCI",
+): { grup: KazanimGrubu; tanimlar: KazanimTipiTanimi[] }[] {
+  const gencTek = {
+    grup: GENCTEK_YOLCULUGU_GRUBU,
+    tanimlar: GENCTEK_YOLCULUGU_GRUBU.tipler
+      .filter((tip) => !kazanimTipiArsivlenmisMi(tip))
+      .map((tip) => kazanimTipiTanimi(tip, sahip)),
+  };
+
+  return [...bilisimYolculuguGruplari(sahip), gencTek].filter(
+    (bolum) => bolum.tanimlar.length > 0,
+  );
+}
+
+/**
  * Üç grubun birleşimi, `BILISIM_YOLCULUGU_TIPLERI` ile aynı kümeyi vermeli.
  *
  * Ayrışırlarsa bir tip ya profilde iki kez görünür ya hiç görünmez; ikisi de

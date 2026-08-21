@@ -1,5 +1,6 @@
 import {
   baglantiIstegiGonderilebilirMi,
+  dogrudanYazisilabilirMi,
   GIZLILIK_UYARISI,
   istekKarariniCoz,
   mesajMetniniCoz,
@@ -344,5 +345,57 @@ describe("gizlilik uyarısı", () => {
     expect(GIZLILIK_UYARISI).toContain("gizli değildir");
     expect(GIZLILIK_UYARISI).toContain("danışman");
     expect(GIZLILIK_UYARISI).toContain("koordinatör");
+  });
+});
+
+/**
+ * DOĞRUDAN YAZIŞMA — onay kapısının iki istisnası (21 Ağustos 2026 · istek:
+ * "kendi okulundaki herkesi görecek mesaj atacak, okul temsilcilerinin hepsini
+ * görecek mesaj atabilecek").
+ *
+ * Sınanan şey ekran değil KARARDIR: kimin kimle onay beklemeden yazışabildiği.
+ */
+describe("doğrudan yazışma", () => {
+  const girdi = (ozellikler: Record<string, unknown> = {}) => ({
+    isteyenId: 1,
+    hedefId: 2,
+    isteyenKurumKodu: 100 as number | null,
+    hedefKurumKodu: 100 as number | null,
+    hedefOkulTemsilcisiMi: false,
+    ...ozellikler,
+  });
+
+  it("aynı okuldakiyle onay beklemeden yazışılır", () => {
+    expect(dogrudanYazisilabilirMi(girdi()).olurMu).toBe(true);
+  });
+
+  it("başka okuldan biriyle yazışılamaz", () => {
+    const karar = dogrudanYazisilabilirMi(girdi({ hedefKurumKodu: 200 }));
+    expect(karar.olurMu).toBe(false);
+    expect(karar.neden).toContain("bağlantı isteği");
+  });
+
+  it("okul temsilcisiyle okul farkı gözetilmeden yazışılır", () => {
+    expect(
+      dogrudanYazisilabilirMi(
+        girdi({ hedefKurumKodu: 200, hedefOkulTemsilcisiMi: true }),
+      ).olurMu,
+    ).toBe(true);
+  });
+
+  it("okulsuz iki kişi aynı okuldan sayılmaz", () => {
+    /*
+     * Mezun ve paydaşın kurum kodu YOKTUR. `null === null` ile karar
+     * verilseydi bütün okulsuz kullanıcılar birbirinin okul arkadaşı olurdu.
+     */
+    const karar = dogrudanYazisilabilirMi(
+      girdi({ isteyenKurumKodu: null, hedefKurumKodu: null }),
+    );
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("kişi kendine mesaj gönderemez", () => {
+    const karar = dogrudanYazisilabilirMi(girdi({ hedefId: 1 }));
+    expect(karar.olurMu).toBe(false);
   });
 });

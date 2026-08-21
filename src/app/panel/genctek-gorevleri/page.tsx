@@ -1,0 +1,328 @@
+import { BadgeCheck, Check, Plus, X } from "lucide-react";
+import {
+  BilgiKutusu,
+  Kart,
+  KartBasligi,
+  Rozet,
+  SayfaBasligi,
+  SINIF_BIRINCIL_BUTON,
+  SINIF_GIRDI,
+  SINIF_IKINCIL_BUTON,
+} from "@/components/ui";
+import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { prisma } from "@/lib/db";
+import { GOREV_DURUM_ETIKETLERI } from "@/lib/gorev/kurallar";
+import { tarihSaatYaz } from "@/lib/tarih";
+import { gencTekGoreviYonetebilirMi } from "@/lib/yetki/izinler";
+import { YetkiHatasi } from "@/lib/yetki/tipler";
+import {
+  gorevDurumEylemi,
+  gorevEkleEylemi,
+  gorevKararEylemi,
+} from "./eylemler";
+
+export const dynamic = "force-dynamic";
+
+const DURUM_MESAJLARI: Record<string, string> = {
+  "karar-verildi": "Başvuru karara bağlandı; başvurana bildirim gönderildi.",
+  "gorev-eklendi": "Görev açıldı ve panoda görünmeye başladı.",
+  "gorev-kapatildi":
+    "Görev kapatıldı; panoda görünmüyor ve yeni başvuru kabul etmiyor.",
+  "gorev-acildi": "Görev yeniden başvuruya açıldı.",
+};
+
+/**
+ * GENÇTEK GÖREVLERİ — yönetim ekranı (21 Ağustos 2026).
+ *
+ * İstek: "yönetim panelinde yeni kart gençtek görevlerini görebilsin."
+ *
+ * ÜÇ İŞ TEK EKRANDA: bekleyen başvuruların kararı, görev ilanlarının durumu ve
+ * yeni ilan açma. Ayrı ekranlara bölünselerdi merkez, açtığı ilanın kaç
+ * başvuru aldığını görmek için ekran değiştirmek zorunda kalırdı.
+ *
+ * KARAR BEKLEYENLER EN ÜSTTE: karara bağlanmamış başvuru, bu ekrandaki tek
+ * "yapılacak iş"tir; ilan listesi ise durum bilgisidir.
+ */
+export default async function GencTekGorevYonetimiSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<{ durum?: string; hata?: string }>;
+}) {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!gencTekGoreviYonetebilirMi(kullanici)) {
+    throw new YetkiHatasi("GençTek görevlerini yönetme yetkiniz yok.");
+  }
+
+  const { durum, hata } = await searchParams;
+
+  const [basvurular, gorevler] = await Promise.all([
+    prisma.gencTekGorevBasvurusu.findMany({
+      /*
+       * Karara bağlananlar da listede: "bu kişiye ne cevap verdik" sorusunun
+       * karşılığı burada olmalı. Bekleyenler önce geliyor (BEKLIYOR < ONAYLANDI
+       * < REDDEDILDI değil — sıralama açık yazıldı).
+       */
+      orderBy: [{ onayDurumu: "asc" }, { olusturmaTarihi: "desc" }],
+      take: 200,
+      select: {
+        id: true,
+        mesaj: true,
+        onayDurumu: true,
+        retGerekcesi: true,
+        olusturmaTarihi: true,
+        kararTarihi: true,
+        kullaniciId: true,
+        gorev: { select: { ad: true } },
+        kullanici: {
+          select: {
+            ad: true,
+            soyad: true,
+            sinif: true,
+            brans: true,
+            kurum: { select: { ad: true } },
+            il: { select: { ad: true } },
+          },
+        },
+      },
+    }),
+    prisma.gencTekGorevi.findMany({
+      orderBy: [{ aktif: "desc" }, { siraNo: "asc" }],
+      select: {
+        id: true,
+        ad: true,
+        aciklama: true,
+        kontenjan: true,
+        aktif: true,
+        _count: {
+          select: { basvurular: { where: { onayDurumu: "ONAYLANDI" } } },
+        },
+      },
+    }),
+  ]);
+
+  const bekleyenler = basvurular.filter(
+    (basvuru) => basvuru.onayDurumu === "BEKLIYOR",
+  );
+  const kararaBaglananlar = basvurular.filter(
+    (basvuru) => basvuru.onayDurumu !== "BEKLIYOR",
+  );
+
+  return (
+    <div className="space-y-6">
+      <SayfaBasligi
+        baslik="GençTek Görevleri"
+        aciklama={`${gorevler.filter((gorev) => gorev.aktif).length} açık görev · ${bekleyenler.length} başvuru karar bekliyor`}
+        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
+      />
+
+      {durum && DURUM_MESAJLARI[durum] && (
+        <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
+      )}
+      {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      <Kart>
+        <KartBasligi
+          baslik={`Karar bekleyen başvurular (${bekleyenler.length})`}
+          Ikon={BadgeCheck}
+        />
+        {bekleyenler.length === 0 ? (
+          <p className="text-metin-yumusak">Karar bekleyen başvuru yok.</p>
+        ) : (
+          <ul className="space-y-4">
+            {bekleyenler.map((basvuru) => (
+              <li
+                key={basvuru.id}
+                className="rounded-kart border border-cizgi p-4"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="font-semibold text-baslik">
+                    {basvuru.kullanici.ad} {basvuru.kullanici.soyad}
+                  </p>
+                  <Rozet cesit="vurgu">{basvuru.gorev.ad}</Rozet>
+                </div>
+                <p className="mt-0.5 text-sm text-metin-yumusak">
+                  {[
+                    basvuru.kullanici.sinif ?? basvuru.kullanici.brans,
+                    basvuru.kullanici.kurum?.ad ?? basvuru.kullanici.il?.ad,
+                    tarihSaatYaz(basvuru.olusturmaTarihi),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="mt-3 whitespace-pre-line text-metin">
+                  {basvuru.mesaj}
+                </p>
+
+                {/*
+                  ONAY VE RET AYNI FORMDA, iki düğmeyle: gerekçe alanı ikisinde
+                  de basılı ama yalnızca ret onu ZORUNLU kılıyor (bkz.
+                  gorevKarariGecerliMi). Ayrı formlar, gerekçeyi yazıp yanlış
+                  düğmeye basmayı kolaylaştırırdı.
+                */}
+                <form
+                  action={gorevKararEylemi}
+                  className="mt-4 flex flex-wrap items-end gap-2"
+                >
+                  <input type="hidden" name="basvuruId" value={basvuru.id} />
+                  <label className="block grow">
+                    <span className="text-sm font-medium text-metin">
+                      Gerekçe <span className="text-metin-yumusak">(rette zorunlu)</span>
+                    </span>
+                    <input
+                      type="text"
+                      name="gerekce"
+                      maxLength={500}
+                      className={SINIF_GIRDI}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    name="karar"
+                    value="onayla"
+                    className={SINIF_BIRINCIL_BUTON}
+                  >
+                    <Check size={15} aria-hidden />
+                    Onayla
+                  </button>
+                  <button
+                    type="submit"
+                    name="karar"
+                    value="reddet"
+                    className={SINIF_IKINCIL_BUTON}
+                  >
+                    <X size={15} aria-hidden />
+                    Reddet
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Kart>
+
+      <Kart>
+        <KartBasligi
+          baslik="Görev ilanları"
+          aciklama="Kapatılan ilan panoda görünmez ve yeni başvuru kabul etmez; başvuruları kayıtta kalır."
+        />
+        <ul className="divide-y divide-cizgi">
+          {gorevler.map((gorev) => (
+            <li key={gorev.id} className="py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-metin">
+                    {gorev.ad}
+                    <span className="ml-2 inline-block align-middle">
+                      <Rozet cesit={gorev.aktif ? "olumlu" : "notr"}>
+                        {gorev.aktif ? "Açık" : "Kapalı"}
+                      </Rozet>
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-sm text-metin-yumusak">
+                    {gorev.kontenjan === null
+                      ? `${gorev._count.basvurular} kişi görevde · kontenjan sınırsız`
+                      : `${gorev._count.basvurular}/${gorev.kontenjan} kişi görevde`}
+                  </p>
+                </div>
+                <form action={gorevDurumEylemi}>
+                  <input type="hidden" name="gorevId" value={gorev.id} />
+                  <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                    {gorev.aktif ? "Kapat" : "Yeniden aç"}
+                  </button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Kart>
+
+      <Kart>
+        <KartBasligi baslik="Yeni görev aç" Ikon={Plus} />
+        <form action={gorevEkleEylemi} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Görev adı</span>
+              <input
+                type="text"
+                name="ad"
+                required
+                maxLength={200}
+                placeholder="Örn. EBA Asistan Test Ekibi"
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-metin">
+                Kontenjan{" "}
+                <span className="text-metin-yumusak">
+                  (boş bırakılırsa sınırsız)
+                </span>
+              </span>
+              <input
+                type="number"
+                name="kontenjan"
+                min={1}
+                className={SINIF_GIRDI}
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="text-sm font-medium text-metin">Açıklama</span>
+            <textarea
+              name="aciklama"
+              required
+              rows={3}
+              placeholder="Görevin ne olduğu, kimleri aradığınız ve görevin kişiden ne beklediği."
+              className={SINIF_GIRDI}
+            />
+          </label>
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            <Plus size={15} aria-hidden />
+            Görevi aç
+          </button>
+        </form>
+      </Kart>
+
+      {kararaBaglananlar.length > 0 && (
+        <Kart>
+          <KartBasligi
+            baslik={`Karara bağlananlar (${kararaBaglananlar.length})`}
+          />
+          <ul className="divide-y divide-cizgi">
+            {kararaBaglananlar.map((basvuru) => (
+              <li key={basvuru.id} className="py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-metin">
+                    {basvuru.kullanici.ad} {basvuru.kullanici.soyad}
+                    <span className="ml-2 text-sm text-metin-yumusak">
+                      {basvuru.gorev.ad}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Rozet
+                      cesit={
+                        basvuru.onayDurumu === "ONAYLANDI" ? "olumlu" : "hata"
+                      }
+                    >
+                      {GOREV_DURUM_ETIKETLERI[basvuru.onayDurumu]}
+                    </Rozet>
+                    {basvuru.kararTarihi && (
+                      <span className="text-sm text-metin-yumusak">
+                        {tarihSaatYaz(basvuru.kararTarihi)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {basvuru.retGerekcesi && (
+                  <p className="mt-1 text-sm text-metin-yumusak">
+                    Gerekçe: {basvuru.retGerekcesi}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Kart>
+      )}
+    </div>
+  );
+}

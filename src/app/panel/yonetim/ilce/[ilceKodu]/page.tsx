@@ -121,6 +121,7 @@ export default async function IlceKirilimiSayfasi({
             {okullar.map((okul) => (
               <BirimKarti
                 key={okul.kurumKodu}
+                Ikon={School}
                 ad={okul.ad}
                 altBilgi={okul.okulTuru}
                 ogretmenSayisi={okul.ogretmenSayisi}

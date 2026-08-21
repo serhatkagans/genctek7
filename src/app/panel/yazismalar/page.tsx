@@ -1,16 +1,20 @@
-import { Check, Handshake, MessagesSquare, Send, Users, X } from "lucide-react";
+import {
+  BadgeCheck,
+  MessagesSquare,
+  School,
+  Send,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
   KartBasligi,
-  KatlanabilirKart,
   SayfaBasligi,
   SINIF_GIRDI,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { GIZLILIK_UYARISI } from "@/lib/iletisim/kurallar";
 import { basHarfler } from "@/lib/kullanici/profil-foto-kurallar";
 import { tarihSaatYaz } from "@/lib/tarih";
 import {
@@ -18,13 +22,8 @@ import {
   ilKoordinatoruMu,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
-import {
-  baglantiKarariFiltresi,
-  yazismaKapsamFiltresi,
-} from "@/lib/yetki/kapsam";
-import { erisimLoglaCoklu } from "@/lib/yetki/log";
-import { AkisBolumu } from "../akis/AkisBolumu";
-import { baglantiKarariEylemi } from "./baglanti-eylemleri";
+import { yazismaKapsamFiltresi } from "@/lib/yetki/kapsam";
+import { dogrudanYazismaAcEylemi } from "./baglanti-eylemleri";
 
 export const dynamic = "force-dynamic";
 
@@ -57,27 +56,15 @@ export const dynamic = "force-dynamic";
  * kapatmıyor) ve listeye süzgeç şeridi eklendi.
  */
 
+/*
+ * İLETİLER SADELEŞTİ (21 Ağustos 2026): bağlantı isteği ve akış kalkınca
+ * onların iletileri de kalktı. Geriye, bu ekranda gerçekten olabilecek tek
+ * olay kaldı — mesajın gizlenmesi.
+ */
 const DURUM_MESAJLARI: Record<string, string> = {
-  onaylandi: "Bağlantı onaylandı ve yazışma açıldı. İki tarafa da bildirildi.",
-  reddedildi: "Bağlantı reddedildi; isteği yapana gerekçesiyle bildirildi.",
-  /*
-   * AKIŞ İLETİLERİ BURAYA TAŞINDI (14 Ağustos 2026 · istek: "akış
-   * bağlantılarım içine gelecek"): akış eylemleri artık bu sayfaya dönüyor
-   * (bkz. akis/eylemler.ts). Kendi haritalarında bırakılsalardı paylaşımını
-   * yapan kişi hiçbir onay iletisi görmezdi.
-   */
-  paylasildi: "Gönderiniz yayımlandı.",
   gizlendi: "İçerik kaldırıldı. Silinmedi; yetkililer görmeye devam eder.",
-  "hakkinda-kaydedildi": "Hakkımda metniniz kaydedildi.",
-  "istek-gonderildi":
-    "Bağlantı isteğiniz danışman öğretmeninizin onayına gönderildi. Onaylanana kadar karşı tarafa iletilmez.",
 };
 
-const ONAY_ETIKETLERI: Record<string, string> = {
-  BEKLIYOR: "Bekliyor",
-  ONAYLANDI: "Onaylandı",
-  REDDEDILDI: "Reddedildi",
-};
 
 /** Hap biçimli eylem düğmeleri — LinkedIn'in satır sonu düğmeleri gibi. */
 const SINIF_HAP_VURGU =
@@ -135,10 +122,16 @@ type Suzgec = (typeof SUZGECLER)[number];
 export default async function BaglantilarimSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ durum?: string; hata?: string; suzgec?: string }>;
+  searchParams: Promise<{
+    durum?: string;
+    hata?: string;
+    suzgec?: string;
+    kisi?: string;
+  }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
-  const { durum, hata, suzgec } = await searchParams;
+  const { durum, hata, suzgec, kisi } = await searchParams;
+  const kisiAramasi = (kisi ?? "").trim();
 
   const secili: Suzgec = SUZGECLER.includes(suzgec as Suzgec)
     ? (suzgec as Suzgec)
@@ -154,7 +147,37 @@ export default async function BaglantilarimSayfasi({
    * sorgulanır: onay yetkisi olmayanda `baglantiKarariFiltresi` zaten boş küme
    * döndürüyor, o sorguyu hiç açmamak bir gidiş dönüş kazandırır.
    */
-  const [yazismalar, istekler, gonderdiklerim] = await Promise.all([
+  /*
+   * OKUL İÇİ VE OKUL TEMSİLCİSİ LİSTELERİ (21 Ağustos 2026 · istek:
+   * "Bağlantılarım kısmı değişecek, kendi okulundaki herkesi görecek mesaj
+   * atacak, okul temsilcilerinin hepsini görecek mesaj atabilecek").
+   *
+   * İki liste de ONAY KAPISININ DIŞINDA kalan kümedir; kimin girdiğine kural
+   * katmanı karar veriyor (lib/iletisim/kurallar.ts · dogrudanYazisilabilirMi)
+   * ve eylem aynı kuralı yeniden soruyor — ekranda görünmek yetki değildir.
+   *
+   * ELLİ SATIRLA SINIRLI ve arama kutusu var: kalabalık bir okulda liste
+   * yüzlerce satır olurdu ve kimse yüz satırı taramaz.
+   */
+  const KISI_SINIRI = 50;
+  const kisiSecimi = {
+    id: true,
+    ad: true,
+    soyad: true,
+    sinif: true,
+    brans: true,
+    kurum: { select: { ad: true } },
+  } as const;
+  const aramaKosulu = kisiAramasi
+    ? {
+        OR: [
+          { ad: { contains: kisiAramasi, mode: "insensitive" as const } },
+          { soyad: { contains: kisiAramasi, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
+  const [yazismalar, okuldakiler, temsilciler] = await Promise.all([
     prisma.yazisma.findMany({
       where: yazismaKapsamFiltresi(kullanici),
       orderBy: { olusturmaTarihi: "desc" },
@@ -191,102 +214,52 @@ export default async function BaglantilarimSayfasi({
         _count: { select: { mesajlar: true } },
       },
     }),
-    onayVerebilir
-      ? prisma.baglantiIstegi.findMany({
-          where: baglantiKarariFiltresi(kullanici),
-          orderBy: [{ onayDurumu: "asc" }, { olusturmaTarihi: "desc" }],
-          take: 100,
-          select: {
-            id: true,
-            mesaj: true,
-            onayDurumu: true,
-            retGerekcesi: true,
-            kararTarihi: true,
-            olusturmaTarihi: true,
-            talep: { select: { baslik: true } },
-            isteyen: {
-              select: {
-                ad: true,
-                soyad: true,
-                sinif: true,
-                kurum: { select: { ad: true } },
-              },
-            },
-            hedef: {
-              select: {
-                ad: true,
-                soyad: true,
-                sinif: true,
-                kurum: { select: { ad: true } },
-                il: { select: { ad: true } },
-              },
-            },
-            kararVeren: { select: { ad: true, soyad: true } },
-          },
-        })
-      : Promise.resolve([]),
-
     /*
-     * GÖNDERDİĞİM İSTEKLER (12 Ağustos 2026 · kullanıcı fark etti: "arda
-     * erdoğandan elif yılmaza bağlantı isteği gönderdim, ancak elifin
-     * bağlantılarım sayfasında çıkmadı" → istek hedefe değil onaylayana gider,
-     * ama GÖNDEREN de isteğini hiçbir yerde göremiyordu).
-     *
-     * Yalnızca BEKLİYOR ve REDDEDİLDİ çekilir. ONAYLANDI BİLEREK DIŞARIDA:
-     * onaylanan istek zaten yukarıdaki bağlantı listesinde yazışmasıyla
-     * duruyor, buraya da konsaydı aynı bağlantı ekranda iki kez görünürdü.
-     *
-     * Kapsam filtresi YOK ve gerekmiyor: koşul `isteyenKullaniciId = ben`,
-     * yani kişinin kendi gönderdiği istekler. Kendi verisine bakmak için
-     * yetki sorusu sorulmaz.
+     * Kendi okulundan kişiler. `kurumKodu` yoksa (mezun, paydaş) sorgu hiç
+     * açılmıyor: okulsuz kişinin "okulundaki herkes" kümesi boştur ve
+     * `kurumKodu: null` ile sorulsaydı bütün okulsuz kullanıcılar birbirinin
+     * okul arkadaşı sayılırdı.
      */
-    prisma.baglantiIstegi.findMany({
-      where: {
-        isteyenKullaniciId: kullanici.id,
-        onayDurumu: { in: ["BEKLIYOR", "REDDEDILDI"] },
-      },
-      orderBy: [{ onayDurumu: "asc" }, { olusturmaTarihi: "desc" }],
-      take: 50,
-      select: {
-        id: true,
-        onayDurumu: true,
-        retGerekcesi: true,
-        kararTarihi: true,
-        olusturmaTarihi: true,
-        talep: { select: { baslik: true } },
-        hedef: {
-          select: {
-            ad: true,
-            soyad: true,
-            sinif: true,
-            brans: true,
-            kurum: { select: { ad: true } },
+    kullanici.kurumKodu === null
+      ? Promise.resolve([])
+      : prisma.kullanici.findMany({
+          where: {
+            AND: [
+              { aktif: true, kurumKodu: kullanici.kurumKodu },
+              { id: { not: kullanici.id } },
+              aramaKosulu,
+            ],
           },
-        },
+          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+          take: KISI_SINIRI,
+          select: kisiSecimi,
+        }),
+    /*
+     * Okul temsilcileri — ülke genelinde ve YÜRÜRLÜKTEKİ DÖNEMDE görevli
+     * olanlar. Geçen yılın temsilcisi bugün o görevde değil; listeye girmesi
+     * "bana ulaşabilirsin" demek olurdu.
+     */
+    prisma.kullanici.findMany({
+      where: {
+        AND: [
+          { aktif: true },
+          { id: { not: kullanici.id } },
+          {
+            gorevRolleri: {
+              some: {
+                rolKodu: "OKUL_TEMSILCISI",
+                egitimOgretimYili: kullanici.egitimOgretimYili,
+              },
+            },
+          },
+          aramaKosulu,
+        ],
       },
+      orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+      take: KISI_SINIRI,
+      select: kisiSecimi,
     }),
   ]);
-
-  // Erişim loglaması eski onay ekranından aynen taşındı: bekleyen isteklerin
-  // listesini görmek de bir profil görüntülemesidir ve iz bırakır.
-  if (istekler.length > 0) {
-    await erisimLoglaCoklu(
-      istekler.map((istek) => ({
-        kullaniciId: kullanici.id,
-        islem: "GORUNTULEME" as const,
-        hedefTip: "PROFIL" as const,
-        hedefId: istek.id,
-        detay: "Bağlantı isteği listesi görüntülendi",
-      })),
-    );
-  }
-
-  const bekleyenler = istekler.filter((i) => i.onayDurumu === "BEKLIYOR");
-  const gecmis = istekler.filter((i) => i.onayDurumu !== "BEKLIYOR");
-
-  const yanitBekleyenlerim = gonderdiklerim.filter(
-    (i) => i.onayDurumu === "BEKLIYOR",
-  );
 
   /*
    * Satırlar önce ZENGİNLEŞTİRİLİR, sonra süzülür. Süzgeç şeridi "0 sonuç"
@@ -360,12 +333,8 @@ export default async function BaglantilarimSayfasi({
    */
   const suzgecGoster = benimSayisi > 0 && gozetimSayisi > 0;
 
-  const ozet = [
-    `${satirlar.length} bağlantı`,
-    bekleyenler.length > 0 ? `${bekleyenler.length} istek karar bekliyor` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  // Bekleyen istek sayısı kalktı (21 Ağustos 2026): bağlantı isteği akışı yok.
+  const ozet = `${satirlar.length} bağlantı`;
 
   return (
     <div className="space-y-6">
@@ -376,113 +345,127 @@ export default async function BaglantilarimSayfasi({
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
-      <BilgiKutusu cesit="uyari">{GIZLILIK_UYARISI}</BilgiKutusu>
+      {/*
+        GİZLİLİK UYARISI KUTUSU KALKTI (21 Ağustos 2026 · istek: "Bu sistemdeki
+        yazışmalar gizli değildir … bu yazı kalkacak"). Kural değişmedi —
+        yazışmaları yetkililer okuyabiliyor ve cümle `lib/iletisim/kurallar.ts`
+        içinde duruyor; kalkan, her açılışta sayfanın tepesini kaplayan sarı
+        kutuydu.
+      */}
 
       {/*
-        DAVETLER ÜSTTE, BAĞLANTILAR ALTTA — LinkedIn "Ağım" sırası. Bekleyen
-        istek yoksa kart HİÇ BASILMAZ: karar bekleyen bir iş yokken sayfanın
-        tepesini "Bekleyen istek yok" cümlesine ayırmak, asıl içeriği (bağlantı
-        listesini) aşağı itmekten başka bir işe yaramıyor. Karara bağlananlar
-        aşağıdaki katlanabilir kartta duruyor, geçmiş kaybolmuyor.
+        DOĞRUDAN YAZIŞMA KARTI (21 Ağustos 2026 · istek: "kendi okulundaki
+        herkesi görecek mesaj atacak, okul temsilcilerinin hepsini görecek
+        mesaj atabilecek").
+
+        DAVETLERİN ÜSTÜNDE değil ALTINDA olmalıydı ama kart burada duruyor
+        çünkü davetler yalnızca karar verecek kişide basılıyor; sıradan
+        kullanıcının ekranında bu kart en üstteki iştir.
+
+        "Mesaj gönder" düğmesi bir FORM: sunucu eylemi kuralı yeniden soruyor
+        ve yazışmayı açıp doğrudan konuşmaya götürüyor. Bağlantı isteği kutusu
+        burada YOK — bu iki küme için onay kapısı zaten kapalı değil.
       */}
-      {bekleyenler.length > 0 && (
-        <Kart id="istekler">
-          <div className="mb-1 flex items-center gap-2">
-            <Handshake size={18} className="text-vurgu-metin" />
-            <h2 className="text-lg font-semibold text-baslik">Davetler</h2>
-            <span className="rounded-full bg-vurgu-zemin px-2 py-0.5 text-sm font-semibold text-vurgu-metin">
-              {bekleyenler.length}
-            </span>
-          </div>
-          <p className="mb-2 text-sm text-metin-yumusak">
-            Onaylanana kadar taraflar birbirine ulaşamaz; hedef kişi istekten
-            haberdar değildir.
-          </p>
+      {/*
+        İKİ KATEGORİ, İKİ KART (21 Ağustos 2026 · istek: "bağlantılarımda
+        okulumdan ve okul temsilcilerini ayır alt alta farklı kartlara gelsin bu
+        kategoriler").
 
-          <ul className="-mx-6 divide-y divide-cizgi border-t border-cizgi">
-            {bekleyenler.map((istek) => (
-              <li key={istek.id} className="px-6 py-5">
-                <form
-                  action={baglantiKarariEylemi}
-                  className="flex flex-wrap items-start gap-4"
-                >
-                  <input type="hidden" name="istekId" value={istek.id} />
+        Önce tek kartın içinde iki sütundu; yan yana duran iki liste, dar
+        ekranda alt alta kayınca hangisinin hangi başlığa ait olduğu
+        kayboluyordu. Şimdi her kategori kendi kartında, alt alta.
 
-                  <BasHarfCemberi
-                    ad={istek.isteyen.ad}
-                    soyad={istek.isteyen.soyad}
-                  />
+        ARAMA KUTUSU İKİSİNİ BİRDEN SÜZÜYOR ve bu yüzden kartların ÜSTÜNDE:
+        her karta ayrı kutu koymak, aynı adı iki kez aratmak demekti.
+      */}
+      <Kart>
+        <KartBasligi
+          baslik="Kişi ara"
+          aciklama="Okulunuzdaki kişiler ve okul temsilcileri arasında arayın. Bu kişilerle onay beklemeden yazışabilirsiniz; yazışmalarınızı danışman öğretmeniniz, il koordinatörünüz ve proje yöneticileri okuyabilir."
+          Ikon={Users}
+        />
+        {/* Arama JAVASCRIPT'SİZ: GET formu aynı sayfayı yeniden bastırıyor. */}
+        <form method="get" className="flex flex-wrap items-end gap-2">
+          {/* Açık süzgeç sekmesi kaybolmasın diye adresle birlikte taşınıyor. */}
+          {suzgec && <input type="hidden" name="suzgec" value={suzgec} />}
+          <label className="block grow">
+            <span className="sr-only">Kişi ara</span>
+            <input
+              type="search"
+              name="kisi"
+              defaultValue={kisiAramasi}
+              placeholder="Ad ya da soyad"
+              className={SINIF_GIRDI}
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-kutu border border-cizgi-guclu bg-kart px-4 py-2.5 text-sm font-medium text-metin transition hover:border-vurgu"
+          >
+            Ara
+          </button>
+        </form>
+      </Kart>
 
-                  <div className="min-w-0 grow basis-64">
-                    <p className="text-base font-semibold text-baslik">
-                      {istek.isteyen.ad} {istek.isteyen.soyad}
-                      <span className="mx-2 font-normal text-metin-yumusak">
-                        →
-                      </span>
-                      {istek.hedef.ad} {istek.hedef.soyad}
-                    </p>
-                    <p className="mt-0.5 text-sm text-metin">
-                      {altBasligiYaz([
-                        istek.isteyen.sinif,
-                        istek.isteyen.kurum?.ad ?? "—",
-                      ])}
-                      {" → "}
-                      {istek.hedef.kurum?.ad ?? istek.hedef.il?.ad ?? "—"}
-                    </p>
-                    <p className="mt-0.5 text-xs text-metin-yumusak">
-                      {istek.talep && `${istek.talep.baslik} · `}
-                      {tarihSaatYaz(istek.olusturmaTarihi)}
-                    </p>
+      <Kart id="okulumdan">
+        <KartBasligi
+          baslik="Okulumdan"
+          aciklama="Kendi okulunuzdaki kayıtlı kullanıcılar."
+          Ikon={School}
+        />
+        <KisiListesi
+          bosMesaji={
+            kullanici.kurumKodu === null
+              ? "Kayıtlı bir okulunuz yok."
+              : kisiAramasi
+                ? "Aramanıza uyan kişi yok."
+                : "Okulunuzda başka kayıtlı kullanıcı yok."
+          }
+          kisiler={okuldakiler}
+          siniri={KISI_SINIRI}
+        />
+      </Kart>
 
-                    <p className="mt-3 border-l-2 border-cizgi pl-3 text-sm text-metin italic">
-                      {istek.mesaj}
-                    </p>
+      <Kart id="temsilciler">
+        <KartBasligi
+          baslik="Okul temsilcileri"
+          aciklama="Bu dönem görevli okul temsilcileri — okulunuz fark etmeksizin yazışabilirsiniz."
+          Ikon={BadgeCheck}
+        />
+        <KisiListesi
+          bosMesaji={
+            kisiAramasi
+              ? "Aramanıza uyan temsilci yok."
+              : "Bu dönem atanmış okul temsilcisi yok."
+          }
+          kisiler={temsilciler}
+          siniri={KISI_SINIRI}
+        />
+      </Kart>
 
-                    {/*
-                      Gerekçe artık satırın ÖNÜNÜ KAPATMIYOR. Eskiden formun
-                      ilk öğesiydi ve daveti bir evrak gibi gösteriyordu; oysa
-                      yalnızca redde zorunlu. Düğmeler sağda, alan altta.
-                    */}
-                    <label className="mt-3 block max-w-md">
-                      <span className="text-xs font-medium text-metin-yumusak">
-                        Gerekçe (redde zorunlu)
-                      </span>
-                      <input
-                        type="text"
-                        name="gerekce"
-                        maxLength={500}
-                        className={SINIF_GIRDI}
-                      />
-                    </label>
-                  </div>
+      {/*
+        BAĞLANTI İSTEĞİ AKIŞI TAMAMEN KALKTI (21 Ağustos 2026 · istek:
+        "bağlantılarımdan normal mesaj göndermeyi tamamen kaldır").
 
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      type="submit"
-                      name="karar"
-                      value="reddet"
-                      className={SINIF_HAP_HATA}
-                    >
-                      <X size={15} aria-hidden />
-                      Reddet
-                    </button>
-                    <button
-                      type="submit"
-                      name="karar"
-                      value="onayla"
-                      className={SINIF_HAP_OLUMLU}
-                    >
-                      <Check size={15} aria-hidden />
-                      Onayla
-                    </button>
-                  </div>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </Kart>
-      )}
+        Kalkanlar: Davetler (onay kuyruğu), "Gönderdiğim istekler", karara
+        bağlananlar arşivi ve panodan istek gönderme kutusu. Yerine geçen tek
+        yol, üstteki doğrudan mesaj kartı — okul içi ve okul temsilcileri.
 
+        VERİ SİLİNMEDİ: `baglanti_istegi` tablosu ve daha önce açılmış
+        yazışmalar duruyor; aşağıdaki liste onları göstermeye devam ediyor.
+      */}
+
+      {/*
+        LİSTE YALNIZCA YAZIŞMA VARSA BASILIR (21 Ağustos 2026 · istek:
+        "bağlantılarım sayfasının en altından bunu kaldıralım: Bağlantılarım /
+        Görüntüleyebileceğiniz bağlantı yok").
+
+        Yazışması olmayan kişi için kart, boş bir başlık ve bir olumsuz
+        cümleden ibaretti; üstelik sayfanın asıl işi artık yukarıdaki iki
+        kartta — okuluyla ve okul temsilcileriyle yazışmayı oradan başlatıyor.
+        Yazışması olanda liste yerinde duruyor.
+      */}
+      {satirlar.length > 0 && (
       <Kart>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
@@ -527,7 +510,7 @@ export default async function BaglantilarimSayfasi({
         {gorunen.length === 0 ? (
           <p className="text-metin-yumusak">
             {satirlar.length === 0
-              ? "Görüntüleyebileceğiniz bağlantı yok. Panodaki bir ilandan ya da Akış'taki bir paylaşımdan bağlantı isteği gönderebilirsiniz."
+              ? "Görüntüleyebileceğiniz bağlantı yok."
               : "Bu süzgeçte bağlantı yok."}
           </p>
         ) : (
@@ -585,170 +568,84 @@ export default async function BaglantilarimSayfasi({
           </ul>
         )}
       </Kart>
+      )}
 
       {/*
-        GÖNDERDİĞİM İSTEKLER — isteği yapanın kendi takip ekranı.
-
-        Bekleyeni varsa AÇIK kart, yoksa (yalnızca ret geçmişi kaldıysa) katlı:
-        "isteğim ne oldu" sorusunun cevabı bekleyen varken günlük iş, ret
-        geçmişi ise arşivdir. Aynı ayrım Davetler kartında da var.
+        AKIŞ BÖLÜMÜ DE KALKTI (21 Ağustos 2026 · istek: "Akış · Kendini tanıt,
+        çalışmanı paylaş · 2 gönderi — akışı da kaldır"). Gönderi ve yorum
+        kayıtları tabloda duruyor; kalkan, onları basan bölüm.
       */}
-      {gonderdiklerim.length > 0 &&
-        (() => {
-          /*
-           * Yalnızca YATAY negatif boşluk: bu gövde hem `Kart` (p-6) hem
-           * `KatlanabilirKart` (px-6 py-5) içinde basılıyor, alt boşlukları
-           * farklı. Tek bir `-mb-*` ikisinde birden doğru duramazdı.
-           */
-          const govde = (
-            <ul className="-mx-6 divide-y divide-cizgi border-t border-cizgi">
-              {gonderdiklerim.map((istek) => {
-                const reddedildi = istek.onayDurumu === "REDDEDILDI";
-                return (
-                  <li
-                    key={istek.id}
-                    className="flex items-start gap-4 px-6 py-4"
-                  >
-                    <BasHarfCemberi
-                      ad={istek.hedef.ad}
-                      soyad={istek.hedef.soyad}
-                    />
-                    <div className="min-w-0 grow">
-                      <p className="text-base font-semibold text-baslik">
-                        {istek.hedef.ad} {istek.hedef.soyad}
-                      </p>
-                      <p className="truncate text-sm text-metin">
-                        {altBasligiYaz([
-                          istek.hedef.sinif ?? istek.hedef.brans,
-                          istek.hedef.kurum?.ad,
-                        ])}
-                      </p>
-                      <p className="mt-0.5 text-xs text-metin-yumusak">
-                        {istek.talep
-                          ? `${istek.talep.baslik} · `
-                          : "Akıştaki paylaşımı üzerinden · "}
-                        {tarihSaatYaz(istek.olusturmaTarihi)}
-                      </p>
 
-                      {/*
-                        RET GEREKÇESİ GÖSTERİLİR: kural gereği zorunlu tutuluyor
-                        (bkz. iletisim/kurallar.ts) ve zorunlu tutulmasının tek
-                        anlamı, öğrencinin onu OKUYABİLMESİ. Bugüne kadar
-                        yazılıyor ama hiçbir ekranda gösterilmiyordu.
-                      */}
-                      {reddedildi && istek.retGerekcesi && (
-                        <p className="mt-2 border-l-2 border-hata-cizgi pl-3 text-sm text-metin">
-                          <span className="font-medium">Gerekçe: </span>
-                          {istek.retGerekcesi}
-                        </p>
-                      )}
-                    </div>
+    </div>
+  );
+}
 
-                    <span
-                      className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${
-                        reddedildi
-                          ? "border-hata-cizgi bg-hata-zemin text-hata-metin"
-                          : "border-uyari-cizgi bg-uyari-zemin text-uyari-metin"
-                      }`}
-                    >
-                      {reddedildi ? "Reddedildi" : "Onay bekliyor"}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          );
-
-          const aciklama =
-            yanitBekleyenlerim.length > 0
-              ? `${yanitBekleyenlerim.length} isteğiniz danışman onayını bekliyor. Onaylanana kadar karşı tarafa iletilmez.`
-              : "Sonuçlanan istekleriniz ve ret gerekçeleri.";
-
-          return yanitBekleyenlerim.length > 0 ? (
-            <Kart id="gonderdiklerim">
-              <KartBasligi
-                baslik="Gönderdiğim istekler"
-                aciklama={aciklama}
-                Ikon={Send}
-              />
-              {govde}
-            </Kart>
-          ) : (
-            <KatlanabilirKart
-              baslik="Gönderdiğim istekler"
-              aciklama={aciklama}
-              Ikon={Send}
-              capa="gonderdiklerim"
+/**
+ * Doğrudan yazışılabilecek kişilerin listesi.
+ *
+ * Satır bir BAĞLANTI DEĞİL, bir düğme: kişinin profiline gitmiyor, yazışmayı
+ * açıyor. Profil bağlantısı da konabilirdi ama iki hedefli satır, dokunmatik
+ * ekranda hangisinin ne yaptığını belirsizleştiriyordu.
+ *
+ * Liste dolduğunda son satırda uyarı var: elli kişiden fazlası varsa kullanıcı
+ * "hepsi bu kadar" sanmamalı, aramayı daraltmalı.
+ */
+function KisiListesi({
+  kisiler,
+  bosMesaji,
+  siniri,
+}: {
+  kisiler: {
+    id: number;
+    ad: string;
+    soyad: string;
+    sinif: string | null;
+    brans: string | null;
+    kurum: { ad: string } | null;
+  }[];
+  bosMesaji: string;
+  siniri: number;
+}) {
+  return (
+    <div>
+      {kisiler.length === 0 ? (
+        <p className="text-sm text-metin-yumusak">{bosMesaji}</p>
+      ) : (
+        <ul className="divide-y divide-cizgi rounded-kart border border-cizgi">
+          {kisiler.map((kisi) => (
+            <li
+              key={kisi.id}
+              className="flex flex-wrap items-center gap-3 px-3 py-2.5"
             >
-              {govde}
-            </KatlanabilirKart>
-          );
-        })()}
-
-      {/*
-        AKIŞ (14 Ağustos 2026 · istek: "akış bağlantılarım içine gelecek").
-
-        YERİ BURASI: davetler ve bağlantı listesinden SONRA, arşivden ÖNCE.
-        Sayfanın üst yarısı "kiminle bağlıyım" sorusunu bitiriyor; akış ondan
-        sonra başlıyor ve kendi başlığı, kendi uyarısıyla ayrı bir alan olduğunu
-        söylüyor (yazışma özeldir, akış yayındır — bu ayrım sekme kalksa da
-        korunmak zorunda).
-
-        Bölüm KENDİ SORGULARINI yapıyor (bkz. AkisBolumu): sayfanın bağlantı
-        sorguları ile akışınkiler farklı tablolara bakıyor ve tek bir
-        Promise.all'a toplansalardı iki ekranın verisi birbirine düğümlenirdi.
-      */}
-      <AkisBolumu kullanici={kullanici} />
-
-      {/*
-        Karara bağlananlar KATLI GELİR: bu bir arşiv, günlük iş değil. Eski
-        onay ekranında açık duruyordu çünkü sayfada başka içerik yoktu; artık
-        bağlantı listesinin altında ve açık kalsaydı sayfayı tabloyla bitirirdi.
-      */}
-      {gecmis.length > 0 && (
-        <KatlanabilirKart
-          baslik="Karara bağlanan istekler"
-          aciklama={`${gecmis.length} istek sonuçlandı. Onaylananların yazışması yukarıdaki listede.`}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] text-left text-sm">
-              <thead className="border-b border-cizgi text-metin-yumusak">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Taraflar</th>
-                  <th className="px-3 py-2 font-medium">Karar</th>
-                  <th className="px-3 py-2 font-medium">Veren</th>
-                  <th className="px-3 py-2 font-medium">Tarih</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cizgi">
-                {gecmis.map((istek) => (
-                  <tr key={istek.id}>
-                    <td className="px-3 py-2 text-metin">
-                      {istek.isteyen.ad} {istek.isteyen.soyad} →{" "}
-                      {istek.hedef.ad} {istek.hedef.soyad}
-                    </td>
-                    <td className="px-3 py-2 text-metin">
-                      {ONAY_ETIKETLERI[istek.onayDurumu] ?? istek.onayDurumu}
-                      {istek.retGerekcesi && (
-                        <span className="block text-xs text-metin-yumusak">
-                          {istek.retGerekcesi}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-metin-yumusak">
-                      {istek.kararVeren
-                        ? `${istek.kararVeren.ad} ${istek.kararVeren.soyad}`
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-metin-yumusak">
-                      {istek.kararTarihi ? tarihSaatYaz(istek.kararTarihi) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </KatlanabilirKart>
+              <BasHarfCemberi ad={kisi.ad} soyad={kisi.soyad} />
+              <div className="min-w-0 grow">
+                <p className="truncate font-medium text-metin">
+                  {kisi.ad} {kisi.soyad}
+                </p>
+                <p className="truncate text-sm text-metin-yumusak">
+                  {[kisi.sinif ?? kisi.brans, kisi.kurum?.ad]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </p>
+              </div>
+              <form action={dogrudanYazismaAcEylemi}>
+                <input type="hidden" name="hedefId" value={kisi.id} />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-kutu border border-cizgi-guclu bg-kart px-3 py-1.5 text-sm font-medium text-metin transition hover:border-vurgu hover:bg-zemin"
+                >
+                  <Send size={14} aria-hidden />
+                  Mesaj gönder
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+      {kisiler.length === siniri && (
+        <p className="mt-2 text-xs text-metin-yumusak">
+          İlk {siniri} kişi listelendi; aramayı daraltın.
+        </p>
       )}
     </div>
   );
