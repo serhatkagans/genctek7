@@ -41,6 +41,14 @@ dist/
 # silmek de ayrı bir iştir.
 /manisa/
 
+# GÖREV KARTLARININ TASLAK GÖRSELLERİ (WhatsApp'tan gelen ekran görüntüleri).
+#
+# `manisa/` ile aynı gerekçe: depo GitHub'da HERKESE AÇIK ve bunlar tasarımın
+# konuşulduğu çalışma malzemesi, ürünün parçası değil. İstenen düzen zaten
+# koda ve karar yorumlarına geçti; görüntülerin depoda durmasının bir karşılığı
+# yok.
+/gorevlerim/
+
 *.log
 npm-debug.log*
 .DS_Store
