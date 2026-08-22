@@ -1,4 +1,5 @@
-import { BadgeCheck, Check, Plus, X } from "lucide-react";
+import { BadgeCheck, Check, Pencil, Plus, X } from "lucide-react";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   BilgiKutusu,
   Kart,
@@ -17,6 +18,7 @@ import { gencTekGoreviYonetebilirMi } from "@/lib/yetki/izinler";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
 import {
   gorevDurumEylemi,
+  gorevDuzenleEylemi,
   gorevEkleEylemi,
   gorevKararEylemi,
 } from "./eylemler";
@@ -29,6 +31,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "gorev-kapatildi":
     "Görev kapatıldı; panoda görünmüyor ve yeni başvuru kabul etmiyor.",
   "gorev-acildi": "Görev yeniden başvuruya açıldı.",
+  "gorev-duzenlendi": "Görev ilanı güncellendi.",
 };
 
 /**
@@ -93,9 +96,18 @@ export default async function GencTekGorevYonetimiSayfasi({
         aciklama: true,
         kontenjan: true,
         aktif: true,
+        /*
+         * İKİ SAYIM: "kaç kişi görevde" (onaylı) ile "kaç kişi başvurdu"
+         * (hepsi) farklı sorular. Excel bağlantısının yanındaki sayı dosyanın
+         * satır sayısıdır — onaylı sayısı yazılsaydı bağlantı, indirilen
+         * dosyadan az satır vadederdi.
+         */
         _count: {
-          select: { basvurular: { where: { onayDurumu: "ONAYLANDI" } } },
+          select: {
+            basvurular: { where: { onayDurumu: "ONAYLANDI" } },
+          },
         },
+        basvurular: { select: { id: true } },
       },
     }),
   ]);
@@ -222,6 +234,28 @@ export default async function GencTekGorevYonetimiSayfasi({
                     {gorev.kontenjan === null
                       ? `${gorev._count.basvurular} kişi görevde · kontenjan sınırsız`
                       : `${gorev._count.basvurular}/${gorev.kontenjan} kişi görevde`}
+                    {gorev.basvurular.length > gorev._count.basvurular &&
+                      ` · ${gorev.basvurular.length} başvuru`}
+                  </p>
+                  {/*
+                    LİSTE ÇIKTISI İLANIN YANINDA (22 Ağustos 2026 · istek: "her
+                    görev için excel listesi alınabilsin — kaç kişi, kimler
+                    doldurdu vs"). Ekran onayları görev görev değil kişi kişi
+                    gösteriyor; "bu ekipte kimler var" sorusunun cevabı ancak
+                    dosyada tek listede duruyor.
+
+                    BAŞVURUSU OLMAYAN İLANDA DA BASILIYOR: önce sıfır
+                    başvuruda gizleniyordu ("boş dosya kimsenin işine yaramaz")
+                    ama bağlantının gelip gitmesi, onu arayan kişiye özelliğin
+                    hiç olmadığını düşündürdü. Yanındaki sayı zaten dosyanın
+                    boş olduğunu söylüyor.
+                  */}
+                  <p className="mt-2">
+                    <DisaAktarmaBagi
+                      yol={`/panel/genctek-gorevleri/${gorev.id}/disa-aktar`}
+                      kayitSayisi={gorev.basvurular.length}
+                      etiket="Başvuru listesi"
+                    />
                   </p>
                 </div>
                 <form action={gorevDurumEylemi}>
@@ -231,6 +265,75 @@ export default async function GencTekGorevYonetimiSayfasi({
                   </button>
                 </form>
               </div>
+
+              {/*
+                DÜZENLEME KATLI GELİYOR (22 Ağustos 2026 · istek: "görev
+                ilanları düzenlenebilsin"). Beş ilanın beş formu birden açık
+                dursaydı liste, okunacak bir durum özeti olmaktan çıkıp beş
+                formluk bir sayfaya dönerdi — bu ekrandaki asıl iş kararlar,
+                düzenleme ara sıra yapılan bir düzeltme.
+
+                Alanlar MEVCUT DEĞERLERLE dolu: boş form, düzenlemeyi baştan
+                yazmaya çevirirdi.
+              */}
+              <details className="group mt-2">
+                <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-vurgu-metin">
+                  <Pencil size={14} aria-hidden />
+                  Düzenle
+                </summary>
+                <form
+                  action={gorevDuzenleEylemi}
+                  className="mt-3 space-y-3 rounded-kutu border border-cizgi p-4"
+                >
+                  <input type="hidden" name="gorevId" value={gorev.id} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-sm font-medium text-metin">
+                        Görev adı
+                      </span>
+                      <input
+                        type="text"
+                        name="ad"
+                        required
+                        maxLength={200}
+                        defaultValue={gorev.ad}
+                        className={SINIF_GIRDI}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-metin">
+                        Kontenjan{" "}
+                        <span className="text-metin-yumusak">
+                          (boş bırakılırsa sınırsız)
+                        </span>
+                      </span>
+                      <input
+                        type="number"
+                        name="kontenjan"
+                        min={1}
+                        defaultValue={gorev.kontenjan ?? ""}
+                        className={SINIF_GIRDI}
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="text-sm font-medium text-metin">
+                      Açıklama
+                    </span>
+                    <textarea
+                      name="aciklama"
+                      required
+                      rows={3}
+                      defaultValue={gorev.aciklama}
+                      className={SINIF_GIRDI}
+                    />
+                  </label>
+                  <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                    <Check size={15} aria-hidden />
+                    Kaydet
+                  </button>
+                </form>
+              </details>
             </li>
           ))}
         </ul>

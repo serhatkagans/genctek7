@@ -259,20 +259,27 @@ export function kazanimTipiTanimi(
 }
 
 /**
- * Artık GİRİLEMEYEN kazanım tipleri (7 Ağustos 2026).
+ * Artık GİRİLEMEYEN kazanım tipleri.
  *
- * GENCTEK_ETKINLIGI kapatıldı. Bu tip "sisteme girilmemiş eski GençTek
- * etkinliklerini elle beyan et" işini görüyordu; katılım artık ÜRETİLEN
- * BELGEDEN doğduğu için (bkz. lib/kazanim/katilim-kurallar.ts) beyanın
- * işlevi kalmadı. İki kaynak yan yana dursaydı aynı etkinlik profilde biri
- * doğrulanmış biri beyan olmak üzere iki kez görünebilirdi.
+ * DIGER KAPANDI (22 Ağustos 2026 · istek: "Deneyimlerim açılır menüde GençTek
+ * etkinliklerim, derecelerim, sertifikalarım ve GençTek dışı etkinlikler
+ * olacak — 4 madde"). Listede sayılan dördün arasında "Diğer etkinlikler" yok
+ * ve yerini GENCTEK_ETKINLIGI aldı. Tipi listede bırakıp beşinci sırada
+ * göstermek isteği karşılamazdı; silmek ise girilmiş kayıtları yok ederdi.
  *
- * TİP ENUM'DAN SİLİNMEDİ ve kayıtlar TEMİZLENMEDİ: bugüne kadar girilmiş
- * beyanlar kullanıcının verisidir, silme kararı ona ait. Kayıtlar Panelim'deki
- * düzenleme bölümünde görünmeye ve silinebilmeye devam eder; profilde
- * görünmezler.
+ * GENCTEK_ETKINLIGI YENİDEN AÇILDI (aynı istek). 7 Ağustos 2026'da
+ * kapatılmıştı: katılım artık üretilen belgeden doğuyor ve elle beyan, aynı
+ * etkinliği profilde biri doğrulanmış biri beyan olmak üzere iki kez
+ * gösterebiliyordu. O risk DURUYOR — beyan hâlâ doğrulanmıyor ve rozet
+ * hesabına girmiyor (bkz. lib/kazanim/rozetler.ts); tipin metni de yalnızca
+ * sisteme girilmemiş eski etkinlikler için kullanılmasını söylüyor.
+ *
+ * TİP ENUM'DAN SİLİNMEZ ve kayıtlar TEMİZLENMEZ: girilmiş kayıtlar
+ * kullanıcının verisidir, silme kararı ona ait. Kapatılan tipin kayıtları
+ * "Girdiğim kayıtlar" bölümünde görünmeye ve silinebilmeye devam eder;
+ * profildeki yolculuk bölümlerinde görünmezler.
  */
-export const ARSIVLENMIS_TIPLER: readonly KazanimTipi[] = ["GENCTEK_ETKINLIGI"];
+export const ARSIVLENMIS_TIPLER: readonly KazanimTipi[] = ["DIGER"];
 
 export function kazanimTipiArsivlenmisMi(tip: KazanimTipi): boolean {
   return ARSIVLENMIS_TIPLER.includes(tip);
@@ -326,7 +333,14 @@ export const BILISIM_YOLCULUGU_TIPLERI: readonly KazanimTipi[] = [
   // (istek: "Ayrıca 'Sertifikalarım' ve ... 'Topluluklarım' bölümü eklenecek").
   "SERTIFIKA",
   "TOPLULUK",
-  "DIGER",
+  /*
+   * GENCTEK_ETKINLIGI BURAYA DÜŞTÜ (22 Ağustos 2026): tip yeniden açıldı ve
+   * istekte Deneyimlerim'in ilk maddesi olarak sayıldı. Bölünmenin "nerede
+   * geçti" ölçütüne göre GençTek tarafına ait ama kaydın girildiği ve
+   * gösterildiği yer artık Deneyimlerim — iki liste ayrışsaydı kişi kaydı
+   * girer, profilinde hiçbir yerde göremezdi.
+   */
+  "GENCTEK_ETKINLIGI",
 ];
 
 /**
@@ -376,7 +390,17 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
     baslik: "Deneyimlerim",
     aciklama:
       "GençTek dışında katıldığın etkinlikler, aldığın dereceler ve ödüller, sertifika ve eğitimlerin.",
-    tipler: ["DIS_ETKINLIK", "YARISMA_DERECESI", "SERTIFIKA", "DIGER"],
+    /*
+     * SIRA İSTEKTEKİ SIRA (22 Ağustos 2026): "GençTek etkinliklerim,
+     * derecelerim, sertifikalarım ve GençTek dışı etkinlikler". Açılır listede
+     * ilk sırada duran, kişinin en sık gireceği türdür.
+     */
+    tipler: [
+      "GENCTEK_ETKINLIGI",
+      "YARISMA_DERECESI",
+      "SERTIFIKA",
+      "DIS_ETKINLIK",
+    ],
     /*
      * ÖĞRENCİYE ÖZEL (10 Ağustos 2026). Öğretmenin profilindeki bölümün adı
      * "Ürünlerim ve katkılarım" ve istek onu gerçekten ürünlere indirdi:
@@ -424,46 +448,49 @@ export function bilisimYolculuguGruplari(
 }
 
 /**
- * "GençTek Yolculuğum" da bir kayıt grubudur.
+ * Bir kayıt grubunun paneldeki çapası — `?bolum=` ve `#…` değeri.
  *
- * 21 AĞUSTOS 2026 · istek: "ürünlerim altında kendi formu, deneyimlerim
- * altında kendi formu, gençtek yolculuğum altında kendi formu olacak; bu üç
- * başlık için ortak form olmasın." Ekleme ekranı artık grupları dolaşıp her
- * birine kendi formunu basıyor ve GençTek bloğu elle kurulmuş bir istisna
- * olarak kalsaydı, öbürlerine eklenen her alan onda eksik kalırdı.
- *
- * TİPLER AYNI KAYNAKTAN: `GENCTEK_YOLCULUGU_TIPLERI`. Bugün elle girilebilen
- * tek tip akran eğitimi — temsilcilikler atamayla, katılım belgeyle düşer ve
- * ikisi de forma girilmez; arşivlenmişler `kayitEklemeGruplari` içinde elenir.
+ * Grup kodundan TÜRETİLİYOR, elle yazılmıyor: çapa üç yerde geçiyor (bölümün
+ * `id`si, eylemlerin dönüş adresi, tür seçicinin yönlendirmesi) ve üçü
+ * ayrışırsa kişi kaydı girer, dönüşte kapalı bir sayfanın tepesine düşer.
  */
-export const GENCTEK_YOLCULUGU_GRUBU: KazanimGrubu = {
-  kod: "GENCTEK_YOLCULUGUM",
-  baslik: "GençTek Yolculuğum",
-  aciklama:
-    "GençTek içinde yaptığın işler. Yukarıdakiler senin GençTek dışında ürettiklerin; buradaki kayıt GençTek'in kendi programında yaptığın iştir.",
-  tipler: GENCTEK_YOLCULUGU_TIPLERI,
-};
+export function kazanimGrupCapasi(kod: string): string {
+  return kod.toLowerCase();
+}
+
+/**
+ * Bir kazanım tipinin ait olduğu bölümün çapası; bölümü yoksa `null`.
+ *
+ * Arşivlenmiş tipin bölümü yoktur — o kayıtlara yalnızca "Girdiğim kayıtlar"
+ * bölümünden erişilir.
+ */
+export function kazanimTipininCapasi(tip: KazanimTipi): string | null {
+  const grup = BILISIM_YOLCULUGU_GRUPLARI.find((aday) =>
+    aday.tipler.includes(tip),
+  );
+  return grup ? kazanimGrupCapasi(grup.kod) : null;
+}
 
 /**
  * Kayıt ekleme ekranının bölümleri — her biri kendi formunu basar.
  *
- * Sıra ekrandaki sırayla aynıdır: önce Bilişim Yolculuğum grupları, en sonda
- * GençTek Yolculuğum. Tanımı boş kalan grup (hepsi arşivlenmişse ya da o
- * sahipte görünmüyorsa) hiç basılmaz.
+ * "GENÇTEK YOLCULUĞUM" BÖLÜMÜ KALKTI (22 Ağustos 2026 · istek: "bu 4 maddenin
+ * sonuncusunu kaldırıyoruz, yani GençTek Yolculuğum'u"). Bölüm bugün yalnızca
+ * akran eğitimi girişini taşıyordu; GençTek tarafındaki kayıtların gerisi
+ * (temsilcilik, katılım, organizasyon) zaten sistemin kendi verisinden düşüyor
+ * ve elle girilmiyordu. Tek türlük bir bölüm, üç bölümlük bir listenin altında
+ * dördüncü bir form açıyordu.
+ *
+ * AKRAN_EGITIMI TİPİ KAPATILMADI: girilmiş kayıtlar profilde ve "Girdiğim
+ * kayıtlar" bölümünde duruyor, yalnızca YENİ kayıt formu yok.
+ *
+ * Geriye kalan liste Bilişim Yolculuğum gruplarıdır; tanımı boş kalan grup
+ * (hepsi arşivlenmişse ya da o sahipte görünmüyorsa) hiç basılmaz.
  */
 export function kayitEklemeGruplari(
   sahip: KazanimSahibi = "OGRENCI",
 ): { grup: KazanimGrubu; tanimlar: KazanimTipiTanimi[] }[] {
-  const gencTek = {
-    grup: GENCTEK_YOLCULUGU_GRUBU,
-    tanimlar: GENCTEK_YOLCULUGU_GRUBU.tipler
-      .filter((tip) => !kazanimTipiArsivlenmisMi(tip))
-      .map((tip) => kazanimTipiTanimi(tip, sahip)),
-  };
-
-  return [...bilisimYolculuguGruplari(sahip), gencTek].filter(
-    (bolum) => bolum.tanimlar.length > 0,
-  );
+  return bilisimYolculuguGruplari(sahip);
 }
 
 /**

@@ -139,9 +139,15 @@ describe("bilişim yolculuğu grupları", () => {
     const deneyimler = BILISIM_YOLCULUGU_GRUPLARI.find(
       (grup) => grup.kod === "DENEYIMLERIM",
     );
+    /*
+     * 22 AĞUSTOS 2026 · istek: "Deneyimlerim açılır menüde GençTek
+     * etkinliklerim, derecelerim, sertifikalarım ve GençTek dışı etkinlikler
+     * olacak — 4 madde". Dört kaldı ama biri değişti: DIGER kapandı, yerine
+     * GENCTEK_ETKINLIGI açıldı.
+     */
     expect([...(deneyimler?.tipler ?? [])].sort()).toEqual([
-      "DIGER",
       "DIS_ETKINLIK",
+      "GENCTEK_ETKINLIGI",
       "SERTIFIKA",
       "YARISMA_DERECESI",
     ]);
@@ -151,7 +157,7 @@ describe("bilişim yolculuğu grupları", () => {
     const tipler = bilisimYolculuguGruplari().flatMap((bolum) =>
       bolum.tanimlar.map((tanim) => tanim.tip),
     );
-    expect(tipler).not.toContain("GENCTEK_ETKINLIGI");
+    expect(tipler).not.toContain("DIGER");
   });
 
   /*
@@ -187,15 +193,15 @@ describe("bilişim yolculuğu grupları", () => {
  * kabul etmiyor ve sekme listesinden düşüyor.
  */
 describe("arşivlenmiş kazanım tipleri", () => {
-  it("GençTek etkinliği beyanını arşivlemiş sayar", () => {
-    expect(kazanimTipiArsivlenmisMi("GENCTEK_ETKINLIGI")).toBe(true);
+  it("\"Diğer\" kaydını arşivlenmiş sayar", () => {
+    expect(kazanimTipiArsivlenmisMi("DIGER")).toBe(true);
     expect(kazanimTipiArsivlenmisMi("SERTIFIKA")).toBe(false);
+    // 22 Ağustos 2026'da yeniden açıldı; kapalı olmadığı da sabitleniyor.
+    expect(kazanimTipiArsivlenmisMi("GENCTEK_ETKINLIGI")).toBe(false);
   });
 
   it("sekme listesinde arşivlenmiş tipi göstermez", () => {
-    expect(kazanimTipleri().map((tanim) => tanim.tip)).not.toContain(
-      "GENCTEK_ETKINLIGI",
-    );
+    expect(kazanimTipleri().map((tanim) => tanim.tip)).not.toContain("DIGER");
   });
 
   it("eski kayıtları yönetebilmek için arşiv dahil listeyi verebilir", () => {

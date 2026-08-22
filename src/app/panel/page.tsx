@@ -4,7 +4,6 @@ import {
   Award,
   BadgeCheck,
   BarChart3,
-  BellRing,
   Camera,
   CircleAlert,
   CalendarClock,
@@ -55,10 +54,11 @@ import {
   DestekGruplariDuzenleme,
   FotografDuzenleme,
   IletisimDuzenleme,
+  KayitEklemeFormu,
+  KayitYonetimi,
   ProfilFotografi,
 } from "@/components/ProfilDuzenleme";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { bildirimBaglantisi } from "@/lib/bildirim/hedef";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
 import {
@@ -68,7 +68,20 @@ import {
   profilFotoYukleEylemi,
   profilGuncelleEylemi,
 } from "./profil/eylemler";
-import { cvSilEylemi, cvYukleEylemi } from "./profil/kazanim-eylemleri";
+import {
+  cvSilEylemi,
+  cvYukleEylemi,
+  kazanimBelgeEkleEylemi,
+  kazanimBelgeSilEylemi,
+  kazanimEkleEylemi,
+  kazanimSilEylemi,
+} from "./profil/kazanim-eylemleri";
+import { kazanimEkSinirlariniGetir } from "@/lib/kazanim/ek";
+import {
+  kayitEklemeGruplari,
+  kazanimGrupCapasi,
+  kazanimTipiGecerliMi,
+} from "@/lib/kazanim/kurallar";
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import {
   MENTORLUK_DURUM_ETIKETLERI,
@@ -121,8 +134,6 @@ import {
   ogretmenKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
 import {
-  bildirimOkunduEylemi,
-  tumBildirimleriOkuEylemi,
   yegitekSorumlusuIsaretiEylemi,
 } from "./eylemler";
 import { danismanlikIsaretiEylemi } from "./ogrenciler/eylemler";
@@ -305,32 +316,30 @@ export default async function PanelSayfasi({
     hata?: string;
     durum?: string;
     bolum?: string;
+    /*
+     * Kayıt formunun türü (22 Ağustos 2026): çok tipli grupta (Deneyimlerim)
+     * seçilen tür adreste taşınıyor — sayfada JavaScript yok ve form o türe
+     * göre sunucuda basılmak zorunda.
+     */
+    tur?: string;
   }>;
 }) {
   const {
     hata: seciimHatasi,
     durum: secimDurumu,
     bolum: acilacakBolum,
+    tur: istenenTur,
   } = await searchParams;
   const kullanici = await oturumKullanicisiZorunlu();
 
-  const bildirimler = await prisma.bildirim.findMany({
-    where: { kullaniciId: kullanici.id, okunduMu: false },
-    orderBy: { olusturmaTarihi: "desc" },
-    take: 5,
-  });
-
   /*
-   * Okunmamışın TAMAMI. Liste `take: 5` olduğu için tek başına sayı vermiyor;
-   * sarı şerit "10 okunmamış" diyebilsin diye ayrıca sayılıyor. Sorgu
-   * `bildirim(kullanici_id, okundu_mu)` dizinine oturuyor.
+   * Yalnızca SAYI çekiliyor: bildirim listesi bu ekrandan kalktığı için
+   * (bkz. aşağıdaki "BİLDİRİMLER BÖLÜMÜ KALKTI" notu) satırların kendisine
+   * ihtiyaç yok. Sorgu `bildirim(kullanici_id, okundu_mu)` dizinine oturuyor.
    */
-  const okunmamisMesajSayisi =
-    bildirimler.length < 5
-      ? bildirimler.length
-      : await prisma.bildirim.count({
-          where: { kullaniciId: kullanici.id, okunduMu: false },
-        });
+  const okunmamisMesajSayisi = await prisma.bildirim.count({
+    where: { kullaniciId: kullanici.id, okunduMu: false },
+  });
 
   const kapsamdakiOgrenciSayisi = await prisma.kullanici.count({
     where: ogrenciKapsamFiltresi(kullanici),
@@ -371,7 +380,13 @@ export default async function PanelSayfasi({
    * ama veri yine de sunucuda hazırlanmak zorunda: sayfada JavaScript yok ve
    * `<details>` açıldığında sunucuya gidilmiyor.
    */
-  const [profilKaydi, fotoSinirlari, cvSinirlari] = await Promise.all([
+  const [
+    profilKaydi,
+    fotoSinirlari,
+    cvSinirlari,
+    belgeSinirlari,
+    kayitProgramlari,
+  ] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({
       where: { id: kullanici.id },
       select: {
@@ -472,7 +487,43 @@ export default async function PanelSayfasi({
      * kalksın"): bölüm Panelim'den kalktı, veri de onunla birlikte. Hedefler
      * profil ekranında okunmaya devam ediyor.
      */
+    /*
+     * KAYIT BÖLÜMLERİ İÇİN (22 Ağustos 2026 · istek: "diğerlerini direk panele
+     * alt alta alıyoruz açılır şekilde"). Destekleyici belge sınırları etkinlik
+     * ekleriyle ORTAK (lib/kazanim/ek.ts); kayıt formundaki "GençTek etkinliği"
+     * listesi faaliyet formununkiyle aynı kaynaktan gelir — pasife alınmışlar
+     * teklif edilmez, geçmiş kayıtların bağlantısı korunur.
+     */
+    kazanimEkSinirlariniGetir(),
+    prisma.temelEtkinlikProgrami.findMany({
+      where: { aktif: true },
+      orderBy: [{ grup: "asc" }, { siraNo: "asc" }],
+      select: { id: true, ad: true, grup: true },
+    }),
   ]);
+
+  /*
+   * KAYIT BÖLÜMLERİ (22 Ağustos 2026 · istek: "paneldeki Bilişim Yolculuğum
+   * kartı kalkacak, içindekiler panelin altına sırayla ayrı gruplara açılır
+   * gelecek: Ürünlerim, Deneyimlerim, Topluluklarım / Ekiplerim").
+   *
+   * Bölümler 21 Ağustos'ta panelden çıkıp kendi sayfasına taşınmıştı; kart da
+   * o sayfaya götürüyordu. Şimdi kart kalktı ve formlar panelin altındaki
+   * katlanır kutulara döndü — kayıt girmek panelden ayrılmayı gerektirmiyor.
+   *
+   * ADRESTEKİ TÜR YALNIZCA KENDİ BÖLÜMÜNÜ İLGİLENDİRİR: `?tur=` çok tipli tek
+   * gruptan (Deneyimlerim) gelir. Öbür bölümler kendi ilk türünde kalır —
+   * bir bölümdeki seçimin yandaki bölümün formunu değiştirmesi, ortak formdan
+   * kalma bir davranıştı.
+   */
+  const kazanimSahibi = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
+  const kayitGruplari = kayitEklemeGruplari(kazanimSahibi);
+  const seciliKayitTuru =
+    istenenTur && kazanimTipiGecerliMi(istenenTur) ? istenenTur : null;
+  const izinliBelgeTipleri = [
+    ...belgeSinirlari.izinliGorselTipleri,
+    ...belgeSinirlari.izinliBelgeTipleri,
+  ];
 
   /*
    * MENTÖRLÜK (7 Ağustos 2026). Öğrenciye sorulmaz — mentörlük 18 yaş altı bir
@@ -624,6 +675,18 @@ export default async function PanelSayfasi({
   const okulBilgisiVar = profilKaydi.kurumKodu !== null;
 
   /*
+   * Kimlik kartı kapalı dururken başlığın altında görünen üç değer: kişinin
+   * sistemdeki görevi, içinde bulunduğu yıl ve bağlı olduğu yer. Adı soyadı
+   * ÖZETE GİRMİYOR — sayfanın en üstündeki karşılamada zaten yazıyor ve iki
+   * satır arayla tekrar etmesi bilgi eklemiyordu.
+   */
+  const kimlikOzeti = [
+    kullaniciRolEtiketi(kullanici),
+    kullanici.egitimOgretimYili,
+    profilKaydi.kurum?.ad ?? profilKaydi.il?.ad ?? null,
+  ].filter(Boolean) as string[];
+
+  /*
    * KAPALI BÖLÜMLERİN ÖZETLERİ (21 Ağustos 2026 · istek: "İletişim bilgilerim,
    * Kayıtlarım, Özgeçmişim (CV) bunların da özetleri görülsün doldurunca
    * mutlaka").
@@ -637,12 +700,28 @@ export default async function PanelSayfasi({
   const kendiProfilim = ogrenci
     ? profilKaydi.ogrenciProfil
     : profilKaydi.ogretmenProfil;
+  /*
+   * ROLE GÖRE ELEME YOK (22 Ağustos 2026 · istek: "eklenenler gözükmüyor,
+   * eğer veri varsa gösterilir olsun tüm kullanıcı düzeylerinde"): özet artık
+   * "bu rol bu alanı düzenleyebilir mi" diye sormuyor, "bu alan dolu mu" diye
+   * soruyor. Eski hâlinde kurum/görev yalnızca dış kullanıcıda basılıyordu ve
+   * bağlantılar hiç basılmıyordu — girilen veri ekranda karşılığı olmayan bir
+   * yere düşüyordu. Doldurulmamış alan yine hiçbir şey yazmaz.
+   */
+  /*
+   * Adresler protokolsüz basılıyor: "https://" özet satırında bilgi taşımıyor,
+   * yalnızca yan yana duran değerlerin arasını uzatıyor.
+   */
+  const adresiKisalt = (adres: string | null | undefined) =>
+    adres ? adres.replace(/^https?:\/\//i, "").replace(/\/$/, "") : null;
   const iletisimOzeti = [
     kendiProfilim?.eposta,
     kendiProfilim?.telefon,
-    // Kurum ve görev yalnızca dış kullanıcıda düzenleniyor; özet de onu izler.
-    disKullanici ? kurumAdi : null,
-    disKullanici ? gorevUnvani : null,
+    kurumAdi,
+    gorevUnvani,
+    adresiKisalt(kendiProfilim?.githubUrl),
+    adresiKisalt(kendiProfilim?.linkedinUrl),
+    adresiKisalt(kendiProfilim?.kisiselSiteUrl),
   ].filter(Boolean) as string[];
   const cvOzeti = kendiProfilim?.cvDosyaAdi ?? null;
   const cvTarihi = kendiProfilim?.cvYuklenmeTarihi ?? null;
@@ -879,10 +958,21 @@ export default async function PanelSayfasi({
    * görev verilmiş" sorusunun yarısı ve kart tek sayı gösteriyor. Öğretmende
    * karşılığı görev geçmişi ile düzenlediği etkinliklerdir.
    */
-  const gorevSayisi = katki
-    ? katki.gorevler.length + katki.faaliyetler.length
-    : (ogretmenKatkiSayilari?.gorev ?? 0) +
-      (ogretmenKatkiSayilari?.faaliyet ?? 0);
+  /*
+   * GENÇTEK GÖREVLERİ DE SAYIYA GİRİYOR (22 Ağustos 2026): Görevlerim ekranı
+   * artık merkezin açtığı ekiplerden alınan görevleri de listeliyor. Kart o
+   * ekranın sayısını söylüyor — ikisi ayrışsaydı kartta "2" yazarken sayfada
+   * üç görev durabilirdi. Yalnızca ONAYLANMIŞ olanlar: bekleyen başvuru henüz
+   * görev değil.
+   */
+  const gencTekGorevSayisi = await prisma.gencTekGorevBasvurusu.count({
+    where: { kullaniciId: kullanici.id, onayDurumu: "ONAYLANDI" },
+  });
+  const gorevSayisi =
+    (katki
+      ? katki.gorevler.length + katki.faaliyetler.length
+      : (ogretmenKatkiSayilari?.gorev ?? 0) +
+        (ogretmenKatkiSayilari?.faaliyet ?? 0)) + gencTekGorevSayisi;
 
   /*
    * Kartın gösterdiği seviye, sayfadakiyle AYNI hesaptan geliyor
@@ -934,12 +1024,13 @@ export default async function PanelSayfasi({
                 </span>
               )}
             </Link>
-            <Link
-              href="/panel/talepler"
-              className={SINIF_VITRIN_IKINCIL_BUTON}
-            >
-              Panoya git
-            </Link>
+            {/*
+              "PANOYA GİT" DÜĞMESİ KALKTI (22 Ağustos 2026 · istek: "panelde
+              banner üzerindeki panoya git butonu kalksın"). Pano kenar
+              çubuğunda kendi sekmesiyle duruyor; vitrindeki ikinci kapı,
+              yanındaki mesaj düğmesinin yerini daraltmaktan başka bir iş
+              görmüyordu.
+            */}
             {/*
               OKUNMAMIŞ MESAJ DÜĞMESİ (21 Ağustos 2026 · istek: "okunmamış
               mesajlar kayıyor onu üste al · Etkinlikler, Panoya git bunların
@@ -948,19 +1039,31 @@ export default async function PanelSayfasi({
 
               Aynı bilgiyi taşıyan sarı akan şerit KALKTI: akan metnin
               üzerine tıklamak zordu ve sayı, akışın solunda parantez içinde
-              kalıyordu. Düğme sabit duruyor, sayıyı doğrudan söylüyor ve
-              sayfanın altındaki Bildirimler bölümüne iniyor — mesajların
-              metni orada, ayrı bir ekran açmaya gerek yok.
+              kalıyordu. Düğme sabit duruyor ve sayıyı doğrudan söylüyor.
 
-              Sayı sıfırken hiç basılmıyor: "0 okunmamış mesajın var" diyen
-              bir düğme, tıklanacak bir şey olmadığı hâlde göze çarpar.
+              HEDEF ARTIK BİLDİRİMLER EKRANI (22 Ağustos 2026 · istek: "panelde
+              en alttaki bildirimleri kaldıralım, tamamını başka sayfaya
+              taşıyıp, bannerdaki butona tıklayınca o sayfaya gitsin"). Önce
+              sayfanın altındaki `#bildirimler` bölümüne iniyordu; o bölüm
+              yalnızca son beş okunmamışı gösteriyordu ve artık yok.
+
+              SIFIRDA DÜĞME KAYBOLMUYOR, METNİ DEĞİŞİYOR (22 Ağustos 2026 ·
+              istek: "tüm mesajları okuduysa o buton kayboluyor; okuduysa tüm
+              mesajlara ya da bildirimlere git butonuna dönüşsün"). Önce sayı
+              sıfırken hiç basılmıyordu — gerekçesi "tıklanacak bir şey yok"tu,
+              oysa okunmuş bildirimler duruyor ve onlara gitmenin başka kapısı
+              yok. Düğmenin gidip gelmesi vitrindeki düğme sırasını da her
+              açılışta değiştiriyordu.
             */}
-            {okunmamisMesajSayisi > 0 && (
-              <Link href="#bildirimler" className={SINIF_VITRIN_IKINCIL_BUTON}>
-                <Mail size={16} aria-hidden />
-                {okunmamisMesajSayisi} okunmamış mesajın var
-              </Link>
-            )}
+            <Link
+              href={uygulamaYolu("/panel/bildirimler")}
+              className={SINIF_VITRIN_IKINCIL_BUTON}
+            >
+              <Mail size={16} aria-hidden />
+              {okunmamisMesajSayisi > 0
+                ? `${okunmamisMesajSayisi} okunmamış mesajın var`
+                : "Bildirimlere git"}
+            </Link>
           </>
         }
         /*
@@ -1088,21 +1191,6 @@ export default async function PanelSayfasi({
                   .join(" · ")}
               </p>
             )}
-            {/*
-              YAZILI İŞARET DE KALIYOR: örtü yalnızca imleçle görünüyor ve
-              dokunmatik ekranda hover yok — tıklanabilirliğin tek işareti örtü
-              olsaydı, telefondan bakan kullanıcı fotoğrafın bir düğme olduğunu
-              hiç fark etmezdi.
-
-              Bağlantı DEĞİL, düz metin: gidilecek bir yer yok, form
-              fotoğrafın kendisine tıklanınca hemen orada açılıyor.
-            */}
-            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-vitrin-metin-yumusak">
-              <Camera size={14} aria-hidden />
-              {fotoAdresi
-                ? "Fotoğrafa tıklayarak değiştirin"
-                : "Fotoğrafa tıklayarak ekleyin"}
-            </p>
           </>
         }
       />
@@ -1321,30 +1409,11 @@ export default async function PanelSayfasi({
           önce "burada bir şey var mı" sorusunu cevaplamak.
         */}
         <OlcumKarti
-          baslik={ogrenci ? "Bilişim Yolculuğum" : "Kayıtlarım"}
-          Ikon={Sparkles}
-          deger={String(profilKaydi.kazanimlar.length)}
-          yol="/panel/bilisim-yolculugum"
-        />
-        <OlcumKarti
           baslik="Görevlerim"
           Ikon={BadgeCheck}
           deger={String(gorevSayisi)}
           yol="/panel/gorevlerim"
         />
-        {/*
-          "KATKI NİŞANLARIM" KARTI "GENÇTEK YOLCULUĞUM" OLDU (21 Ağustos 2026 ·
-          istek). Kart artık nişan sayısını değil SEVİYEYİ gösteriyor: yolculuk
-          bir merdiven ve kişinin ilk sorduğu şey "hangi basamaktayım".
-        */}
-        <OlcumKarti
-          baslik="GençTek Yolculuğum"
-          Ikon={Award}
-          deger={yolculuk.seviye.ad}
-          aciklama={`${yolculuk.toplamPuan} puan`}
-          yol="/panel/genctek-yolculugum"
-        />
-
         {danismanMi(kullanici) && (
           <>
             {/*
@@ -1578,6 +1647,67 @@ export default async function PanelSayfasi({
           />
         ) : null}
       </div>
+
+      {/*
+        "KATKI NİŞANLARIM" KARTI "GENÇTEK YOLCULUĞUM" OLDU (21 Ağustos 2026 ·
+        istek). Kart artık nişan sayısını değil SEVİYEYİ gösteriyor: yolculuk
+        bir merdiven ve kişinin ilk sorduğu şey "hangi basamaktayım".
+
+        IZGARADAN ÇIKIP ALTINA İNDİ (22 Ağustos 2026 · istek: "GençTek
+        Yolculuğum'u panelde kartların altına alalım"). Izgaradaki sekizde bir
+        kutuda seviye adından başkası sığmıyordu; sıradaki eşiğe ne kadar
+        kaldığı ancak sayfayı açınca görülüyordu. Şerit, kazanılan genişliği
+        İLERLEME ÇUBUĞUNA harcıyor — yolculuğun tek sorusu "ne kadar kaldı".
+
+        Çubuk iki eşik ARASINI ölçüyor, toplam puanı değil; hesap sayfadakiyle
+        aynı yerden geliyor (lib/yolculuk/kurallar.ts · `yuzde`).
+      */}
+      <Link
+        href="/panel/genctek-yolculugum"
+        className="flex overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart transition hover:-translate-y-1 hover:border-vurgu hover:shadow-yuksek focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vurgu"
+      >
+        {/*
+          Poster bandı DİKEY: ölçüm kartlarında üstte yatay bir bant duruyor,
+          burada kart yatık olduğu için aynı bant sol raya dönüyor. Kartların
+          dili değişmiyor, yönü değişiyor.
+        */}
+        <div className="poster poster-notr grid w-16 shrink-0 place-items-center sm:w-24">
+          <Award size={26} className="text-white/50" aria-hidden />
+        </div>
+        <div className="flex-1 p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <div>
+              <p className="text-sm font-medium text-metin-yumusak">
+                GençTek Yolculuğum
+              </p>
+              <p className="mt-1 font-baslik text-3xl leading-tight font-extrabold text-baslik">
+                {yolculuk.seviye.ad}
+              </p>
+            </div>
+            <p className="text-sm text-metin-yumusak">
+              {yolculuk.toplamPuan} puan
+            </p>
+          </div>
+          <div
+            className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-zemin"
+            role="progressbar"
+            aria-valuenow={yolculuk.yuzde}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${yolculuk.seviye.ad} seviyesindeki ilerlemeniz`}
+          >
+            <div
+              className="h-full rounded-full bg-birincil transition-all"
+              style={{ width: `${yolculuk.yuzde}%` }}
+            />
+          </div>
+          <p className="mt-2 text-sm text-metin-yumusak">
+            {yolculuk.sonraki
+              ? `Sonraki seviye "${yolculuk.sonraki.ad}" · ${yolculuk.kalanPuan} puan kaldı`
+              : "En üst seviyedesiniz."}
+          </p>
+        </div>
+      </Link>
 
       {/*
         BÖLÜM ÖLÇÜM KARTLARININ HEMEN ARDINA ALINDI (13 Ağustos 2026).
@@ -1912,10 +2042,6 @@ export default async function PanelSayfasi({
           <UserRound size={18} className="text-vurgu-metin" aria-hidden />
           Profilim
         </h2>
-        <p className="mt-1 max-w-[70ch] text-metin-yumusak">
-          Kimlik bilgileriniz, kendi girdiğiniz alanlar ve kayıtlarınız.
-          Görüntüleme de düzenleme de bu ekrandan yapılır.
-        </p>
       </div>
 
       {/*
@@ -1923,11 +2049,26 @@ export default async function PanelSayfasi({
         sistemde değiştirilemez ve açıklaması tek yerde duruyor
         (lib/kullanici/salt-okunur.ts).
       */}
-      <Kart>
-        <KartBasligi
-          baslik="Kimlik bilgileri"
-          Ikon={IdCard}
-        />
+      <KatlanabilirKart
+        baslik="Kimlik bilgileri"
+        Ikon={IdCard}
+        capa="kimlik-bilgileri"
+        /*
+          KAPALI AÇILIYOR (22 Ağustos 2026 · istek: "Kimlik bilgileri bu da
+          özet olsun tıklanınca büyüsün"). On beş satırlık salt okunur dökümdü
+          ve panelin en üstünde duruyordu: kişi kendi düzenleyebildiği
+          bölümlere inmek için her seferinde onu geçiyordu. Özette kimliği
+          tanıtan üç değer var, gerisi bir tık uzakta.
+
+          `duzenlenebilir` (22 Ağustos 2026 · istek: "Kimlik bilgileri sağ
+          tarafta aç kapa yazısını diğerleri gibi kalem yapalım"): kutunun
+          içindeki alanlar salt okunur ama sağdaki işaretin işi ekranın
+          tutarlılığı — paneldeki diğer katlanır kutuların hepsinde kalem var
+          ve tek bir "Aç / Kapat" rozeti sırıtıyordu.
+        */
+        duzenlenebilir
+        ozet={<p>{kimlikOzeti.join(" · ")}</p>}
+      >
         <div className="mb-5">
           <RozetSeridi>
             <Rozet cesit="vurgu" Ikon={IdCard}>
@@ -2017,7 +2158,7 @@ export default async function PanelSayfasi({
             />
           )}
         </dl>
-      </Kart>
+      </KatlanabilirKart>
 
       {/*
         "FOTOĞRAFIM" BÖLÜMÜ KALKTI (20 Ağustos 2026 · istek: "paneldeki altta
@@ -2197,16 +2338,6 @@ export default async function PanelSayfasi({
         </KatlanabilirKart>
       )}
 
-      {/*
-        "KAYITLARIM" BÖLÜMÜ KENDİ SAYFASINA TAŞINDI (21 Ağustos 2026 · istek:
-        "Kayıtlarım ve katkı nişanlarımı panelden kaldır alttan, üst alanda
-        kart olarak gelsin kendi sayfaları olsun, kayıtlarım ismi bilişim
-        yolculuğum olsun").
-
-        Yeni adres: /panel/bilisim-yolculugum · panelde yerine üstteki
-        "Bilişim Yolculuğum" kartı var ve kayıt sayısını da o söylüyor.
-      */}
-
       <KatlanabilirKart
         baslik="Özgeçmişim (CV)"
         /*
@@ -2242,6 +2373,91 @@ export default async function PanelSayfasi({
           izinliTipler={cvSinirlari.izinliTipler}
           yukleEylemi={cvYukleEylemi}
           silEylemi={cvSilEylemi}
+        />
+      </KatlanabilirKart>
+
+      {/*
+        KAYIT BÖLÜMLERİ PANELE GERİ DÖNDÜ (22 Ağustos 2026 · istek: "paneldeki
+        Bilişim Yolculuğum kartı kalkacak, içindekiler panelin altına sırayla
+        ayrı gruplara açılır gelecek … diğerlerini direk panele alt alta
+        alıyoruz açılır şekilde").
+
+        21 Ağustos'ta kendi sayfasına çıkmışlardı ve panelde yerlerine bir kart
+        vardı; kart kalktığı için sayfanın kapısı da kalmadı. /panel/bilisim-
+        yolculugum SİLİNDİ, eski bağlantılar bu bölümlerin çapalarına
+        yönlendiriliyor (bkz. kazanimGrupCapasi).
+
+        HER GRUP KENDİ KUTUSU, KENDİ FORMU: ortak formda hangi başlığa kayıt
+        girildiği yalnızca seçili sekmeden anlaşılıyordu. Sıra
+        `kayitEklemeGruplari` sırasıdır — profildeki başlık sırasıyla aynı.
+      */}
+      {kayitGruplari.map(({ grup, tanimlar }) => {
+        const capa = kazanimGrupCapasi(grup.kod);
+        const seciliTanim =
+          tanimlar.find((tanim) => tanim.tip === seciliKayitTuru) ??
+          tanimlar[0];
+        /*
+          Özet, kutuyu açmadan "burada kaç kayıt var" sorusunu cevaplıyor;
+          boş grupta hiç basılmıyor — "0 kayıt" satırı ekranı bilgi değil
+          eksik listesi gibi okuturdu (aynı kural İletişim bilgilerimde).
+        */
+        const grubunKayitSayisi = profilKaydi.kazanimlar.filter((kazanim) =>
+          grup.tipler.includes(kazanim.tip),
+        ).length;
+
+        return (
+          <KatlanabilirKart
+            key={grup.kod}
+            baslik={grup.baslik}
+            aciklama={grup.aciklama}
+            Ikon={Sparkles}
+            capa={capa}
+            duzenlenebilir
+            baslangictaAcik={acilacakBolum === capa}
+            ozet={
+              grubunKayitSayisi > 0 ? (
+                <p>{grubunKayitSayisi} kayıt</p>
+              ) : undefined
+            }
+          >
+            <KayitEklemeFormu
+              grup={grup}
+              tanimlar={tanimlar}
+              seciliTanim={seciliTanim}
+              programlar={kayitProgramlari}
+              izinliBelgeTipleri={izinliBelgeTipleri}
+              belgeSinirlari={belgeSinirlari}
+              ekleEylemi={kazanimEkleEylemi}
+            />
+          </KatlanabilirKart>
+        );
+      })}
+
+      {/*
+        GİRİLEN KAYITLAR TEK BÖLÜMDE, grupların içinde değil: kapanmış tiplerin
+        (bkz. ARSIVLENMIS_TIPLER) artık bir grubu yok ve kayıtları yalnızca
+        buradan görülüp silinebiliyor. Grup kutularına dağıtılsalardı o eski
+        kayıtlara ulaşmanın yolu kalmazdı.
+      */}
+      <KatlanabilirKart
+        baslik="Girdiğim kayıtlar"
+        Ikon={FileText}
+        capa="girdigim-kayitlar"
+        duzenlenebilir
+        baslangictaAcik={acilacakBolum === "girdigim-kayitlar"}
+        ozet={
+          profilKaydi.kazanimlar.length > 0 ? (
+            <p>{profilKaydi.kazanimlar.length} kayıt</p>
+          ) : undefined
+        }
+      >
+        <KayitYonetimi
+          kazanimlar={profilKaydi.kazanimlar}
+          sahip={kazanimSahibi}
+          silmeEylemi={kazanimSilEylemi}
+          belgeEkleEylemi={kazanimBelgeEkleEylemi}
+          belgeSilEylemi={kazanimBelgeSilEylemi}
+          izinliBelgeTipleri={izinliBelgeTipleri}
         />
       </KatlanabilirKart>
 
@@ -2474,133 +2690,20 @@ export default async function PanelSayfasi({
         (`seritKayitlari`) beslediği için yerinde kaldı; yalnızca takvim
         bölümü basılmıyor.
       */}
-
       {/*
-        `id`: vitrindeki "… okunmamış mesajın var" düğmesi buraya iniyor.
-        `scroll-mt-6`, başlığın ekranın en tepesine yapışmasını önler.
+        "BİLDİRİMLER" BÖLÜMÜ KALKTI (22 Ağustos 2026 · istek: "panelde en
+        alttaki bildirimleri kaldıralım, tamamını başka sayfaya taşıyıp,
+        bannerdaki '3 okunmamış mesajı var' butonuna tıklayınca o sayfaya
+        gitsin").
+
+        Buradaki liste zaten yalnızca son beş OKUNMAMIŞ satırdı ve tamamı
+        /panel/bildirimler ekranında duruyor — süzgeçleri, sayfalaması ve
+        okunmuş kayıtlarıyla. İki yüzey aynı işi yaparken vitrindeki düğme
+        kişiyi eksik olana indiriyordu; artık doğrudan tam listeye götürüyor.
+
+        VERİ AKIŞI DURUYOR: okunmamış sayısı (`okunmamisMesajSayisi`) vitrindeki
+        düğme için hâlâ hesaplanıyor, yalnızca liste basılmıyor.
       */}
-      <section id="bildirimler" className="scroll-mt-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
-            <BellRing size={18} className="text-vurgu-metin" aria-hidden />
-            Bildirimler
-          </h2>
-          {/*
-            ARŞİVE GİRİŞ (12 Ağustos 2026 · istek: "okundu tıklandıktan sonra
-            artık yok, bir yerlerde olsun — eski duyurulara nereden
-            ulaşılabilir").
-
-            Bu bölüm yalnızca OKUNMAMIŞLARI listeliyor ve öyle kalıyor: burası
-            bir yapılacak listesi, okunan satır buradan düşmeli. Eksik olan,
-            düşen satırın gittiği yerdi. Bağlantı bildirim OLMASA DA basılıyor —
-            eski duyuruyu arayan kişinin okunmamış bildirimi olmayabilir.
-          */}
-          <div className="flex flex-wrap items-center gap-4">
-            {bildirimler.length > 0 && (
-              <form action={tumBildirimleriOkuEylemi}>
-                <button
-                  type="submit"
-                  className="text-sm font-medium text-vurgu-metin"
-                >
-                  Tümünü okundu işaretle
-                </button>
-              </form>
-            )}
-            <Link
-              href="/panel/bildirimler"
-              className="inline-flex items-center gap-1 text-sm font-medium text-vurgu-metin"
-            >
-              Tüm bildirimler
-              <ArrowRight size={14} aria-hidden />
-            </Link>
-          </div>
-        </div>
-        {bildirimler.length === 0 ? (
-          <Kart className="text-metin-yumusak">
-            <span className="inline-flex items-center gap-2">
-              <CheckSquare size={16} aria-hidden />
-              Okunmamış bildiriminiz yok. Okuduklarınız{" "}
-              <Link
-                href="/panel/bildirimler"
-                className="font-medium text-vurgu-metin underline underline-offset-2"
-              >
-                tüm bildirimler
-              </Link>{" "}
-              sayfasında duruyor.
-            </span>
-          </Kart>
-        ) : (
-          <ul className="space-y-2">
-            {bildirimler.map((bildirim) => {
-              const baglanti = bildirimBaglantisi(bildirim);
-
-              return (
-              /*
-                `id`: bildirim bağlantıları (e-posta, arşiv) doğrudan bu satıra
-                iner. `scroll-mt-6`, çıpaya inildiğinde satırın ekranın en
-                tepesine yapışmasını önler.
-              */
-              <li
-                key={bildirim.id}
-                id={`bildirim-${bildirim.id}`}
-                className="flex scroll-mt-6 flex-wrap items-start justify-between gap-3 rounded-kart border border-cizgi bg-kart px-4 py-3"
-              >
-                <div>
-                  <p className="font-medium text-metin">{bildirim.baslik}</p>
-                  <p className="mt-1 text-sm whitespace-pre-line text-metin-yumusak">
-                    {bildirim.icerik}
-                  </p>
-                </div>
-                {/*
-                  KAYDA GİT + OKUNDU (10 Ağustos 2026 · istek: "okundu
-                  işaretlemenin yanına bir de etkinliğe git butonu olsun").
-
-                  Bağlantı, bildirimle birlikte KAYDEDİLMİŞ hedeften üretilir;
-                  metindeki addan aranmaz (bkz. lib/bildirim/hedef.ts). Hedefi
-                  olmayan bildirimde düğme hiç basılmaz — danışman değişikliği
-                  gibi bildirimlerin gidilecek bir kaydı yok, bu alanlar
-                  eklenmeden önce yazılmış bildirimlerde de boş.
-
-                  BİLDİRİM OKUNDUYA ÇEKİLMİYOR: gitmek okumak değildir ve
-                  kullanıcı kaydı görüp geri döndüğünde bildirimi hâlâ
-                  listesinde bulmalı. İşaretleme kararı onun.
-                */}
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  {baglanti && (
-                    <Link
-                      href={baglanti.yol}
-                      className="inline-flex items-center gap-1 rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-vurgu-metin transition hover:border-vurgu"
-                    >
-                      <ArrowRight size={13} aria-hidden />
-                      {baglanti.etiket}
-                    </Link>
-                  )}
-                  <form action={bildirimOkunduEylemi}>
-                    <input
-                      type="hidden"
-                      name="bildirimId"
-                      value={bildirim.id}
-                    />
-                    <button
-                      type="submit"
-                      aria-label="Okundu işaretle"
-                      className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin"
-                    >
-                      Okundu
-                    </button>
-                  </form>
-                </div>
-              </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <BilgiKutusu>
-        Etkinliğe dosya/görsel ekleme, yorumlar ve raporlama ekranları
-        geliştirme sırasının sonraki adımlarında açılacak.
-      </BilgiKutusu>
     </div>
   );
 }

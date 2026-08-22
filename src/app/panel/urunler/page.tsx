@@ -128,7 +128,7 @@ export default async function MarketSayfasi({
             … kendi sayfaları olsun") form zaten ekranın en üstünde.
           */}
           <Link
-            href="/panel/bilisim-yolculugum?tur=URUN"
+            href="/panel?bolum=urunlerim&tur=URUN#urunlerim"
             className="font-medium text-vurgu-metin underline underline-offset-2"
           >
             Ürün ekleme formuna git

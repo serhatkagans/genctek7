@@ -32,6 +32,7 @@ import {
   type KazanimGrubu,
   type KazanimSahibi,
   type KazanimTipiTanimi,
+  kazanimGrupCapasi,
   kazanimTipleri,
 } from "@/lib/kazanim/kurallar";
 import { KATKI_ACIKLAMASI_AZAMI } from "@/lib/dis-kimlik/profil-kurallar";
@@ -719,7 +720,7 @@ export interface BelgeSinirlari {
  * ve hangi başlığa kayıt girildiği yalnızca seçili sekmeden anlaşılıyordu.
  * Başlıklar formun sahibi değil, formun ayarı gibi duruyordu. Şimdi bölüm
  * neyse form odur; sayfa grupları dolaşıp her birine bunu basıyor
- * (bkz. kayitEklemeGruplari · app/panel/bilisim-yolculugum).
+ * (bkz. kayitEklemeGruplari · app/panel/page.tsx).
  *
  * BİLEŞEN YİNE TEK: alanları tanımlayan yer burası. Üç forma üç ayrı JSX
  * yazılsaydı, birine eklenen alan öbürlerinde eksik kalırdı — dosyanın en
@@ -765,6 +766,7 @@ export function KayitEklemeFormu({
           <div className="mt-1.5">
             <KayitTuruSecici
               etiket={grup.baslik}
+              capa={kazanimGrupCapasi(grup.kod)}
               secenekler={tanimlar.map((tanim) => ({
                 tip: tanim.tip,
                 baslik: tanim.baslik,

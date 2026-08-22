@@ -113,7 +113,7 @@ export default async function GencTekYolculugumSayfasi() {
       </div>
 
       <Kart>
-        <KartBasligi baslik="Yolculuk aşamaları" Ikon={Compass} />
+        <KartBasligi baslik="GençTek Yolculuğum" Ikon={Compass} />
         {/*
           Yatay kaydırma ŞERİDİN KENDİ KUTUSUNDA: yedi aşama dar ekranda
           sığmıyor ve sayfanın tamamının yana kaymasına izin verilmiyor.

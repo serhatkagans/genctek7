@@ -239,6 +239,82 @@ export async function gorevEkleEylemi(veri: FormData): Promise<void> {
 }
 
 /**
+ * Var olan bir görev ilanını düzenler (22 Ağustos 2026 · istek: "görev
+ * ilanları düzenlenebilsin").
+ *
+ * İlan yalnızca açılıp kapatılabiliyordu: adında yazım hatası olan ya da
+ * kontenjanı değişen bir görev için tek yol yenisini açıp eskisini kapatmaktı
+ * — bu da başvuruları eski ilanda bırakıp listeyi ikiye bölüyordu.
+ *
+ * KURAL AYNI KAYNAKTAN (`gorevTanimiGecerliMi`): ilan açma ile düzenleme aynı
+ * alanları alıyor, iki ayrı doğrulama yazılsaydı biri güncellenip öbürü geride
+ * kalırdı.
+ *
+ * KONTENJAN GÖREVDEKİ KİŞİ SAYISININ ALTINA İNEMEZ: inebilseydi ilan "5/3 kişi
+ * görevde" der ve kimin görevden çıkarılacağı sorusunu ekrana bırakırdı. Görevi
+ * daraltmak isteyen önce kişileri çıkarmalı — o ayrı ve bilinçli bir karar.
+ */
+export async function gorevDuzenleEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!gencTekGoreviYonetebilirMi(kullanici)) {
+    throw new YetkiHatasi("Görev ilanını değiştiremezsiniz.");
+  }
+
+  const gorevId = Number.parseInt(String(veri.get("gorevId") ?? ""), 10);
+  if (!Number.isFinite(gorevId)) throw new BulunamadiHatasi();
+
+  const gorev = await prisma.gencTekGorevi.findUnique({
+    where: { id: gorevId },
+    select: {
+      id: true,
+      ad: true,
+      _count: {
+        select: { basvurular: { where: { onayDurumu: "ONAYLANDI" } } },
+      },
+    },
+  });
+  if (!gorev) throw new BulunamadiHatasi();
+
+  const karar = gorevTanimiGecerliMi({
+    ad: String(veri.get("ad") ?? ""),
+    aciklama: String(veri.get("aciklama") ?? ""),
+    kontenjan: String(veri.get("kontenjan") ?? ""),
+  });
+  if (!karar.olurMu) {
+    yonetimeDon(`hata=${encodeURIComponent(karar.neden)}`);
+  }
+
+  if (karar.kontenjan !== null && karar.kontenjan < gorev._count.basvurular) {
+    yonetimeDon(
+      `hata=${encodeURIComponent(
+        `Kontenjan, görevdeki kişi sayısından (${gorev._count.basvurular}) az olamaz.`,
+      )}`,
+    );
+  }
+
+  await prisma.gencTekGorevi.update({
+    where: { id: gorev.id },
+    data: {
+      ad: karar.ad,
+      aciklama: karar.aciklama,
+      kontenjan: karar.kontenjan,
+    },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "SISTEM_AYARI",
+    hedefId: gorev.id,
+    detay: `GençTek görevi düzenlendi: ${gorev.ad}${
+      gorev.ad === karar.ad ? "" : ` → ${karar.ad}`
+    }`,
+  });
+
+  yonetimeDon("durum=gorev-duzenlendi");
+}
+
+/**
  * Görevi başvuruya açar ya da kapatır.
  *
  * SİLME YOK: kapatılan görevin başvuruları ve kararları kayıttır. Kapalı görev

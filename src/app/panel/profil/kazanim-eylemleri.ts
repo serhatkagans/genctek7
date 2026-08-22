@@ -12,7 +12,9 @@ import {
 } from "@/lib/kazanim/ek";
 import {
   kazanimKabulEdilirMi,
+  kazanimTipiGecerliMi,
   kazanimTipiTanimi,
+  kazanimTipininCapasi,
 } from "@/lib/kazanim/kurallar";
 import { gunBasi } from "@/lib/tarih";
 import { ogrenciMi } from "@/lib/yetki/izinler";
@@ -50,25 +52,33 @@ import {
 const YOL = "/panel";
 
 /**
- * Kayıt formlarının yeni evi (21 Ağustos 2026 · istek: "Kayıtlarım … kendi
- * sayfaları olsun, kayıtlarım ismi bilişim yolculuğum olsun").
+ * Girilen kayıtların listelendiği bölümün çapası.
  *
- * Kayıt eylemleri panele değil buraya dönüyor: kişi kaydı hangi ekranda
- * girdiyse iletiyi de orada okumalı. CV eylemleri panelde kaldı — o bölüm
- * taşınmadı.
+ * Silme ve belge işlemleri BURAYA döner, kaydın kendi grubuna değil: üç grup
+ * kutusu yalnızca ekleme formu taşıyor, kayıtların tamamı bu bölümde. Kapanmış
+ * tiplerin (bkz. ARSIVLENMIS_TIPLER) kayıtlarına da yalnızca buradan
+ * erişiliyor — kaydın grubuna dönmek onları ulaşılmaz kılardı.
  */
-const KAYIT_YOLU = "/panel/bilisim-yolculugum";
+const KAYITLAR_CAPASI = "girdigim-kayitlar";
 
 function panele(capa: string, sorgu: string): never {
   redirect(`${YOL}?bolum=${capa}&${sorgu}#${capa}`);
 }
 
-function kayitlaraDon(sorgu: string): never {
-  redirect(`${KAYIT_YOLU}?${sorgu}`);
+/**
+ * Kayıt ekleme PANELE DÖNDÜ (22 Ağustos 2026 · istek: "diğerlerini direk
+ * panele alt alta alıyoruz açılır şekilde"). Formlar 21 Ağustos'ta kendi
+ * sayfasına çıkmıştı; artık panelin altındaki katlanır kutular.
+ *
+ * Dönüş adresi KAYDIN GRUBUDUR: kişi ürününü girdiyse Ürünlerim kutusu açık
+ * dönmeli — sayfanın tepesine düşüp kutuyu yeniden açmak zorunda kalmasın.
+ */
+function kayitlaraDon(capa: string, sorgu: string): never {
+  panele(capa, sorgu);
 }
 
-function hataylaDon(mesaj: string): never {
-  kayitlaraDon(`hata=${encodeURIComponent(mesaj)}`);
+function hataylaDon(capa: string, mesaj: string): never {
+  kayitlaraDon(capa, `hata=${encodeURIComponent(mesaj)}`);
 }
 
 /** CV iki yerde görünüyor: panel ve kişinin envanterdeki detayı. */
@@ -108,7 +118,6 @@ function cvSahibi(kullanici: OturumKullanicisi): "OGRENCI" | "OGRETMEN" {
  */
 function kazanimYollariniTazele(kullanici: OturumKullanicisi): void {
   revalidatePath(YOL);
-  revalidatePath(KAYIT_YOLU);
   revalidatePath("/panel/gorevlerim");
   revalidatePath("/panel/kazanimlarim");
   revalidatePath(
@@ -120,6 +129,18 @@ function kazanimYollariniTazele(kullanici: OturumKullanicisi): void {
 
 export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
+
+  /*
+   * Dönüş bölümü FORMUN TÜRÜNDEN okunuyor, kararın sonucundan değil: hata
+   * dalları karar üretilmeden önce dönüyor ve orada da kişinin doldurduğu
+   * kutuya geri düşmesi gerekiyor. Tanınmayan tip "Girdiğim kayıtlar"a düşer —
+   * o durumda zaten bir hata iletisi basılıyor.
+   */
+  const gonderilenTip = String(veri.get("tip") ?? "");
+  const capa =
+    (kazanimTipiGecerliMi(gonderilenTip)
+      ? kazanimTipininCapasi(gonderilenTip)
+      : null) ?? KAYITLAR_CAPASI;
 
   /*
    * Programın ADI form girdisinden okunmaz, id'siyle veritabanından çekilir:
@@ -138,7 +159,7 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
       })
     : null;
   if (Number.isFinite(programId) && !program) {
-    hataylaDon("Seçilen GençTek etkinliği bulunamadı.");
+    hataylaDon(capa, "Seçilen GençTek etkinliği bulunamadı.");
   }
 
   const karar = kazanimKabulEdilirMi({
@@ -165,7 +186,7 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
     })),
     program,
   });
-  if (!karar.olurMu) hataylaDon(karar.neden);
+  if (!karar.olurMu) hataylaDon(capa, karar.neden);
 
   const kazanim = await prisma.kullaniciKazanim.create({
     data: {
@@ -210,12 +231,13 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   // yeniden seçmek zorunda kalmasın.
   if (ekUyarisi) {
     kayitlaraDon(
+      capa,
       `tur=${karar.kayit.tip}&hata=${encodeURIComponent(
         `Kayıt eklendi ancak belge yüklenemedi — ${ekUyarisi}`,
       )}`,
     );
   }
-  kayitlaraDon(`tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
+  kayitlaraDon(capa, `tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
 }
 
 /** Var olan bir kazanım kaydına destekleyici belge ekler. */
@@ -236,14 +258,14 @@ export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
   const belgeler = veri
     .getAll("belgeler")
     .filter((deger): deger is File => deger instanceof File && deger.size > 0);
-  if (belgeler.length === 0) hataylaDon("Belge seçilmedi.");
+  if (belgeler.length === 0) hataylaDon(KAYITLAR_CAPASI, "Belge seçilmedi.");
 
   const sonuc = await kazanimEkleriniKaydet({
     kazanimId: kazanim.id,
     dosyalar: belgeler,
     sinirlar: await kazanimEkSinirlariniGetir(),
   });
-  if (sonuc.uyari) hataylaDon(sonuc.uyari);
+  if (sonuc.uyari) hataylaDon(KAYITLAR_CAPASI, sonuc.uyari);
 
   await erisimLogla({
     kullaniciId: kullanici.id,
@@ -254,7 +276,7 @@ export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  kayitlaraDon("durum=belge-eklendi");
+  kayitlaraDon(KAYITLAR_CAPASI, "durum=belge-eklendi");
 }
 
 /** Destekleyici belgeyi kaldırır. */
@@ -276,7 +298,7 @@ export async function kazanimBelgeSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  kayitlaraDon("durum=belge-silindi");
+  kayitlaraDon(KAYITLAR_CAPASI, "durum=belge-silindi");
 }
 
 export async function kazanimSilEylemi(veri: FormData): Promise<void> {
@@ -309,7 +331,7 @@ export async function kazanimSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  kayitlaraDon("durum=kazanim-silindi");
+  kayitlaraDon(KAYITLAR_CAPASI, "durum=kazanim-silindi");
 }
 
 export async function cvYukleEylemi(veri: FormData): Promise<void> {
