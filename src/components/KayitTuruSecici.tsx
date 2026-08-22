@@ -46,48 +46,62 @@ export function KayitTuruSecici({
   /** Bölümün paneldeki çapası; seçim buraya geri döner. */
   capa: string;
   secenekler: { tip: KazanimTipi; baslik: string }[];
-  /** Seçili tür bu gruba ait değilse null — liste yer tutucuda kalır. */
+  /**
+   * Seçili tür bu gruba ait değilse null — o zaman hiçbir düğme işaretli
+   * gelmez. Açılır listedeki "Seçiniz" yer tutucusunun karşılığı: şeritte
+   * seçilemeyen bir seçenek göstermek yerine hiçbiri işaretlenmiyor.
+   */
   seciliTip: KazanimTipi | null;
 }) {
   const yonlendirici = useRouter();
 
   return (
+    /*
+      DÜĞME ŞERİDİ, AÇILIR LİSTE DEĞİL (22 Ağustos 2026 · istek: "Deneyimlerim'de
+      kayıt türü açılan listesini etkinliklerdeki katılım biçimi gibi kutucuk
+      şeklinde yap"). Açılır liste, seçenekleri açılmadan göstermiyordu: kişi
+      hangi türlerin girilebildiğini görmek için listeyi açmak zorundaydı.
+      Şerit dördünü birden yazıyor ve seçili olan işaretli duruyor —
+      etkinlikler ekranındaki "Katılım biçimi" süzgeciyle aynı desen.
+
+      "HEPSİ" SEÇENEĞİ YOK: orada şerit bir SÜZGEÇ ve "hepsi" süzgeci
+      kaldırmanın karşılığı. Burada seçim, basılacak FORMU belirliyor ve "hepsi"
+      diye bir form yok — dört türün alanları birbirinden farklı.
+
+      `radio`, `checkbox` DEĞİL: aynı anda tek tür girilebilir. Görünüm
+      istekteki kutucuklarla aynı, davranışı ise seçimin gerçeğine uyuyor.
+    */
     <form
       method="get"
       action={KAYIT_YOLU}
-      className="inline-flex items-center gap-2"
+      className="flex flex-wrap items-center gap-2"
     >
       {/*
         JavaScript kapalıyken de bölüm açık dönsün: GET formu yalnızca `tur`
         gönderseydi kutu kapanır, seçilen tür görünmezdi.
       */}
       <input type="hidden" name="bolum" value={capa} />
-      <select
-        name="tur"
-        aria-label={`${etiket} — kayıt türü`}
-        defaultValue={seciliTip ?? ""}
-        onChange={(olay) =>
-          yonlendirici.push(
-            `${KAYIT_YOLU}?bolum=${capa}&tur=${olay.target.value}#${capa}`,
-          )
-        }
-        className="rounded-full border border-cizgi bg-kart px-3 py-1.5 text-sm font-medium text-metin outline-none focus:border-vurgu"
-      >
-        {/*
-          Yer tutucu YALNIZCA başka bir grubun türü seçiliyken görünür ve
-          seçilemez: liste, açık olmayan bir türü açıkmış gibi göstermemeli.
-        */}
-        {seciliTip === null && (
-          <option value="" disabled>
-            Seçiniz
-          </option>
-        )}
-        {secenekler.map((secenek) => (
-          <option key={secenek.tip} value={secenek.tip}>
-            {secenek.baslik}
-          </option>
-        ))}
-      </select>
+      {secenekler.map((secenek) => (
+        <label
+          key={secenek.tip}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-cizgi px-3.5 py-1.5 text-sm font-medium text-metin transition hover:border-vurgu has-checked:border-vurgu has-checked:bg-vurgu-zemin has-checked:text-vurgu-metin"
+        >
+          <input
+            type="radio"
+            name="tur"
+            value={secenek.tip}
+            aria-label={`${etiket} — ${secenek.baslik}`}
+            defaultChecked={seciliTip === secenek.tip}
+            onChange={() =>
+              yonlendirici.push(
+                `${KAYIT_YOLU}?bolum=${capa}&tur=${secenek.tip}#${capa}`,
+              )
+            }
+            className="h-3.5 w-3.5 accent-[var(--renk-birincil)]"
+          />
+          {secenek.baslik}
+        </label>
+      ))}
       <noscript>
         <button
           type="submit"

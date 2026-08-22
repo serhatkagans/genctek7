@@ -102,11 +102,21 @@ export function KatkiGorevBolumu({
   gorevler,
   faaliyetler,
   egitimOgretimYili,
+  organizasyonlarGorunsun = true,
 }: {
   kendiMi: boolean;
   gorevler: KatkiGorevi[];
   faaliyetler: KatkiFaaliyeti[];
   egitimOgretimYili: string;
+  /**
+   * "Görev aldığı GençTek organizasyonları" alt listesi basılsın mı?
+   *
+   * 22 AĞUSTOS 2026 · istek: "/panel/gorevlerim'den Görev aldığı GençTek
+   * organizasyonları bunu kaldır". Bayrak ÇAĞIRANA ait, bileşene değil:
+   * profildeki yolculuk kartında liste duruyor — orası kişinin GençTek
+   * geçmişini gösteren yer ve düzenlediği etkinlikler o geçmişin parçası.
+   */
+  organizasyonlarGorunsun?: boolean;
 }) {
   /*
     GÖREVLERİM (7 Ağustos 2026 · istek): "Görevlerim (İl Temsilcisi/Okul
@@ -129,7 +139,9 @@ export function KatkiGorevBolumu({
       <BolumBasligi
         Ikon={BadgeCheck}
         baslik={kendiMi ? "Görevlerim" : "Görevleri"}
-        adet={gorevler.length + faaliyetler.length}
+        adet={
+          gorevler.length + (organizasyonlarGorunsun ? faaliyetler.length : 0)
+        }
       />
 
       <div className="mt-2">
@@ -165,46 +177,48 @@ export function KatkiGorevBolumu({
         )}
       </div>
 
-      <div className="mt-4">
-        <h4 className="flex items-center gap-1.5 text-sm font-medium text-metin">
-          <CalendarPlus size={14} className="text-vurgu-metin" aria-hidden />
-          Görev aldığı GençTek organizasyonları
-        </h4>
-        {faaliyetler.length === 0 ? (
-          <p className="mt-1 text-sm text-metin-yumusak">
-            {kendiMi
-              ? "Henüz bir organizasyonda görev almadın. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
-              : "Henüz bir organizasyonda görev almamış."}
-          </p>
-        ) : (
-          <ul className="mt-1.5 divide-y divide-cizgi">
-            {faaliyetler.map((faaliyet) => (
-              <li key={faaliyet.id} className="py-2.5 first:pt-0 last:pb-0">
-                <Link
-                  href={`/panel/etkinlikler/${faaliyet.id}`}
-                  className="font-medium text-metin transition hover:text-vurgu-metin"
-                >
-                  {faaliyet.ad}
-                </Link>
-                <p className="mt-0.5 text-sm text-metin-yumusak">
-                  {tarihYaz(faaliyet.tarih)} ·{" "}
-                  {faaliyet.durum === "IPTAL_EDILDI"
-                    ? "İptal edildi"
-                    : ONAY_DURUMU_ETIKETLERI[faaliyet.onayDurumu]}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {kendiMi && (
-          <Link
-            href="/panel/etkinlikler/yeni"
-            className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
-          >
-            Yeni etkinlik öner
-          </Link>
-        )}
-      </div>
+      {organizasyonlarGorunsun && (
+        <div className="mt-4">
+          <h4 className="flex items-center gap-1.5 text-sm font-medium text-metin">
+            <CalendarPlus size={14} className="text-vurgu-metin" aria-hidden />
+            Görev aldığı GençTek organizasyonları
+          </h4>
+          {faaliyetler.length === 0 ? (
+            <p className="mt-1 text-sm text-metin-yumusak">
+              {kendiMi
+                ? "Henüz bir organizasyonda görev almadın. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
+                : "Henüz bir organizasyonda görev almamış."}
+            </p>
+          ) : (
+            <ul className="mt-1.5 divide-y divide-cizgi">
+              {faaliyetler.map((faaliyet) => (
+                <li key={faaliyet.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <Link
+                    href={`/panel/etkinlikler/${faaliyet.id}`}
+                    className="font-medium text-metin transition hover:text-vurgu-metin"
+                  >
+                    {faaliyet.ad}
+                  </Link>
+                  <p className="mt-0.5 text-sm text-metin-yumusak">
+                    {tarihYaz(faaliyet.tarih)} ·{" "}
+                    {faaliyet.durum === "IPTAL_EDILDI"
+                      ? "İptal edildi"
+                      : ONAY_DURUMU_ETIKETLERI[faaliyet.onayDurumu]}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {kendiMi && (
+            <Link
+              href="/panel/etkinlikler/yeni"
+              className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
+            >
+              Yeni etkinlik öner
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }

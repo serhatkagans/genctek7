@@ -387,7 +387,11 @@ export function KazanimGruplari({
                 {grupKayitlari.length}
               </span>
             </h3>
-            <p className="mt-1 text-sm text-metin-yumusak">{grup.aciklama}</p>
+            {/* Açıklaması olmayan grupta satır hiç basılmaz — boş bir <p>
+                başlıkla listenin arasını sebepsiz açardı. */}
+            {grup.aciklama && (
+              <p className="mt-1 text-sm text-metin-yumusak">{grup.aciklama}</p>
+            )}
 
             {grupKayitlari.length === 0 ? (
               <p className="mt-2 text-sm text-metin-yumusak">

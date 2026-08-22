@@ -52,7 +52,17 @@ interface KazanimMetinleri {
   /** Formdaki "başlık" alanının etiketi — tipe göre farklı şey sorulur. */
   baslikEtiketi: string;
   baslikOrnegi: string;
-  aciklama: string;
+  /** Formun üstündeki açıklama satırı; yazılmazsa hiç basılmaz. */
+  aciklama?: string;
+  /**
+   * "Açıklama" alanının yer tutucusu — o türde NE yazılacağını söyler.
+   *
+   * 22 AĞUSTOS 2026 · istek: "açıklamada input alanına bilgi: topluluk kaç
+   * kişiden oluşuyor, varsa bağlı olduğu kurum kuruluş bilgisi yazsın". Alan
+   * bütün türlerde aynı boş kutuydu ve kişi ne yazacağını bilmiyordu; soru
+   * türe göre değişiyor. Yazılmazsa yer tutucu basılmaz.
+   */
+  aciklamaOrnegi?: string;
 }
 
 /** Kazanım tipinin ekranda nasıl anlatılacağı ve hangi alanları taşıdığı. */
@@ -79,6 +89,16 @@ export interface KazanimTipiTanimi extends KazanimMetinleri {
    * Yalnızca URUN'da açılır — bir sertifikanın "geliştiren ekibi" olmaz.
    */
   urunAlanlariVarMi?: boolean;
+  /**
+   * Destekleyici belge ZORUNLU MU? (22 Ağustos 2026 · istek: "belge yüklemek
+   * zorunlu olsun burada")
+   *
+   * Yalnızca SERTİFİKA/EĞİTİM'de: o kaydın karşılığı zaten bir belgedir ve
+   * belgesiz bir sertifika beyanı doğrulanamaz. Öbür tiplerde zorunlu değil —
+   * bir ürünün, bir topluluğun ya da katılınan bir etkinliğin elde belgesi
+   * olmayabilir ve zorunlu tutmak kaydı hiç girdirmemek olurdu.
+   */
+  belgeZorunluMu?: boolean;
 }
 
 /**
@@ -103,8 +123,13 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     baslik: "GençTek etkinlikleri",
     baslikEtiketi: "Etkinliğin adı",
     baslikOrnegi: "Genç Gölge — Ankara",
-    aciklama:
-      "Katıldığınız GençTek etkinlikleri. Sistem üzerinden başvurduklarınız zaten otomatik listelenir; burayı yalnızca sisteme girilmemiş eski etkinlikler için kullanın.",
+    /*
+     * AÇIKLAMASI KALKTI (22 Ağustos 2026 · istek). Satır, sistemden otomatik
+     * düşen katılımla bu beyanın karışmamasını söylüyordu; kaldırılması o
+     * riski ortadan KALDIRMIYOR — sistemden başvurulan etkinlikler hâlâ
+     * kendiliğinden listeleniyor ve aynı etkinlik burada elle yazılırsa
+     * profilde iki kez görünebilir.
+     */
     dereceVarMi: false,
     duzenleyenVarMi: true,
     programSecimiVarMi: true,
@@ -113,7 +138,17 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
   },
   {
     tip: "DIS_ETKINLIK",
-    baslik: "GençTek dışı etkinlikler",
+    /*
+     * ADI "DİĞER" OLDU (22 Ağustos 2026 · istek: "GençTek dışı etkinlikleri
+     * Diğer olarak değiştir"). Deneyimlerim şeridindeki dört düğmenin üçü
+     * neyin girileceğini söylüyor (GençTek etkinliklerim, Derecelerim,
+     * Sertifikalarım); dördüncüsü artık "bunların dışındakiler" demek.
+     *
+     * TİP KODU DEĞİŞMEDİ: `DIS_ETKINLIK` veritabanında ve girilmiş kayıtlarda
+     * duruyor — değişen yalnızca ekranda okunan ad. Açıklama satırı kaydın ne
+     * olduğunu söylemeye devam ediyor.
+     */
+    baslik: "Diğer",
     baslikEtiketi: "Etkinliğin adı",
     baslikOrnegi: "TEKNOFEST Bilgi Teknolojileri Zirvesi",
     aciklama:
@@ -130,7 +165,12 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     baslikEtiketi: "Ürünün adı",
     baslikOrnegi: "Okul kütüphanesi mobil uygulaması",
     aciklama:
-      "Kendi geliştirdiğiniz web sitesi, uygulama, oyun, film ve benzeri ürünler. Şimdilik yalnızca TANITIM yapılır: program dosyası yüklenmez.",
+      /*
+       * "Şimdilik yalnızca TANITIM yapılır: program dosyası yüklenmez."
+       * cümlesi kalktı (22 Ağustos 2026 · istek). DAVRANIŞ DEĞİŞMEDİ: forma
+       * hâlâ program dosyası değil, adres ve destekleyici belge giriliyor.
+       */
+      "Kendi geliştirdiğiniz web sitesi, uygulama, oyun, film ve benzeri ürünler.",
     dereceVarMi: false,
     duzenleyenVarMi: false,
     programSecimiVarMi: false,
@@ -152,11 +192,23 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
   },
   {
     tip: "YARISMA_DERECESI",
-    baslik: "Derecelerim",
+    /*
+     * "DERECELERİM / ÖDÜLLERİM" (22 Ağustos 2026 · istek). Yalnızca "derece"
+     * demek, yarışma sıralaması olmayan ödülleri (mansiyon, özel ödül, jüri
+     * özel ödülü) kapsam dışında bırakıyormuş gibi okunuyordu.
+     */
+    baslik: "Derecelerim / Ödüllerim",
     baslikEtiketi: "Yarışmanın adı",
     baslikOrnegi: "Ulusal Bilgisayar Olimpiyatları",
     aciklama:
-      "Bilişim alanında derece aldığınız yarışmalar. GençTek etkinlikleri de (EğitiJAM, Capture The Flag gibi) buraya girilebilir.",
+      /*
+       * "GençTek etkinlikleri de (EğitiJAM, Capture The Flag gibi) buraya
+       * girilebilir." cümlesi kalktı (22 Ağustos 2026 · istek). Cümle,
+       * Deneyimlerim'de ayrı bir "GençTek etkinliklerim" maddesi olmadığı
+       * dönemden kalmıştı; artık o madde var ve iki başlık aynı kaydı
+       * istiyormuş gibi okunuyordu.
+       */
+      "Yarışma, turnuva ve organizasyonlar.",
     dereceVarMi: true,
     duzenleyenVarMi: true,
     programSecimiVarMi: true,
@@ -165,8 +217,15 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
   },
   {
     tip: "SERTIFIKA",
-    baslik: "Sertifikalarım",
-    baslikEtiketi: "Sertifikanın adı",
+    /*
+     * "SERTİFİKALARIM / EĞİTİMLERİM" (22 Ağustos 2026 · istek). Aynı türe hem
+     * belgesi olan sertifikalar hem de belgesiz katılınan eğitimler giriliyor;
+     * tek kelimelik başlık ikincisini dışarıda bırakıyormuş gibi okunuyordu.
+     * Biçim "Derecelerim / Ödüllerim" ile aynı — iki başlık da birinci tekil.
+     */
+    baslik: "Sertifikalarım / Eğitimlerim",
+    // Alan etiketi de başlıkla aynı ikiliyi soruyor (22 Ağustos 2026 · istek).
+    baslikEtiketi: "Eğitimin / sertifikanın adı",
     baslikOrnegi: "Siber Güvenliğe Giriş — 40 saat",
     aciklama:
       "Aldığınız sertifikalar ve katılım belgeleri. Belgenin kendisini kaydın altındaki 'Destekleyici belgeler' alanından yükleyebilirsiniz.",
@@ -175,6 +234,7 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     programSecimiVarMi: false,
     katilimBicimiVarMi: false,
     hedefKitleVarMi: false,
+    belgeZorunluMu: true,
   },
   {
     /*
@@ -189,8 +249,19 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
     baslikOrnegi: "Robotik Kulübü — takım kaptanı",
     aciklama:
       "İçinde yer aldığınız kulüp, proje ekibi, takım ve benzeri topluluklar. Kendi beyanınızdır; sistem doğrulamaz.",
+    aciklamaOrnegi:
+      "Topluluk kaç kişiden oluşuyor? Varsa bağlı olduğu kurum ya da kuruluş. Toplulukta üstlendiğiniz görevi de açıklayınız.",
     dereceVarMi: false,
-    duzenleyenVarMi: true,
+    /*
+     * DÜZENLEYEN SORULMUYOR (22 Ağustos 2026 · istek: "topluluklarda Düzenleyen
+     * kurum bunu kaldır"). Alan artık Okul/İlçe/İl/Bakanlık listesi; bir
+     * topluluğun "düzenleyeni" olmaz — kulübün kendisi zaten kaydın adı.
+     *
+     * Kural katmanı da aynı bayrağa bakıyor: bayrak kapalıyken dışarıdan
+     * gönderilen bir `duzenleyen` sessizce düşürülür (bkz.
+     * kazanimKabulEdilirMi). ESKİ KAYITLARIN değeri silinmez.
+     */
+    duzenleyenVarMi: false,
     programSecimiVarMi: false,
     katilimBicimiVarMi: false,
     hedefKitleVarMi: false,
@@ -365,7 +436,8 @@ export const BILISIM_YOLCULUGU_TIPLERI: readonly KazanimTipi[] = [
 export interface KazanimGrubu {
   kod: string;
   baslik: string;
-  aciklama: string;
+  /** Başlığın altındaki satır; yazılmazsa hiç basılmaz. */
+  aciklama?: string;
   tipler: readonly KazanimTipi[];
   /**
    * Grubun gösterildiği sahipler. Yazılmazsa ikisinde de görünür.
@@ -381,8 +453,12 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
   {
     kod: "URUNLERIM",
     baslik: "Ürünlerim",
-    aciklama:
-      "Geliştirdiğin site, uygulama, oyun, film ve diğer üretimlerin. Markette paylaştıklarını buradan görebilirsin.",
+    /*
+     * AÇIKLAMASI YOK (22 Ağustos 2026 · istek: "Geliştirdiğin site, uygulama,
+     * oyun, film ve diğer üretimlerin. Markette paylaştıklarını buradan
+     * görebilirsin. sil"). Başlık kendini anlatıyor; alan da bu yüzden isteğe
+     * bağlı oldu — boş bir metin, ekranda boş bir satır bırakırdı.
+     */
     tipler: ["URUN"],
   },
   {
@@ -422,8 +498,12 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
   {
     kod: "TOPLULUKLARIM",
     baslik: "Topluluklarım / Ekiplerim",
-    aciklama:
-      "İçinde yer aldığın kulüp, proje ekibi ve takımlar. Beyandır — aynı ekibi yazan iki kişi sistemde eşleştirilmez.",
+    /*
+     * AÇIKLAMASI YOK (22 Ağustos 2026 · istek). "Beyandır — aynı ekibi yazan
+     * iki kişi sistemde eşleştirilmez" bir uyarıydı; kaldırılması DAVRANIŞI
+     * değiştirmiyor, kayıt hâlâ beyandır ve eşleştirilmiyor
+     * (bkz. KAZANIM_TIPLERI · TOPLULUK).
+     */
     tipler: ["TOPLULUK"],
     sahipler: ["OGRENCI"],
   },
@@ -532,6 +612,21 @@ const BASLIK_SINIRI = 250;
 const ACIKLAMA_SINIRI = 2000;
 const DERECE_SINIRI = 120;
 const DUZENLEYEN_SINIRI = 200;
+
+/**
+ * Kaydı düzenleyen makam — dört düzey (22 Ağustos 2026).
+ *
+ * Sıra dardan genişe: kişinin kendi okulu en sık seçilen, bakanlık en seyrek.
+ * Değerler METNİN KENDİSİ olarak saklanıyor, kod olarak değil — sütun zaten
+ * serbest metindi ve eski kayıtların yanında okunabilir kalması, kod
+ * eşlemesinden daha değerli.
+ */
+export const DUZENLEYEN_SECENEKLERI: readonly string[] = [
+  "Okul",
+  "İlçe",
+  "İl",
+  "Bakanlık",
+];
 const BAGLANTI_SINIRI = 500;
 const HEDEF_KITLE_SINIRI = 200;
 const GELISTIREN_EKIP_SINIRI = 250;
@@ -692,11 +787,30 @@ export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
     };
   }
 
+  /*
+   * DÜZENLEYEN ARTIK LİSTEDEN SEÇİLİYOR (22 Ağustos 2026 · istekler: "Düzenleyen
+   * kurum burayı listeden seçsin: okul, ilçe, il, bakanlık" · "düzenleyen kurum
+   * değil düzenleyen olsun sadece").
+   *
+   * Serbest metindi ve aynı düzeyi herkes başka türlü yazıyordu ("MEB", "Milli
+   * Eğitim Bakanlığı", "Bakanlık"); dört seçenek, kaydın hangi düzeyde
+   * düzenlendiğini sayılabilir hâle getiriyor.
+   *
+   * UZUNLUK SINIRI DURUYOR ama artık ikinci savunma: değer listeden geliyor.
+   * ESKİ KAYITLARIN serbest metni SİLİNMEZ — doğrulama yalnızca yeni kayda
+   * uygulanıyor, gösterim sütunun kendisinden okunuyor.
+   */
   const duzenleyen = tanim.duzenleyenVarMi ? kirp(girdi.duzenleyen) : null;
+  if (duzenleyen && !DUZENLEYEN_SECENEKLERI.includes(duzenleyen)) {
+    return {
+      olurMu: false,
+      neden: "Düzenleyen listeden seçilmelidir.",
+    };
+  }
   if (duzenleyen && duzenleyen.length > DUZENLEYEN_SINIRI) {
     return {
       olurMu: false,
-      neden: `Düzenleyen kurum en fazla ${DUZENLEYEN_SINIRI} karakter olabilir.`,
+      neden: `Düzenleyen en fazla ${DUZENLEYEN_SINIRI} karakter olabilir.`,
     };
   }
 

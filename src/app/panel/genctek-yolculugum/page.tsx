@@ -1,8 +1,9 @@
 import { Compass, Flame, Rocket, Star } from "lucide-react";
-import { Kart, KartBasligi, Rozet, SayfaBasligi } from "@/components/ui";
+import { Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
+import { YolculukSeridi } from "@/components/YolculukSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { ogrenciMi } from "@/lib/yetki/izinler";
-import { PUAN_KAYNAKLARI, YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
+import { PUAN_KAYNAKLARI } from "@/lib/yolculuk/kurallar";
 import { yolculugumuGetir } from "@/lib/yolculuk/veri";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +35,6 @@ export default async function GencTekYolculugumSayfasi() {
   const ogrenci = ogrenciMi(kullanici);
 
   const yolculuk = await yolculugumuGetir(kullanici);
-
-  const seviyeSirasi = YOLCULUK_SEVIYELERI.findIndex(
-    (seviye) => seviye.kod === yolculuk.seviye.kod,
-  );
 
   /*
    * "Nasıl puan kazanırım?" listesi role göre süzülüyor: öğrenciye
@@ -114,53 +111,7 @@ export default async function GencTekYolculugumSayfasi() {
 
       <Kart>
         <KartBasligi baslik="GençTek Yolculuğum" Ikon={Compass} />
-        {/*
-          Yatay kaydırma ŞERİDİN KENDİ KUTUSUNDA: yedi aşama dar ekranda
-          sığmıyor ve sayfanın tamamının yana kaymasına izin verilmiyor.
-        */}
-        <ol className="flex gap-3 overflow-x-auto pb-1">
-          {YOLCULUK_SEVIYELERI.map((seviye, sira) => {
-            const ulasildi = sira <= seviyeSirasi;
-            const suAn = sira === seviyeSirasi;
-            return (
-              <li
-                key={seviye.kod}
-                aria-current={suAn ? "step" : undefined}
-                className={`min-w-52 flex-1 rounded-kart border p-4 transition ${
-                  suAn
-                    ? "border-vurgu bg-vurgu-zemin"
-                    : ulasildi
-                      ? "border-cizgi bg-kart"
-                      : "border-cizgi bg-zemin opacity-60"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                      ulasildi
-                        ? "bg-birincil text-birincil-metin"
-                        : "bg-kart text-metin-yumusak"
-                    }`}
-                  >
-                    {sira + 1}
-                  </span>
-                  <p className="font-semibold text-baslik">{seviye.ad}</p>
-                </div>
-                <p className="mt-1 text-xs font-medium text-metin-yumusak">
-                  {seviye.esik} puan ve üzeri
-                </p>
-                <p className="mt-2 text-sm text-metin-yumusak">
-                  {seviye.aciklama}
-                </p>
-                {suAn && (
-                  <span className="mt-3 inline-block">
-                    <Rozet cesit="vurgu">Buradasın</Rozet>
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
+        <YolculukSeridi seviyeKodu={yolculuk.seviye.kod} />
       </Kart>
 
       <div className="grid gap-6 lg:grid-cols-2">

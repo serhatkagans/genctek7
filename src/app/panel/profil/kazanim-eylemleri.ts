@@ -16,7 +16,7 @@ import {
   kazanimTipiTanimi,
   kazanimTipininCapasi,
 } from "@/lib/kazanim/kurallar";
-import { gunBasi } from "@/lib/tarih";
+import { bugununBasi, gunBasi } from "@/lib/tarih";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import {
@@ -162,12 +162,45 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
     hataylaDon(capa, "Seçilen GençTek etkinliği bulunamadı.");
   }
 
+  /*
+   * BELGE ZORUNLULUĞU KAYITTAN ÖNCE SINANIYOR (22 Ağustos 2026 · istek).
+   * Belgeler normalde kayıt oluştuktan SONRA yazılıyor ve yükleme hatası kaydı
+   * geri almıyor; zorunlu tipte aynı sıra izlenseydi belgesiz bir sertifika
+   * kaydı oluşup ekranda "belge yüklenemedi" uyarısıyla kalırdı.
+   *
+   * Tarayıcıdaki `required` ile aynı kural, iki katman: form dışından
+   * gönderilen bir istek o kontrolü hiç görmez.
+   */
+  const belgeZorunlu =
+    kazanimTipiGecerliMi(gonderilenTip) &&
+    kazanimTipiTanimi(gonderilenTip).belgeZorunluMu === true;
+  if (
+    belgeZorunlu &&
+    veri
+      .getAll("belgeler")
+      .filter((deger): deger is File => deger instanceof File && deger.size > 0)
+      .length === 0
+  ) {
+    hataylaDon(capa, "Bu kayıt için belge yüklemek zorunludur.");
+  }
+
   const karar = kazanimKabulEdilirMi({
     tip: String(veri.get("tip") ?? ""),
     baslik: String(veri.get("baslik") ?? ""),
     aciklama: String(veri.get("aciklama") ?? ""),
-    // Gün başına alınır: kazanımlarda saat bilgisi sorulmuyor.
-    tarih: gunBasi(String(veri.get("tarih") ?? "") || null),
+    /*
+     * Gün başına alınır: kazanımlarda saat bilgisi sorulmuyor.
+     *
+     * ALAN HİÇ GÖNDERİLMEDİYSE BUGÜN (22 Ağustos 2026 · istek: "Tarih alanını
+     * kaldır, otomatik atsın"). Ürün formunda tarih sorulmuyor ve kaydın
+     * tarihi girildiği gündür. Ayrım "alan var mı" üzerinden: boş bırakılmış
+     * bir tarih kutusu (`""`) hâlâ "tarih yok" demek — kişi bilerek boş
+     * bıraktıysa uydurulmuş bir gün yazmıyoruz.
+     */
+    tarih:
+      veri.get("tarih") === null
+        ? bugununBasi()
+        : gunBasi(String(veri.get("tarih") ?? "") || null),
     baglantiUrl: String(veri.get("baglantiUrl") ?? ""),
     derece: String(veri.get("derece") ?? ""),
     duzenleyen: String(veri.get("duzenleyen") ?? ""),

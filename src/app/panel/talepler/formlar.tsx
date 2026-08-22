@@ -135,19 +135,39 @@ export function TalepFormu({
   return (
     <form action={talepAcEylemi} className="space-y-4">
       {kategoriler ? (
-        <label className="block sm:w-80">
-          <span className="text-sm font-medium text-metin">Kategori</span>
-          <select name="tur" defaultValue={tur} className={SINIF_GIRDI}>
+        /*
+          DÜĞME ŞERİDİ, AÇILIR LİSTE DEĞİL (22 Ağustos 2026 · istek: "Kategori
+          liste değil checkbox olsun"). Liste, seçenekleri açılmadan
+          göstermiyordu; kişi hangi kategorilerin olduğunu görmek için listeyi
+          açmak zorundaydı. Şerit hepsini birden yazıyor — etkinliklerdeki
+          "Katılım biçimi" süzgeciyle ve kayıt türü şeridiyle aynı desen.
+
+          `radio`, `checkbox` DEĞİL: bir ilan tek kategoriye açılır. Görünüm
+          istekteki kutucuklarla aynı, davranış seçimin gerçeğine uyuyor.
+        */
+        <fieldset>
+          <legend className="text-sm font-medium text-metin">Kategori</legend>
+          <div className="mt-1.5 flex flex-wrap gap-2">
             {kategoriler.map((deger) => (
-              <option key={deger} value={deger}>
+              <label
+                key={deger}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-cizgi px-3.5 py-1.5 text-sm font-medium text-metin transition hover:border-vurgu has-checked:border-vurgu has-checked:bg-vurgu-zemin has-checked:text-vurgu-metin"
+              >
+                <input
+                  type="radio"
+                  name="tur"
+                  value={deger}
+                  defaultChecked={deger === tur}
+                  className="h-3.5 w-3.5 accent-[var(--renk-birincil)]"
+                />
                 {TALEP_TURU_ETIKETLERI[deger]}
-              </option>
+              </label>
             ))}
-          </select>
-          <span className="mt-1 block text-sm text-metin-yumusak">
+          </div>
+          <span className="mt-1.5 block text-sm text-metin-yumusak">
             Panodaki arama kutusu da bu kategorilere göre süzüyor.
           </span>
-        </label>
+        </fieldset>
       ) : (
         <input type="hidden" name="tur" value={tur} />
       )}
@@ -171,23 +191,34 @@ export function TalepFormu({
           placeholder={yerTutucu}
           className={SINIF_GIRDI}
         />
-        <span className="mt-1 block text-sm text-metin-yumusak">
-          Telefon numarası, adres gibi iletişim bilgilerinizi metne YAZMAYIN.
-          Bağlantı onaylandığında sistem üzerinden yazışırsınız.
-        </span>
+        {/*
+          İLETİŞİM BİLGİSİ UYARISI KALKTI (22 Ağustos 2026 · istek). Uyarıydı,
+          kural değil: metne telefon yazılmasını engelleyen bir denetim zaten
+          yoktu ve kaldırılması hiçbir davranışı değiştirmiyor. Bağlantı
+          onaylandığında yazışma yine sistem üzerinden sürüyor.
+        */}
       </label>
       <label className="block sm:w-64">
-        <span className="text-sm font-medium text-metin">Son geçerlilik</span>
+        {/*
+          ETİKET EKRANDAN KALKTI (22 Ağustos 2026 · istek). Altındaki satır
+          alanın ne olduğunu zaten söylüyor ("süresi dolunca ilan panodan
+          düşer"). `aria-label` kalıyor: görünen etiketi kaldırmak, tarih
+          alanını ekran okuyucuda adsız bırakmak değil.
+        */}
         <input
           type="date"
           name="sonGecerlilik"
           required
+          aria-label="Son geçerlilik"
           defaultValue={girdiTarihi(new Date(simdi.getTime() + 30 * 86_400_000))}
           className={SINIF_GIRDI}
         />
-        <span className="mt-1 block text-sm text-metin-yumusak">
-          En fazla {azamiGun} gün; süresi dolunca ilan panodan düşer.
-        </span>
+        {/*
+          "EN FAZLA N GÜN…" SATIRI KALKTI (22 Ağustos 2026 · istek). SINIR
+          DURUYOR: sunucu tarihi hâlâ `azamiGun` ile sınırlıyor ve süresi dolan
+          ilan panodan düşüyor (bkz. talepAcEylemi). Kalkan yalnızca metin —
+          sınırı aşan bir tarih artık önceden söylenmiş olmadan reddedilir.
+        */}
       </label>
       <button type="submit" className={SINIF_BIRINCIL_BUTON}>
         {dugmeMetni}
@@ -288,11 +319,12 @@ export function IlanDuzenlemeFormu({
           />
         </label>
         <label className="block sm:w-64">
-          <span className="text-sm font-medium text-metin">Son geçerlilik</span>
+          {/* Etiket ekrandan kalktı (yukarıdaki notla aynı gerekçe). */}
           <input
             type="date"
             name="sonGecerlilik"
             required
+            aria-label="Son geçerlilik"
             defaultValue={girdiTarihi(talep.sonGecerlilik)}
             className={SINIF_GIRDI}
           />
@@ -319,7 +351,8 @@ export function FormKarti({
   children,
 }: {
   baslik: string;
-  aciklama: string;
+  /** Başlığın altındaki satır; yazılmazsa hiç basılmaz. */
+  aciklama?: string;
   Ikon: React.ComponentType<{ size?: number; className?: string }>;
   children: React.ReactNode;
 }) {

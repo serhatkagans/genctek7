@@ -55,9 +55,9 @@ import {
   FotografDuzenleme,
   IletisimDuzenleme,
   KayitEklemeFormu,
-  KayitYonetimi,
   ProfilFotografi,
 } from "@/components/ProfilDuzenleme";
+import { YolculukSeridi } from "@/components/YolculukSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
@@ -385,7 +385,6 @@ export default async function PanelSayfasi({
     fotoSinirlari,
     cvSinirlari,
     belgeSinirlari,
-    kayitProgramlari,
   ] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({
       where: { id: kullanici.id },
@@ -490,16 +489,12 @@ export default async function PanelSayfasi({
     /*
      * KAYIT BÖLÜMLERİ İÇİN (22 Ağustos 2026 · istek: "diğerlerini direk panele
      * alt alta alıyoruz açılır şekilde"). Destekleyici belge sınırları etkinlik
-     * ekleriyle ORTAK (lib/kazanim/ek.ts); kayıt formundaki "GençTek etkinliği"
-     * listesi faaliyet formununkiyle aynı kaynaktan gelir — pasife alınmışlar
-     * teklif edilmez, geçmiş kayıtların bağlantısı korunur.
+     * ekleriyle ORTAKTIR (lib/kazanim/ek.ts).
+     *
+     * GENÇTEK PROGRAM LİSTESİ ARTIK ÇEKİLMİYOR: kayıt formundaki "GençTek
+     * etkinliği" açılır listesi kalktı ve adı kişi kendisi yazıyor.
      */
     kazanimEkSinirlariniGetir(),
-    prisma.temelEtkinlikProgrami.findMany({
-      where: { aktif: true },
-      orderBy: [{ grup: "asc" }, { siraNo: "asc" }],
-      select: { id: true, ad: true, grup: true },
-    }),
   ]);
 
   /*
@@ -1338,7 +1333,17 @@ export default async function PanelSayfasi({
             */}
             <OlcumKarti
               baslik="Danışman öğretmenim"
-              ton={atama ? "olumlu" : "uyari"}
+              /*
+                DANIŞMANI VARKEN NÖTR (22 Ağustos 2026 · istek: "danışman
+                öğretmenim kartı yeşil olmasın, gri olsun"). Yeşil bir başarı
+                rengi; danışmanı olmak öğrencinin başardığı bir şey değil,
+                olağan durumu. Kart yeşil olduğunda ızgaradaki tek renkli kutu
+                oydu ve gözü kendine çekiyordu.
+
+                ATANMADIĞINDA SARI KALIYOR: orada gerçekten bekleyen bir iş var
+                ve kartın tek işi onu göstermek.
+              */
+              ton={atama ? "notr" : "uyari"}
               Ikon={UserCheck}
               deger={
                 atama
@@ -1710,6 +1715,21 @@ export default async function PanelSayfasi({
       </Link>
 
       {/*
+        AŞAMA ŞERİDİ ŞERİDİN ALTINDA (22 Ağustos 2026 · istek: "panelde GençTek
+        Yolculuğum'un altına … 'Buradasın' bunu da ekleyelim").
+
+        Üstteki şerit "neredesin ve ne kadar kaldı" diyor; bu liste "yol neye
+        benziyor" diyor. İkincisi olmadan seviye adı ("Keşifte") kişiye kaçıncı
+        basamakta olduğunu ve sıradakinin ne olduğunu söylemiyordu.
+
+        BAĞLANTI DEĞİL: üstündeki kart zaten yolculuk ekranına götürüyor;
+        şeridin kendisi okunacak bir liste. İşaretleme yolculuk ekranıyla TEK
+        BİLEŞENDEN geliyor (components/YolculukSeridi.tsx) — kopyalansaydı
+        seviye eklendiğinde biri geride kalırdı.
+      */}
+      <YolculukSeridi seviyeKodu={yolculuk.seviye.kod} />
+
+      {/*
         BÖLÜM ÖLÇÜM KARTLARININ HEMEN ARDINA ALINDI (13 Ağustos 2026).
 
         Eskiden katlanır profil bölümlerinin (Fotoğrafım, Hakkımda, Kayıtlarım,
@@ -1949,8 +1969,18 @@ export default async function PanelSayfasi({
               tıklayın" davetiyesi duruyordu; kart zaten başlığı ve kalemiyle
               tıklanabilir olduğunu söylüyor.
             */}
+            {/*
+              ÖZET ÜÇ SATIR (22 Ağustos 2026 · istek: "Hakkımda özeti 3 satır
+              görünsün; 1500 karakter girince hepsi görünüyor"). Metin
+              kırpılmadan basılıyordu ve uzun bir "Hakkımda", altındaki bütün
+              bölümleri ekranın dışına itiyordu — kapalı bir kutunun özeti,
+              kutunun kendisinden uzun olmamalı.
+
+              KIRPMA GÖRSEL, VERİ DEĞİL: metnin tamamı kutuya tıklanınca açılan
+              formda duruyor ve profilde tam hâliyle görünüyor.
+            */}
             {profilKaydi.hakkinda && (
-              <p className="mt-3 whitespace-pre-line text-metin group-open:hidden">
+              <p className="mt-3 line-clamp-3 whitespace-pre-line text-metin group-open:hidden">
                 {profilKaydi.hakkinda}
               </p>
             )}
@@ -2037,12 +2067,17 @@ export default async function PanelSayfasi({
         eski `/panel/profil` yer imleri ekranın en üstüne düşüyor ve kişinin
         kendi kaydı sayfanın ortasında başlıyor.
       */}
-      <div id="profilim" className="scroll-mt-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
-          <UserRound size={18} className="text-vurgu-metin" aria-hidden />
-          Profilim
-        </h2>
-      </div>
+      {/*
+        "PROFİLİM" BAŞLIĞI KALKTI (22 Ağustos 2026 · istek: "panelden bu yazıyı
+        kaldır: Profilim"). Altındaki kutuların hepsi zaten kendi adını
+        taşıyor; başlık bir grup adı olmaktan çıkıp sayfanın ortasında duran
+        tek satırlık bir etikete dönmüştü.
+
+        `id` KALIYOR ama artık boş bir çapa: eski `/panel/profil` yer imleri ve
+        profile giden bağlantılar buraya iniyor. Kaldırılsaydı o adresler
+        sayfanın en tepesine düşerdi.
+      */}
+      <div id="profilim" className="scroll-mt-6" />
 
       {/*
         KİMLİK BİLGİLERİ — SALT OKUNUR. Alanlar e-Okul/MEBBİS kaydından gelir;
@@ -2424,7 +2459,6 @@ export default async function PanelSayfasi({
               grup={grup}
               tanimlar={tanimlar}
               seciliTanim={seciliTanim}
-              programlar={kayitProgramlari}
               izinliBelgeTipleri={izinliBelgeTipleri}
               belgeSinirlari={belgeSinirlari}
               ekleEylemi={kazanimEkleEylemi}
@@ -2434,32 +2468,20 @@ export default async function PanelSayfasi({
       })}
 
       {/*
-        GİRİLEN KAYITLAR TEK BÖLÜMDE, grupların içinde değil: kapanmış tiplerin
-        (bkz. ARSIVLENMIS_TIPLER) artık bir grubu yok ve kayıtları yalnızca
-        buradan görülüp silinebiliyor. Grup kutularına dağıtılsalardı o eski
-        kayıtlara ulaşmanın yolu kalmazdı.
+        "GİRDİĞİM KAYITLAR" BÖLÜMÜ KALKTI (22 Ağustos 2026 · istek: "panelde
+        Girdiğim kayıtlar bunu kaldır en altta").
+
+        Bölüm girilen bütün kayıtları tipe göre listeliyor, her satırda silme ve
+        "destekleyici belge ekle" formunu taşıyordu.
+
+        BUNUNLA BİRLİKTE GİDEN İKİ İŞ: kayıt silme ve var olan bir kayda
+        sonradan belge ekleme/çıkarma. Sunucu eylemleri (kazanimSilEylemi,
+        kazanimBelgeEkleEylemi, kazanimBelgeSilEylemi) DURUYOR ve yetki
+        kontrolleri yerinde — yalnızca onları çağıran ekran yok. Bu işler geri
+        istendiğinde bölüm yeniden basılabilir ya da kayıtlar grup kutularının
+        içine dağıtılabilir.
       */}
-      <KatlanabilirKart
-        baslik="Girdiğim kayıtlar"
-        Ikon={FileText}
-        capa="girdigim-kayitlar"
-        duzenlenebilir
-        baslangictaAcik={acilacakBolum === "girdigim-kayitlar"}
-        ozet={
-          profilKaydi.kazanimlar.length > 0 ? (
-            <p>{profilKaydi.kazanimlar.length} kayıt</p>
-          ) : undefined
-        }
-      >
-        <KayitYonetimi
-          kazanimlar={profilKaydi.kazanimlar}
-          sahip={kazanimSahibi}
-          silmeEylemi={kazanimSilEylemi}
-          belgeEkleEylemi={kazanimBelgeEkleEylemi}
-          belgeSilEylemi={kazanimBelgeSilEylemi}
-          izinliBelgeTipleri={izinliBelgeTipleri}
-        />
-      </KatlanabilirKart>
+
 
       {/*
         ---------------------------------------------------------------------

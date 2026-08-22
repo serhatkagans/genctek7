@@ -45,6 +45,26 @@ export function gunBasi(deger: string | null): Date | null {
   return new Date(yil, ay - 1, gun, 0, 0, 0, 0);
 }
 
+/**
+ * Bugünün başlangıcı (yerel saatle 00:00).
+ *
+ * Tarih SORULMAYAN kayıtlar için (22 Ağustos 2026 · ürün formu). `gunBasi` ile
+ * aynı biçimi üretiyor — saat taşıyan bir tarih, gün başına alınmış öbür
+ * kayıtların yanında sıralamada farklı davranırdı.
+ */
+export function bugununBasi(): Date {
+  const simdi = new Date();
+  return new Date(
+    simdi.getFullYear(),
+    simdi.getMonth(),
+    simdi.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+}
+
 /** `<input type="date">` değerini o günün sonuna çevirir. */
 export function gunSonu(deger: string | null): Date | null {
   if (!deger) return null;

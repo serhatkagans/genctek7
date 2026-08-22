@@ -353,22 +353,22 @@ describe("türe uymayan alanlar", () => {
       tip: "YARISMA_DERECESI",
       baslik: "Ulusal Bilgisayar Olimpiyatları",
       derece: "Türkiye 3.sü",
-      duzenleyen: "TÜBİTAK",
+      duzenleyen: "Bakanlık",
       katilimBicimi: "YUZ_YUZE",
     });
     expect(kayit.derece).toBe("Türkiye 3.sü");
-    expect(kayit.duzenleyen).toBe("TÜBİTAK");
+    expect(kayit.duzenleyen).toBe("Bakanlık");
   });
 
   it("dış etkinlikte düzenleyeni saklar, dereceyi düşürür", () => {
     const kayit = kabulEdilenKayit({
       tip: "DIS_ETKINLIK",
       baslik: "TEKNOFEST",
-      duzenleyen: "T3 Vakfı",
+      duzenleyen: "İl",
       derece: "Birincilik",
       katilimBicimi: "YUZ_YUZE",
     });
-    expect(kayit.duzenleyen).toBe("T3 Vakfı");
+    expect(kayit.duzenleyen).toBe("İl");
     expect(kayit.derece).toBeNull();
   });
 });
@@ -616,11 +616,25 @@ describe("sertifika ve topluluk", () => {
     expect(tanim.programSecimiVarMi).toBe(false);
   });
 
-  it("sertifika kaydı kabul edilir", () => {
+  /*
+   * 22 AĞUSTOS 2026 · istek: "Düzenleyen kurum burayı listeden seçsin: okul,
+   * ilçe, il, bakanlık". Alan serbest metindi; testin işi, listeye girmeyen bir
+   * değerin artık kabul edilmediğini sabitlemek.
+   */
+  it("listede olmayan düzenleyeni reddeder", () => {
     const karar = kazanimKabulEdilirMi({
       tip: "SERTIFIKA",
       baslik: "Siber Güvenliğe Giriş",
       duzenleyen: "BTK Akademi",
+    });
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("sertifika kaydı kabul edilir", () => {
+    const karar = kazanimKabulEdilirMi({
+      tip: "SERTIFIKA",
+      baslik: "Siber Güvenliğe Giriş",
+      duzenleyen: "Bakanlık",
     });
     expect(karar.olurMu).toBe(true);
   });

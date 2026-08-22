@@ -107,15 +107,23 @@ export default async function GorevlerimSayfasi() {
         />
         <Kart>
           <KartBasligi
-            baslik="Temsilcilikler ve organizasyonlar"
-            aciklama="Verilen temsilcilikler ve görev alınan GençTek organizasyonları. İkisi de kendiliğinden düşer; buraya elle bir şey eklenmez."
+            baslik="Temsilcilikler"
+            aciklama="Verilen temsilcilikler. Atamayla kendiliğinden düşer; buraya elle bir şey eklenmez."
             Ikon={Sparkles}
           />
+          {/*
+            ORGANİZASYON LİSTESİ BASILMIYOR (22 Ağustos 2026 · istek: "Görev
+            aldığı GençTek organizasyonları bunu kaldır"). Kişinin düzenlediği
+            etkinlikler Etkinlikler ekranında ve profildeki yolculuk kartında
+            duruyor; burada bir görev listesinin ortasında ikinci bir etkinlik
+            listesi açıyordu.
+          */}
           <KatkiGorevBolumu
             kendiMi
             gorevler={katki.gorevler}
             faaliyetler={katki.faaliyetler}
             egitimOgretimYili={kullanici.egitimOgretimYili}
+            organizasyonlarGorunsun={false}
           />
         </Kart>
         {/*

@@ -63,7 +63,10 @@ export default async function MentorBasvuruSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Mentör olmak için başvur"
-        aciklama="Bildiğiniz konularda öğrencilere yol gösterin."
+        /*
+          AÇIKLAMA SATIRI KALKTI (22 Ağustos 2026 · istek). Başlık ne
+          yapıldığını zaten söylüyordu.
+        */
         /*
           Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
           geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı

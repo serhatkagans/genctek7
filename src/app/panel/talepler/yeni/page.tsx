@@ -4,13 +4,11 @@ import { notFound } from "next/navigation";
 import { BilgiKutusu, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
-  GIZLILIK_UYARISI,
   PANO_KATEGORILERI,
   TALEP_AZAMI_GUN,
 } from "@/lib/iletisim/kurallar";
 import {
   panodaIlanAcabilirMi,
-  panoIlaniOnayGerekiyorMu,
 } from "@/lib/yetki/izinler";
 import { FormKarti, TalepFormu } from "../formlar";
 
@@ -38,7 +36,6 @@ export default async function YeniTalepSayfasi({
   if (!panodaIlanAcabilirMi(kullanici)) notFound();
 
   const { hata } = await searchParams;
-  const onayaDuser = panoIlaniOnayGerekiyorMu(kullanici);
 
   return (
     <div className="space-y-6">
@@ -62,24 +59,31 @@ export default async function YeniTalepSayfasi({
       </Link>
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
-      <BilgiKutusu cesit="uyari">{GIZLILIK_UYARISI}</BilgiKutusu>
+      {/*
+        GİZLİLİK UYARISI BU EKRANDAN KALKTI (22 Ağustos 2026 · istek). Uyarı,
+        yazışmanın KENDİ ekranlarında duruyor (yazışma detayı ve mentörlüğüm) —
+        mesajın yazıldığı yer orası. İlan açma formunda, henüz kimseyle
+        yazışılmadan gösteriliyordu. KURAL DEĞİŞMEDİ: yazışmalar gizli değil ve
+        yetkililer okuyabiliyor (bkz. lib/iletisim/kurallar.ts · GIZLILIK_UYARISI).
+      */}
       {/*
         ONAY KURALI İLAN YAZILMADAN ÖNCE YAZILI: "gönderdim ama panoda yok"
         sorusunun sorulmasını bekleyip cevabı sonuç iletisine saklamak, aynı
         bilgiyi en geç anda vermek olurdu.
       */}
-      {onayaDuser && (
-        <BilgiKutusu cesit="bilgi">
-          Açtığınız ilan proje yöneticisinin onayından geçer; onaylanana kadar
-          panoda görünmez. Karar verildiğinde size bildirim gelir.
-        </BilgiKutusu>
-      )}
+      {/*
+        "ONAYA DÜŞER" BİLGİ KUTUSU KALKTI (22 Ağustos 2026 · istek). AKIŞ
+        DEĞİŞMEDİ: ilan proje yöneticisinin onayından geçmeye, onaylanana kadar
+        panoda görünmemeye ve karar bildirimi gitmeye devam ediyor
+        (bkz. talepAcEylemi). Kalkan yalnızca önceden yapılan duyuru.
+      */}
 
-      <FormKarti
-        baslik="Yeni ilan"
-        aciklama="Kategoriyi seçin, ne aradığınızı yazın."
-        Ikon={LifeBuoy}
-      >
+      {/*
+        AÇIKLAMA SATIRI KALKTI (22 Ağustos 2026 · istek). "Kategoriyi seçin, ne
+        aradığınızı yazın" formun kendisinin söylediğini tekrar ediyordu:
+        altındaki iki alan zaten kategori ve metin.
+      */}
+      <FormKarti baslik="Yeni ilan" Ikon={LifeBuoy}>
         <TalepFormu
           tur="TEKNIK_DESTEK"
           kategoriler={PANO_KATEGORILERI}
