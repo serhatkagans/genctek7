@@ -1,14 +1,8 @@
-import { Eye, ExternalLink, Info, Package, ScrollText, Users } from "lucide-react";
+import { Eye, ExternalLink, Plus, ScrollText, Users } from "lucide-react";
 import { projeYoneticisiMi } from "@/lib/yetki/izinler";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import Link from "next/link";
-import {
-  BilgiKutusu,
-  Kart,
-  Rozet,
-  RozetSeridi,
-  SayfaBasligi,
-} from "@/components/ui";
+import { Kart, Rozet, RozetSeridi, SayfaBasligi } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
@@ -94,9 +88,14 @@ export default async function MarketSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        AÇIKLAMA SATIRI YOK (25 Ağustos 2026 · istek: "ürünler kısmındaki şu
+        açıklamaları sil"). "GençTek ekosisteminde üretilen ürünler" cümlesi
+        başlığın altında başlığı tekrar ediyordu; rozet zaten kaç ürün
+        olduğunu söylüyor.
+      */}
       <SayfaBasligi
         baslik="Ürünlerim · GençTek Market"
-        aciklama="GençTek ekosisteminde üretilen ürünler."
         rozet={<Rozet cesit="vurgu">{gosterilecek.length} ürün</Rozet>}
       />
 
@@ -112,55 +111,54 @@ export default async function MarketSayfasi({
       )}
 
       {/*
-        "ÜRÜN EKLE" DÜĞMESİ DEĞİL, NOT. İstekte yazan bu: ekleme başka bir
-        ekranda (Panel · Kayıtlarım) yapılıyor. Düğme konsaydı market ayrı bir
-        ekleme yolu gibi görünür, tıklayan yine oraya giderdi.
-      */}
-      <BilgiKutusu>
-        <span className="flex flex-wrap items-center gap-1.5">
-          <Info size={15} aria-hidden />
-          <strong>Ürün eklemek için:</strong> ürünlerinizi &quot;Bilişim
-          Yolculuğum&quot; ekranından ekleyebilirsiniz.
-          {/*
-            `?tur=URUN` kayıt formunu Ürünlerim türünde açar: form türe göre
-            basılıyor ve varsayılan tür ürün değil. Çapa 21 Ağustos 2026'da
-            kalktı — bölüm kendi sayfasına taşındığı için (istek: "kayıtlarım
-            … kendi sayfaları olsun") form zaten ekranın en üstünde.
-          */}
-          <Link
-            href="/panel?bolum=urunlerim&tur=URUN#urunlerim"
-            className="font-medium text-vurgu-metin underline underline-offset-2"
-          >
-            Ürün ekleme formuna git
-          </Link>
-          <span className="text-metin-yumusak">
-            — eklerken &quot;Bu ürünü markette paylaş&quot; kutusunu işaretlerseniz
-            burada görünür.
-          </span>
-        </span>
-      </BilgiKutusu>
+        BİLGİ KUTUSU KALKTI, YERİNE DÜĞME GELDİ (25 Ağustos 2026 · istekler:
+        "şu açıklamaları sil" · "Tüm ürünler · Ürünlerim, bu butonların yanına
+        ürün ekle butonu koy bi de").
 
+        Kutu üç satırda ekleme ekranını TARİF ediyordu ("Bilişim Yolculuğum
+        ekranından ekleyebilirsiniz… markette paylaş kutusunu işaretlerseniz")
+        ve içine bir de bağlantı almıştı. Tarif eden kutu yerine düğmenin
+        kendisi duruyor; gittiği yer aynı (Profil · Ürünlerim bölümü). Ekleme
+        yine TEK ekranda, market yalnızca gösteriyor.
+      */}
       {/*
         İKİ SÜZGEÇ (10 Ağustos 2026 · istek: "dilim kalkacak, kendi ürünlerim
         ürünlerim olacak, öğrenci ve öğretmen ürünleri ayrı olmayacak").
         Gerekçeler lib/market/kurallar.ts · MARKET_SUZGECLERI içinde.
       */}
-      <nav aria-label="Ürün süzgeçleri" className="flex flex-wrap gap-2">
-        {MARKET_SUZGECLERI.map((tanim) => (
-          <Link
-            key={tanim.kod}
-            href={`/panel/urunler?suzgec=${tanim.kod}`}
-            aria-current={tanim.kod === suzgec ? "page" : undefined}
-            className={
-              tanim.kod === suzgec
-                ? "rounded-full bg-birincil px-4 py-1.5 text-sm font-semibold text-birincil-metin"
-                : "rounded-full border border-cizgi px-4 py-1.5 text-sm text-metin transition hover:bg-zemin"
-            }
-          >
-            {tanim.etiket}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="Ürün süzgeçleri" className="flex flex-wrap gap-2">
+          {MARKET_SUZGECLERI.map((tanim) => (
+            <Link
+              key={tanim.kod}
+              href={`/panel/urunler?suzgec=${tanim.kod}`}
+              aria-current={tanim.kod === suzgec ? "page" : undefined}
+              className={
+                tanim.kod === suzgec
+                  ? "rounded-full bg-birincil px-4 py-1.5 text-sm font-semibold text-birincil-metin"
+                  : "rounded-full border border-cizgi px-4 py-1.5 text-sm text-metin transition hover:bg-zemin"
+              }
+            >
+              {tanim.etiket}
+            </Link>
+          ))}
+        </nav>
+        {/*
+          DÜĞME SÜZGEÇLERİN ARASINDA DEĞİL, KARŞISINDA: aynı hapı kullansaydı
+          üçüncü bir süzgeç gibi okunurdu. Vurgu zemini ve artı ikonu "bu bir
+          eylem" diyor.
+
+          `?tur=URUN` kayıt formunu Ürünlerim türünde açar: form türe göre
+          basılıyor ve varsayılan tür ürün değil.
+        */}
+        <Link
+          href="/panel?bolum=urunlerim&tur=URUN#urunlerim"
+          className="inline-flex items-center gap-1.5 rounded-full border border-vurgu bg-vurgu-zemin px-4 py-1.5 text-sm font-semibold text-vurgu-metin transition hover:bg-kart"
+        >
+          <Plus size={15} aria-hidden />
+          Ürün ekle
+        </Link>
+      </div>
 
       {aktifTanim && (
         <p className="text-sm text-metin-yumusak">{aktifTanim.aciklama}</p>
@@ -262,32 +260,17 @@ export default async function MarketSayfasi({
       )}
 
       {/*
-        SAYAÇLARIN NE SAYDIĞI YAZIYOR. İstek "indirilme sayıları" diyor ama
-        ürünlerde dosya yükleme kapsam dışı ("şimdilik sadece tanıtım
-        yapsınlar"); indirilecek bir dosya yok. Sayılan şey, ürünün bağlantısına
-        gidilmesi. Bunu gizleyip "indirilme" demek, olmayan bir ölçümü varmış
-        gibi göstermek olurdu (→ SORULAR.md · S22).
+        "SAYAÇLAR NE SAYIYOR?" KARTI KALKTI (25 Ağustos 2026 · istek: "şu
+        açıklamaları sil").
+
+        Kart iki sayacın tanımını yazıyordu; sayaçların ETİKETLERİ zaten ürün
+        kartlarının üstünde duruyor ("… görüntülenme", "… bağlantı ziyareti")
+        ve vitrinin dibindeki bir sözlük, ürünlere bakan kişinin sorduğu bir
+        soruya cevap vermiyordu. Ölçümün gerekçesi kodda korunuyor: ürünlerde
+        dosya yükleme kapalı, o yüzden "indirilme" diye bir sayaç YOK; bağlantı
+        ziyareti onun en yakın karşılığı (bkz. panel/urunler/[id] ·
+        baglantiTiklamasi).
       */}
-      <Kart>
-        <h2 className="flex items-center gap-2 text-base font-semibold text-baslik">
-          <Package size={16} className="text-metin-yumusak" />
-          Sayaçlar ne sayıyor?
-        </h2>
-        <ul className="mt-2 space-y-1.5 text-sm text-metin-yumusak">
-          <li>
-            <strong className="text-metin">Görüntülenme:</strong> ürün sayfasının
-            kaç kez açıldığı. Sahibinin kendi bakışları sayılmaz.
-          </li>
-          <li>
-            <strong className="text-metin">Bağlantı ziyareti:</strong>{" "}
-            ürünün
-            deposuna, canlı sürümüne ya da tanıtımına kaç kez gidildiği.
-            Ürünlerde dosya yükleme şimdilik kapalı olduğu için &quot;indirilme&quot;
-            diye sayılabilecek bir olay yok; edinme niyetini gösteren en yakın
-            ölçüm bu.
-          </li>
-        </ul>
-      </Kart>
 
       {/*
         TAAHHÜTNAME (7 Ağustos 2026 · istek: "Market → Ürün Listele ·

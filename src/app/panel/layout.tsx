@@ -87,7 +87,17 @@ export default async function PanelDuzeni({
    * (bkz. app/panel/profil/page.tsx).
    */
   const baglantilar: GezinmeBaglantisi[] = [
-    { yol: "/panel", etiket: "Panel", grup: "Genel", ikon: "LayoutGrid" },
+    /*
+     * SEKMENİN ADI "PROFİL" (25 Ağustos 2026 · istek: "menüdeki panel ismini
+     * komple profil yapalım, panel sayfası değil profil sayfası olsun").
+     *
+     * 20 Ağustos'ta Profil sekmesi Panel'in içine girmişti; ekran o gün
+     * fiilen profil oldu (kimlik, CV, çalışma grupları, kartlar) ama adı
+     * "Panel" kaldı ve kişi profilini menüde arayamıyordu. Değişen yalnızca
+     * ETİKET: adres `/panel` — kayıtlı bağlantılar, yer imleri ve
+     * yönlendirmeler kırılmasın.
+     */
+    { yol: "/panel", etiket: "Profil", grup: "Genel", ikon: "LayoutGrid" },
   ];
 
   /*

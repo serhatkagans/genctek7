@@ -1240,9 +1240,10 @@ export function KayitEklemeFormu({
 }
 
 /**
- * Bir grubun ALTINDA duran "girdiğim kayıtlar" listesi (24 Ağustos 2026 ·
- * istek: "her bir bölümün altına liste şeklinde en alta girdiği verileri
- * görebilsin, tıklayınca sayfasına gidip düzenleyebilsin").
+ * Grup kutusunun İÇİNDEKİ "girdiğim kayıtlar" listesi (24 Ağustos 2026 ·
+ * istek: "her bir bölümün altına liste şeklinde girdiği verileri görebilsin,
+ * tıklayınca sayfasına gidip düzenleyebilsin"). 25 Ağustos 2026'da ekleme
+ * formunun ÜSTÜNE alındı (istek: "onu formların üstüne alalım").
  *
  * ÖNCESİ: grup kutusu açıldığında yalnızca EKLEME FORMU çıkıyordu. Kişi kaydı
  * giriyor, kutunun özetinde "2 kayıt" yazısını görüyor ama ne girdiğini
@@ -1265,16 +1266,22 @@ export function GirilenKayitlar({
   /** Grubun tip tanımları — satırdaki tür etiketi buradan okunur. */
   tanimlar: KazanimTipiTanimi[];
 }) {
+  /*
+   * AYIRICI ÇİZGİ ALTTA: liste 25 Ağustos 2026'da ekleme formunun ÜSTÜNE
+   * alındı (bkz. panel/page.tsx), dolayısıyla ayırıcı listeyle formun ARASINDA
+   * duruyor — üstte kalsaydı kutu başlığının hemen ardından ikinci bir çizgi
+   * çıkardı.
+   */
   if (kazanimlar.length === 0) {
     return (
-      <p className="mt-6 border-t border-cizgi pt-4 text-sm text-metin-yumusak">
-        Bu bölümde henüz kaydınız yok. Yukarıdaki formdan ekleyebilirsiniz.
+      <p className="mb-6 border-b border-cizgi pb-4 text-sm text-metin-yumusak">
+        Bu bölümde henüz kaydınız yok. Aşağıdaki formdan ekleyebilirsiniz.
       </p>
     );
   }
 
   return (
-    <div className="mt-6 border-t border-cizgi pt-4">
+    <div className="mb-6 border-b border-cizgi pb-4">
       <h3 className="text-sm font-semibold text-baslik">
         Girdiğim kayıtlar
         <span className="ml-2 font-normal text-metin-yumusak">

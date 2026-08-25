@@ -54,13 +54,16 @@ export default async function GorevlerimSayfasi() {
     },
   });
 
+  /*
+   * KART BAŞLIKLARINDA AÇIKLAMA YOK (25 Ağustos 2026 · istek: "buradaki
+   * açıklamaları silelim"). Üç satır da listenin kendisinden fazlasını
+   * söylemiyordu: temsilciliğin atamadan düştüğünü, grubun panelden
+   * seçildiğini ve görevin panodan alındığını kişi zaten o ekranlardan
+   * biliyor. Başlık + liste, sayfayı bir okumada bitiriyor.
+   */
   const gencTekBolumu = (
     <Kart>
-      <KartBasligi
-        baslik="GençTek görevlerim"
-        aciklama="Merkezin açtığı ekiplerden görev aldıklarınız. Yeni görevler panodaki GençTek Görevleri ekranından açılır."
-        Ikon={BadgeCheck}
-      />
+      <KartBasligi baslik="GençTek görevlerim" Ikon={BadgeCheck} />
       {gencTekGorevleri.length === 0 ? (
         <p className="text-sm text-metin-yumusak">
           Henüz bir GençTek görevinde yer almıyorsunuz.
@@ -106,11 +109,7 @@ export default async function GorevlerimSayfasi() {
           aciklama={`${katki.gorevler.length} temsilcilik · ${katki.gruplar.length} çalışma grubu · ${gencTekGorevleri.length} GençTek görevi`}
         />
         <Kart>
-          <KartBasligi
-            baslik="Temsilcilikler"
-            aciklama="Verilen temsilcilikler. Atamayla kendiliğinden düşer; buraya elle bir şey eklenmez."
-            Ikon={Sparkles}
-          />
+          <KartBasligi baslik="Temsilcilikler" Ikon={Sparkles} />
           {/*
             ORGANİZASYON LİSTESİ BASILMIYOR (22 Ağustos 2026 · istek: "Görev
             aldığı GençTek organizasyonları bunu kaldır"). Kişinin düzenlediği
@@ -137,11 +136,7 @@ export default async function GorevlerimSayfasi() {
           belirsizleştirirdi.
         */}
         <Kart>
-          <KartBasligi
-            baslik="Çalışma gruplarım"
-            aciklama="Seçtiğin çalışma grupları. Seçimini Panel'den düzenleyebilirsin."
-            Ikon={Layers}
-          />
+          <KartBasligi baslik="Çalışma gruplarım" Ikon={Layers} />
           <KatkiGrupBolumu kendiMi gruplar={katki.gruplar} />
         </Kart>
         {gencTekBolumu}

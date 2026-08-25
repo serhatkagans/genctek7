@@ -164,9 +164,12 @@ export function TalepFormu({
               </label>
             ))}
           </div>
-          <span className="mt-1.5 block text-sm text-metin-yumusak">
-            Panodaki arama kutusu da bu kategorilere göre süzüyor.
-          </span>
+          {/*
+            YARDIM SATIRI KALKTI (25 Ağustos 2026 · istek: "Panodaki arama
+            kutusu da bu kategorilere göre süzüyor — bu açıklamayı sil").
+            Kategori seçimi burada yapılıyor; panonun aramasının nasıl
+            çalıştığı formu dolduranın kararına hiçbir şey katmıyordu.
+          */}
         </fieldset>
       ) : (
         <input type="hidden" name="tur" value={tur} />

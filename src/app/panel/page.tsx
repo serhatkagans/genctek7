@@ -84,10 +84,7 @@ import {
   kazanimTipiGecerliMi,
 } from "@/lib/kazanim/kurallar";
 import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
-import {
-  MENTORLUK_DURUM_ETIKETLERI,
-  mentorKapsamiYaz,
-} from "@/lib/mentor/kurallar";
+import { MENTORLUK_DURUM_ETIKETLERI } from "@/lib/mentor/kurallar";
 import { mentorluguGetir } from "@/lib/mentor/veri";
 import { ogretmenKatkiSayilariGetir } from "@/lib/ogretmen/katki";
 import { yolculugumuGetir } from "@/lib/yolculuk/veri";
@@ -1051,8 +1048,15 @@ export default async function PanelSayfasi({
               yok. Düğmenin gidip gelmesi vitrindeki düğme sırasını da her
               açılışta değiştiriyordu.
             */}
+            {/*
+              YOL HAM YAZILIR, `uygulamaYolu()` İLE DEĞİL: `<Link>` basePath'i
+              kendisi ekler. Önek burada bir kez daha eklendiğinde alt dizine
+              kurulu sunucuda adres `/genctek/genctek/panel/bildirimler` olup
+              404 veriyordu; yerelde TEMEL_YOL boş olduğu için hata görünmezdi
+              (bkz. lib/ortam.ts · uygulamaYolu).
+            */}
             <Link
-              href={uygulamaYolu("/panel/bildirimler")}
+              href="/panel/bildirimler"
               className={SINIF_VITRIN_IKINCIL_BUTON}
             >
               <Mail size={16} aria-hidden />
@@ -1364,8 +1368,17 @@ export default async function PanelSayfasi({
               */
               yol="/panel/danisman-secim"
             />
+            {/*
+              KART ADLARI TEK KALIPTA (25 Ağustos 2026 · istek: "öğrenci
+              kartlarının ismi standart olsun: Çalışma gruplarım, Öz
+              değerlendirmelerim, GençTek görevlerim, Mentörlüklerim").
+
+              "Çalışma grubu seçimim" işi (seçim), "Öz değerlendirme" aracı
+              (envanter) adlandırıyordu; komşularının hepsi "benim" diyen bir
+              çoğuldu. Adres ve içerik aynı, değişen yalnızca kart adı.
+            */}
             <OlcumKarti
-              baslik="Çalışma grubu seçimim"
+              baslik="Çalışma gruplarım"
               Ikon={Layers}
               deger={String(grupSayisi)}
               yol="/panel/calisma-gruplari"
@@ -1385,7 +1398,7 @@ export default async function PanelSayfasi({
               app/panel/algoritmam/page.tsx.
             */}
             <OlcumKarti
-              baslik="Öz değerlendirme"
+              baslik="Öz değerlendirmelerim"
               Ikon={Compass}
               deger="Envanterler"
               yol="/panel/algoritmam"
@@ -1415,7 +1428,7 @@ export default async function PanelSayfasi({
           önce "burada bir şey var mı" sorusunu cevaplamak.
         */}
         <OlcumKarti
-          baslik="Görevlerim"
+          baslik="GençTek görevlerim"
           Ikon={BadgeCheck}
           deger={String(gorevSayisi)}
           yol="/panel/gorevlerim"
@@ -1633,13 +1646,13 @@ export default async function PanelSayfasi({
                 ? MENTORLUK_DURUM_ETIKETLERI[mentorlugum.durum]
                 : "Başvurulmadı"
             }
-            /* Kapsam bir VERİDİR (hangi gruplarda mentörlük), tanım değil:
-               mentörlüğü olmayanda satır hiç basılmıyor. */
-            aciklama={
-              mentorlugum
-                ? mentorKapsamiYaz(mentorlugum.grupAdlari, mentorlugum.konular)
-                : undefined
-            }
+            /*
+              KAPSAM SATIRI KALKTI (25 Ağustos 2026 · istek: "mentörlüklerim
+              kartının altında … o mentörlüğe ait açıklama görünmesin").
+              Kart bir DURUM kartı: grup ve konu listesi eklenince kart
+              komşularından taşıyordu. Kapsamın yeri kendi ekranı
+              (/panel/mentorlugum) ve orada zaten yazıyor.
+            */
             /*
               ONAYLI MENTÖR KENDİ SAYFASINA GİDER, başvuru formuna değil
               (13 Ağustos 2026): onaylanmış kişinin sorusu "başvurum ne oldu"
@@ -2478,6 +2491,21 @@ export default async function PanelSayfasi({
               ) : undefined
             }
           >
+            {/*
+              GİRİLEN KAYITLAR FORMUN ÜSTÜNDE (25 Ağustos 2026 · istek: "bu üç
+              başlıkta … daha önce girilen etkinlik için ismi ve düzenleme
+              kısmı var; onu formların üstüne alalım, yani üstte gözüksün bu
+              düzenleme ve liste").
+
+              24 Ağustos'ta liste formun ALTINDAYDI: kutuyu açan kişi önce sekiz
+              alanlı boş bir formla karşılaşıyor, girdiği kaydı görmek için
+              onu geçmek zorunda kalıyordu. Kutuyu açmanın asıl sebebi çoğu
+              zaman "ne girmiştim / şunu düzelteyim" — ekleme ikinci iş.
+
+              Her satır kaydın kendi sayfasına gidiyor (bkz.
+              panel/kayitlarim/[id]); düzenlemenin başka kapısı yok.
+            */}
+            <GirilenKayitlar kazanimlar={grubunKayitlari} tanimlar={tanimlar} />
             <KayitEklemeFormu
               grup={grup}
               tanimlar={tanimlar}
@@ -2485,23 +2513,6 @@ export default async function PanelSayfasi({
               izinliBelgeTipleri={izinliBelgeTipleri}
               belgeSinirlari={belgeSinirlari}
               ekleEylemi={kazanimEkleEylemi}
-            />
-            {/*
-              GİRİLEN KAYITLAR FORMUN ALTINDA (24 Ağustos 2026 · istek: "veri
-              ekliyor ama sonra bunları kendisi göremiyor … her bir bölümün
-              altına liste şeklinde en alta girdiği verileri görebilsin,
-              tıklayınca sayfasına gidip düzenleyebilsin").
-
-              22 Ağustos'ta kayıtların listelendiği tek bölüm ("Girdiğim
-              kayıtlar") kalkmıştı ve yerine hiçbir şey konmamıştı: kutunun
-              özeti "2 kayıt" diyor, kutu açılınca yalnızca boş bir form
-              çıkıyordu. Liste artık kaydın girildiği yerin altında — ve her
-              satır kaydın kendi sayfasına gidiyor (bkz. panel/kayitlarim/[id]),
-              çünkü düzenlemenin başka bir kapısı yoktu.
-            */}
-            <GirilenKayitlar
-              kazanimlar={grubunKayitlari}
-              tanimlar={tanimlar}
             />
           </KatlanabilirKart>
         );

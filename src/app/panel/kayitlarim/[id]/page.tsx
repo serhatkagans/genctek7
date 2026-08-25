@@ -107,7 +107,7 @@ export default async function KayitSayfasi({
       <SayfaBasligi
         baslik={kazanim.baslik}
         aciklama={`${tanim.baslik} · kaydını buradan düzenleyebilirsin`}
-        geri={{ yol: geriYolu, etiket: "Panel" }}
+        geri={{ yol: geriYolu, etiket: "Profil" }}
       />
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}

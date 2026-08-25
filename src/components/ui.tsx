@@ -117,7 +117,7 @@ export function SayfaBasligi({
   aciklama,
   rozet,
   eylem,
-  geri = { yol: "/panel", etiket: "Panel" },
+  geri = { yol: "/panel", etiket: "Profil" },
 }: {
   baslik: string;
   aciklama?: string;
