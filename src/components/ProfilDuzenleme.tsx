@@ -1,10 +1,12 @@
 import {
   Camera,
+  Check,
   FileText,
   GraduationCap,
   Layers,
   Link2,
   Mail,
+  Pencil,
   Plus,
   ShieldCheck,
   Sparkles,
@@ -45,7 +47,7 @@ import {
 } from "@/lib/mentor/kurallar";
 import { cvTipAdlari } from "@/lib/ogrenci/cv-kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
-import { tarihSaatYaz } from "@/lib/tarih";
+import { girdiTarihi, tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 
 /**
  * Profil bilgilerinin DÜZENLENDİĞİ bölümler (C4 · 7 Ağustos 2026).
@@ -708,6 +710,439 @@ export interface BelgeSinirlari {
 }
 
 /**
+ * Kazanım kaydının ALANLARI — ekleme ve düzenleme formlarının ortak gövdesi.
+ *
+ * TEK YERDE (24 Ağustos 2026): kayıtlar artık kendi sayfasında düzenlenebiliyor
+ * (bkz. panel/kayitlarim/[id]) ve düzenleme formuna ayrı bir JSX yazılsaydı,
+ * birine eklenen alan öbüründe eksik kalırdı — dosyanın en baştaki kararı bu.
+ *
+ * `kayit` verildiğinde alanlar o kaydın değerleriyle dolu basılır; verilmezse
+ * boş form çıkar. Alanların HANGİSİNİN basılacağı ikisinde de aynı yerden,
+ * tipin tanımından okunur.
+ */
+function KazanimAlanlari({
+  tanim,
+  kayit,
+  izinliBelgeTipleri,
+  belgeSinirlari,
+  belgeAlaniVarMi,
+}: {
+  tanim: KazanimTipiTanimi;
+  /** Düzenlenen kayıt; yeni kayıt formunda yok. */
+  kayit?: KazanimSatiri;
+  izinliBelgeTipleri: string[];
+  belgeSinirlari: BelgeSinirlari;
+  belgeAlaniVarMi: boolean;
+}) {
+  /*
+   * ESKİ SERBEST METİN LİSTEYE EKLENİR (bkz. DUZENLEYEN_SECENEKLERI): alan 22
+   * Ağustos'ta listeye çevrildi ve o tarihten önce "MEB" yazan bir kaydın
+   * değeri hiçbir seçeneğe uymuyor. Eklenmeseydi tarayıcı ilk seçeneği seçili
+   * gösterir, kişi alana hiç dokunmadan kaydettiğinde değer silinirdi.
+   */
+  const duzenleyenSecenekleri =
+    kayit?.duzenleyen && !DUZENLEYEN_SECENEKLERI.includes(kayit.duzenleyen)
+      ? [...DUZENLEYEN_SECENEKLERI, kayit.duzenleyen]
+      : DUZENLEYEN_SECENEKLERI;
+
+  /*
+   * Bağlantı satırları: girilmiş olanlar + en az bir boş satır (yeni kayıtta
+   * üç boş satır). Sayfada JavaScript yok, "satır ekle" düğmesi yapılamıyor;
+   * dolu kayda hiç boş satır bırakılmasaydı yeni bağlantı eklenemezdi.
+   */
+  const mevcutBaglantilar = kayit?.baglantilar ?? [];
+  const baglantiSatirlari = [
+    ...mevcutBaglantilar.map((baglanti) => ({
+      adres: baglanti.adres,
+      etiket: baglanti.etiket ?? "",
+    })),
+    ...Array.from({ length: Math.max(3 - mevcutBaglantilar.length, 1) }, () => ({
+      adres: "",
+      etiket: "",
+    })),
+  ];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {/*
+        GençTek etkinliği listeden seçilir; "Diğer" bırakılırsa ad serbest
+        yazılır. İki alan da AYNI ANDA basılır — sunucu hangisinin
+        dolduğuna bakıp adı ona göre belirler.
+      */}
+      {/*
+        "GENÇTEK ETKİNLİĞİ" AÇILIR LİSTESİ KALKTI (22 Ağustos 2026 ·
+        istekler: "GençTek etkinliği bu alanı ve açılır listeyi kaldır" ·
+        "yalnızca 'Diğer' seçtiyseniz sil").
+
+        Liste, kaydın adını GençTek program kataloğundan seçtiriyordu ve
+        seçildiğinde alttaki ad alanı boş bırakılıyordu; iki alan tek bir
+        soruyu ("bu kaydın adı ne") iki farklı yoldan soruyordu. Ad artık
+        HER TÜRDE elle yazılıyor ve bu yüzden HER TÜRDE zorunlu.
+
+        SONUCU: yeni kayıtlar `temelEtkinlikProgramiId` taşımıyor, yani
+        katalogdaki programa bağlanmıyorlar. Daha önce bağlanmış kayıtlar
+        bağlantılarını KORUYOR. Kural katmanındaki `programSecimiVarMi`
+        dalı yerinde duruyor (bkz. kazanimKabulEdilirMi) — form artık o
+        alanı göndermiyor, kural da bu yüzden hiç çalışmıyor.
+      */}
+      <label className="block sm:col-span-2">
+        <span className="text-sm font-medium text-metin">
+          {tanim.baslikEtiketi}
+        </span>
+        <input
+          type="text"
+          name="baslik"
+          required
+          defaultValue={kayit?.baslik ?? ""}
+          maxLength={250}
+          placeholder={tanim.baslikOrnegi}
+          className={SINIF_GIRDI}
+        />
+      </label>
+
+      {/*
+        "Belirtmek istemiyorum" KALDIRILDI ve alan zorunlu oldu. Boş seçenek
+        yerine seçilemez bir yer tutucu duruyor: `required` tek başına, ilk
+        seçenek geçerli bir değer olduğunda hiçbir şey yapmazdı.
+      */}
+      {tanim.katilimBicimiVarMi && (
+        <label className="block">
+          <span className="text-sm font-medium text-metin">
+            Katılım biçimi
+          </span>
+          <select
+            name="katilimBicimi"
+            required
+            defaultValue={kayit?.katilimBicimi ?? ""}
+            className={SINIF_GIRDI}
+          >
+            <option value="" disabled>
+              Seçiniz
+            </option>
+            {KATILIM_BICIMLERI.map((bicim) => (
+              <option key={bicim} value={bicim}>
+                {KATILIM_BICIMI_ETIKETLERI[bicim]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {tanim.hedefKitleVarMi && (
+        <label className="block">
+          <span className="text-sm font-medium text-metin">Hedef kitle</span>
+          <input
+            type="text"
+            name="hedefKitle"
+            defaultValue={kayit?.hedefKitle ?? ""}
+            maxLength={200}
+            placeholder="9. sınıflar, veliler, öğretmenler"
+            className={SINIF_GIRDI}
+          />
+        </label>
+      )}
+
+      {tanim.duzenleyenVarMi && (
+        <label className="block">
+          <span className="text-sm font-medium text-metin">Düzenleyen</span>
+          {/*
+            LİSTEDEN SEÇİLİYOR (22 Ağustos 2026 · istek). Serbest metinken
+            aynı düzey herkeste başka türlü yazılıyordu ("MEB", "Millî
+            Eğitim Bakanlığı", "Bakanlık") ve alan sayılabilir bir bilgi
+            taşımıyordu.
+
+            BOŞ SEÇENEK VAR ve varsayılan o: alan isteğe bağlı, ilk
+            seçeneğin geçerli bir değer olması kişinin seçmediği bir düzeyi
+            seçmiş gibi kaydederdi.
+          */}
+          <select
+            name="duzenleyen"
+            defaultValue={kayit?.duzenleyen ?? ""}
+            className={SINIF_GIRDI}
+          >
+            <option value="">Belirtmek istemiyorum</option>
+            {duzenleyenSecenekleri.map((secenek) => (
+              <option key={secenek} value={secenek}>
+                {secenek}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {/*
+        ÜRÜNE ÖZGÜ ALANLAR (D5). PROGRAM DOSYASI YÜKLENMİYOR — istek
+        "şimdilik sadece tanıtım yapsınlar" diyor.
+      */}
+      {tanim.urunAlanlariVarMi && (
+        <>
+          <label className="block">
+            <span className="text-sm font-medium text-metin">
+              Geliştiren ekip{" "}
+              <span className="font-normal text-metin-yumusak">
+                (isteğe bağlı)
+              </span>
+            </span>
+            <input
+              type="text"
+              name="gelistirenEkip"
+              defaultValue={kayit?.gelistirenEkip ?? ""}
+              maxLength={250}
+              placeholder="Kendim · ya da ekip arkadaşlarının adları"
+              className={SINIF_GIRDI}
+            />
+          </label>
+
+          <label className="flex items-start gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="markettePaylasilsin"
+              value="evet"
+              defaultChecked={kayit?.markettePaylasilsin === true}
+              className="mt-1 h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+            />
+            {/*
+              AÇIKLAMA SATIRI KALKTI, BAĞLANTI KALDI (22 Ağustos 2026 ·
+              istekler: "İşaretlemezseniz ürün yalnızca sizde kalır…"
+              cümlesi · "İşaretlerseniz ürününüz GençTek Market'te
+              listelenir… linki markette paylaşın yanına koy, bu yazıyı
+              kaldır").
+
+              Tek satırlık bir onay kutusunun altında dört satırlık
+              açıklama duruyordu ve ikisi de aynı şeyi söylüyordu. Kalan
+              tek gerçek bilgi marketin NEREDE olduğuydu; o da artık
+              etiketin yanındaki bağlantı.
+
+              BAĞLANTI YENİ SEKMEDE: aynı sekmede açılsaydı kişi doldurduğu
+              formdan çıkar ve yazdıkları giderdi.
+            */}
+            <span className="text-sm text-metin">
+              <span className="font-medium">Bu ürünü markette paylaş</span>{" "}
+              <Link
+                href="/panel/urunler"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-vurgu-metin underline underline-offset-2"
+              >
+                GençTek Market
+              </Link>
+            </span>
+          </label>
+
+          <fieldset className="sm:col-span-2">
+            <legend className="text-sm font-medium text-metin">
+              Bağlantılar{" "}
+              <span className="font-normal text-metin-yumusak">
+                (isteğe bağlı)
+              </span>
+            </legend>
+            {/*
+              "BOŞ SATIRLAR YOK SAYILIR" CÜMLESİ KALKTI (22 Ağustos 2026 ·
+              istek). Formda sabit sayıda satır basılıyor ve doldurulmayanı
+              atmak kullanıcının beklediği davranış — söylenmesi gereken bir
+              şey değil. Kural yerinde duruyor (bkz. kazanimKabulEdilirMi).
+            */}
+            <p className="mt-1 mb-2 text-sm text-metin-yumusak">
+              Ürünün deposu, canlı sürümü ve tanıtım videosu indirme
+              linkleri ayrı ayrı yüklenebilir.
+            </p>
+            {/*
+              Sabit üç satır: JavaScript olmadan "satır ekle" düğmesi
+              yapılamıyor ve sunucuya gidip gelmek formu sıfırlardı.
+            */}
+            {/*
+              ETİKET ALANI KALKTI (22 Ağustos 2026 · istek: "kaynak kod
+              giriş alanını kaldıralım"). Her satırın yanında "kaynak kod"
+              yer tutuculu bir ad kutusu vardı; adres zaten kendini
+              anlatıyor ve iki kutulu satır formu iki kat uzatıyordu.
+
+              ALAN SUNUCUDA HÂLÂ OKUNUYOR: eylem `baglantiEtiket` dizisini
+              paralel okuyor ve gelmediğinde boş kabul ediyor
+              (bkz. kazanim-eylemleri.ts). Etiketsiz bağlantı gösterimde
+              adresiyle basılır; DAHA ÖNCE etiketle girilmiş kayıtlar
+              etiketlerini korur.
+            */}
+            <div className="space-y-2">
+              {baglantiSatirlari.map((satir, sira) => (
+                <div key={sira}>
+                  <input
+                    type="url"
+                    name="baglantiAdres"
+                    defaultValue={satir.adres}
+                    maxLength={500}
+                    placeholder="https://"
+                    className={SINIF_GIRDI}
+                    aria-label={`${sira + 1}. bağlantı adresi`}
+                  />
+                  {/*
+                    ETİKET GİZLİ ALANDA TAŞINIYOR: form etiket sormuyor ama
+                    eski kayıtların etiketi var (bkz. yukarıdaki not) ve
+                    düzenleme kaydı yeniden yazdığı için gönderilmezse
+                    silinirdi. Sunucu iki diziyi SIRAYLA eşliyor
+                    (adres[i] ↔ etiket[i]); bu yüzden her adres satırının
+                    yanında bir etiket alanı basılır — boş olsa bile.
+                  */}
+                  <input
+                    type="hidden"
+                    name="baglantiEtiket"
+                    defaultValue={satir.etiket}
+                  />
+                </div>
+              ))}
+            </div>
+          </fieldset>
+        </>
+      )}
+
+      {tanim.dereceVarMi && (
+        <label className="block">
+          <span className="text-sm font-medium text-metin">
+            Gösterdiğiniz başarı
+          </span>
+          <input
+            type="text"
+            name="derece"
+            defaultValue={kayit?.derece ?? ""}
+            maxLength={120}
+            placeholder="Türkiye 1.si"
+            className={SINIF_GIRDI}
+          />
+        </label>
+      )}
+
+      {/*
+        TARİH ÜRÜNDE SORULMUYOR (22 Ağustos 2026 · istek: "Tarih alanını
+        kaldır, otomatik atsın"). Ürünün tarihi, kaydın girildiği gündür ve
+        kişi onu bilmiyor da değil — yazmasının bir karşılığı yok.
+
+        ÖBÜR TÜRLERDE KALIYOR: sertifikanın, derecenin ve dış etkinliğin
+        tarihi GEÇMİŞTE ve kaydın kendisidir. "Bugün" atamak, üç yıl önce
+        alınmış sertifikayı bugün alınmış göstermek olurdu.
+
+        Alan hiç GÖNDERİLMEDİĞİNDE sunucu o günü yazıyor
+        (bkz. kazanim-eylemleri.ts) — boş bırakılmış bir alanla karışmasın
+        diye ayrım "gönderildi mi" üzerinden kuruluyor.
+      */}
+      {!tanim.urunAlanlariVarMi && (
+        <label className="block">
+          <span className="text-sm font-medium text-metin">Tarih</span>
+          <input
+            type="date"
+            name="tarih"
+            defaultValue={kayit?.tarih ? girdiTarihi(kayit.tarih) : ""}
+            className={SINIF_GIRDI}
+          />
+        </label>
+      )}
+
+      {/*
+        TEK BAĞLANTI ALANI ÜRÜNDE BASILMIYOR (22 Ağustos 2026 · istek:
+        "Bağlantı (isteğe bağlı) bu alanı kaldıralım").
+
+        Üründe hemen yukarıda üç satırlık "Bağlantılar" alanı var ve bu
+        tek kutu onun yanında ikinci bir bağlantı yeri gibi duruyordu:
+        kişi adresi hangisine yazacağını seçmek zorunda kalıyordu.
+
+        ÖBÜR TÜRLERDE KALIYOR: sertifikanın, derecenin ve dış etkinliğin
+        üçlü bağlantı alanı yok — orada bu kutu, kaydın belgesine giden
+        TEK yol. Hepsinden kaldırmak, beş türde bağlantı girmeyi
+        kapatırdı.
+      */}
+      {!tanim.urunAlanlariVarMi && (
+        <label className="block">
+          <span className="text-sm font-medium text-metin">
+            Bağlantı (isteğe bağlı)
+          </span>
+          <input
+            type="url"
+            name="baglantiUrl"
+            defaultValue={kayit?.baglantiUrl ?? ""}
+            maxLength={500}
+            placeholder="https://"
+            className={SINIF_GIRDI}
+          />
+        </label>
+      )}
+
+      <label className="block sm:col-span-2">
+        <span className="text-sm font-medium text-metin">
+          Açıklama (isteğe bağlı)
+        </span>
+        <textarea
+          name="aciklama"
+          defaultValue={kayit?.aciklama ?? ""}
+          rows={3}
+          maxLength={2000}
+          placeholder={tanim.aciklamaOrnegi}
+          className={SINIF_GIRDI}
+        />
+      </label>
+
+      {/*
+        BELGE ALANI YALNIZCA EKLEME FORMUNDA (24 Ağustos 2026): var olan
+        bir kaydın belgeleri kendi sayfasında ayrı ayrı ekleniyor ve
+        kaldırılıyor (bkz. panel/kayitlarim/[id]). Aynı alan düzenleme
+        formunda da dursaydı, kaydın metnini düzeltmek isteyen kişi
+        zorunlu tipte (sertifika) her kaydedişte belgeyi YENİDEN yüklemek
+        zorunda kalırdı.
+      */}
+      {/*
+        Destekleyici belgeler. Kayıt oluşturulduktan SONRA yazılır; dosya
+        reddedilirse kayıt geri alınmaz, uyarı gösterilir ve dosya sonradan
+        eklenebilir (bkz. kazanimEkleEylemi).
+      */}
+      {belgeAlaniVarMi && (
+        <label className="block sm:col-span-2">
+          {/*
+            ALAN ETİKETİ EKRANDAN KALKTI (22 Ağustos 2026 · istek:
+            "Destekleyici belgeler (isteğe bağlı) bu yazı kalksın"). Altındaki
+            boyut satırı zaten neyin yükleneceğini söylüyor.
+
+            `aria-label` KALIYOR: görünen etiketi kaldırmak, alanı ekran
+            okuyucuda adsız bırakmak değil (aynı karar CV alanında da
+            verildi).
+          */}
+          <input
+            type="file"
+            name="belgeler"
+            multiple
+            /*
+              ZORUNLU OLAN TİPLER VAR (22 Ağustos 2026 · istek: "belge
+              yüklemek zorunlu olsun burada"). Tarayıcı doğrulaması tek
+              başına yeterli değil — sunucu da aynı koşulu ayrıca sınıyor
+              (bkz. kazanimEkleEylemi).
+            */
+            required={tanim.belgeZorunluMu}
+            aria-label={
+              tanim.belgeZorunluMu
+                ? "Belge"
+                : "Destekleyici belgeler (isteğe bağlı)"
+            }
+            accept={izinliBelgeTipleri.join(",")}
+            className="mt-1 block w-full text-sm text-metin file:mr-3 file:rounded-md file:border file:border-cizgi file:bg-kart file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-metin"
+          />
+          {/*
+            YALNIZCA BOYUT SINIRI KALDI (22 Ağustos 2026 · istek). Cümlenin
+            başındaki "ekleyebilirsiniz" alanın kendisinin söylediğini
+            tekrarlıyordu; sondaki "danışmanınız ve koordinatörünüz de görür"
+            ise bir gizlilik uyarısıydı — kaldırılması GÖRÜNÜRLÜĞÜ
+            değiştirmiyor, yalnızca uyarıyı kaldırıyor: belgeler danışman ve
+            koordinatör tarafından görülmeye devam ediyor.
+          */}
+          <span className="mt-1 block text-sm text-metin-yumusak">
+            {tanim.belgeZorunluMu && "Belge yüklemek zorunludur. "}
+            Görsel için en fazla{" "}
+            {(belgeSinirlari.gorselMaksBayt / (1024 * 1024)).toFixed(0)} MB,
+            belge için{" "}
+            {(belgeSinirlari.belgeMaksBayt / (1024 * 1024)).toFixed(0)} MB.
+          </span>
+        </label>
+      )}
+    </div>
+  );
+}
+
+/**
  * BİR GRUBUN kendi "yeni kayıt ekle" formu.
  *
  * Profilden Panelim'e TAŞINDI (7 Ağustos 2026), kopyalanmadı: aynı kaydın iki
@@ -788,345 +1223,12 @@ export function KayitEklemeFormu({
       <form action={ekleEylemi} className="space-y-4">
         <input type="hidden" name="tip" value={seciliTanim.tip} />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/*
-            GençTek etkinliği listeden seçilir; "Diğer" bırakılırsa ad serbest
-            yazılır. İki alan da AYNI ANDA basılır — sunucu hangisinin
-            dolduğuna bakıp adı ona göre belirler.
-          */}
-          {/*
-            "GENÇTEK ETKİNLİĞİ" AÇILIR LİSTESİ KALKTI (22 Ağustos 2026 ·
-            istekler: "GençTek etkinliği bu alanı ve açılır listeyi kaldır" ·
-            "yalnızca 'Diğer' seçtiyseniz sil").
-
-            Liste, kaydın adını GençTek program kataloğundan seçtiriyordu ve
-            seçildiğinde alttaki ad alanı boş bırakılıyordu; iki alan tek bir
-            soruyu ("bu kaydın adı ne") iki farklı yoldan soruyordu. Ad artık
-            HER TÜRDE elle yazılıyor ve bu yüzden HER TÜRDE zorunlu.
-
-            SONUCU: yeni kayıtlar `temelEtkinlikProgramiId` taşımıyor, yani
-            katalogdaki programa bağlanmıyorlar. Daha önce bağlanmış kayıtlar
-            bağlantılarını KORUYOR. Kural katmanındaki `programSecimiVarMi`
-            dalı yerinde duruyor (bkz. kazanimKabulEdilirMi) — form artık o
-            alanı göndermiyor, kural da bu yüzden hiç çalışmıyor.
-          */}
-          <label className="block sm:col-span-2">
-            <span className="text-sm font-medium text-metin">
-              {seciliTanim.baslikEtiketi}
-            </span>
-            <input
-              type="text"
-              name="baslik"
-              required
-              maxLength={250}
-              placeholder={seciliTanim.baslikOrnegi}
-              className={SINIF_GIRDI}
-            />
-          </label>
-
-          {/*
-            "Belirtmek istemiyorum" KALDIRILDI ve alan zorunlu oldu. Boş seçenek
-            yerine seçilemez bir yer tutucu duruyor: `required` tek başına, ilk
-            seçenek geçerli bir değer olduğunda hiçbir şey yapmazdı.
-          */}
-          {seciliTanim.katilimBicimiVarMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">
-                Katılım biçimi
-              </span>
-              <select
-                name="katilimBicimi"
-                required
-                defaultValue=""
-                className={SINIF_GIRDI}
-              >
-                <option value="" disabled>
-                  Seçiniz
-                </option>
-                {KATILIM_BICIMLERI.map((bicim) => (
-                  <option key={bicim} value={bicim}>
-                    {KATILIM_BICIMI_ETIKETLERI[bicim]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {seciliTanim.hedefKitleVarMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">Hedef kitle</span>
-              <input
-                type="text"
-                name="hedefKitle"
-                maxLength={200}
-                placeholder="9. sınıflar, veliler, öğretmenler"
-                className={SINIF_GIRDI}
-              />
-            </label>
-          )}
-
-          {seciliTanim.duzenleyenVarMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">Düzenleyen</span>
-              {/*
-                LİSTEDEN SEÇİLİYOR (22 Ağustos 2026 · istek). Serbest metinken
-                aynı düzey herkeste başka türlü yazılıyordu ("MEB", "Millî
-                Eğitim Bakanlığı", "Bakanlık") ve alan sayılabilir bir bilgi
-                taşımıyordu.
-
-                BOŞ SEÇENEK VAR ve varsayılan o: alan isteğe bağlı, ilk
-                seçeneğin geçerli bir değer olması kişinin seçmediği bir düzeyi
-                seçmiş gibi kaydederdi.
-              */}
-              <select
-                name="duzenleyen"
-                defaultValue=""
-                className={SINIF_GIRDI}
-              >
-                <option value="">Belirtmek istemiyorum</option>
-                {DUZENLEYEN_SECENEKLERI.map((secenek) => (
-                  <option key={secenek} value={secenek}>
-                    {secenek}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {/*
-            ÜRÜNE ÖZGÜ ALANLAR (D5). PROGRAM DOSYASI YÜKLENMİYOR — istek
-            "şimdilik sadece tanıtım yapsınlar" diyor.
-          */}
-          {seciliTanim.urunAlanlariVarMi && (
-            <>
-              <label className="block">
-                <span className="text-sm font-medium text-metin">
-                  Geliştiren ekip{" "}
-                  <span className="font-normal text-metin-yumusak">
-                    (isteğe bağlı)
-                  </span>
-                </span>
-                <input
-                  type="text"
-                  name="gelistirenEkip"
-                  maxLength={250}
-                  placeholder="Kendim · ya da ekip arkadaşlarının adları"
-                  className={SINIF_GIRDI}
-                />
-              </label>
-
-              <label className="flex items-start gap-2 sm:col-span-2">
-                <input
-                  type="checkbox"
-                  name="markettePaylasilsin"
-                  value="evet"
-                  className="mt-1 h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-                />
-                {/*
-                  AÇIKLAMA SATIRI KALKTI, BAĞLANTI KALDI (22 Ağustos 2026 ·
-                  istekler: "İşaretlemezseniz ürün yalnızca sizde kalır…"
-                  cümlesi · "İşaretlerseniz ürününüz GençTek Market'te
-                  listelenir… linki markette paylaşın yanına koy, bu yazıyı
-                  kaldır").
-
-                  Tek satırlık bir onay kutusunun altında dört satırlık
-                  açıklama duruyordu ve ikisi de aynı şeyi söylüyordu. Kalan
-                  tek gerçek bilgi marketin NEREDE olduğuydu; o da artık
-                  etiketin yanındaki bağlantı.
-
-                  BAĞLANTI YENİ SEKMEDE: aynı sekmede açılsaydı kişi doldurduğu
-                  formdan çıkar ve yazdıkları giderdi.
-                */}
-                <span className="text-sm text-metin">
-                  <span className="font-medium">Bu ürünü markette paylaş</span>{" "}
-                  <Link
-                    href="/panel/urunler"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-vurgu-metin underline underline-offset-2"
-                  >
-                    GençTek Market
-                  </Link>
-                </span>
-              </label>
-
-              <fieldset className="sm:col-span-2">
-                <legend className="text-sm font-medium text-metin">
-                  Bağlantılar{" "}
-                  <span className="font-normal text-metin-yumusak">
-                    (isteğe bağlı)
-                  </span>
-                </legend>
-                {/*
-                  "BOŞ SATIRLAR YOK SAYILIR" CÜMLESİ KALKTI (22 Ağustos 2026 ·
-                  istek). Formda sabit sayıda satır basılıyor ve doldurulmayanı
-                  atmak kullanıcının beklediği davranış — söylenmesi gereken bir
-                  şey değil. Kural yerinde duruyor (bkz. kazanimKabulEdilirMi).
-                */}
-                <p className="mt-1 mb-2 text-sm text-metin-yumusak">
-                  Ürünün deposu, canlı sürümü ve tanıtım videosu indirme
-                  linkleri ayrı ayrı yüklenebilir.
-                </p>
-                {/*
-                  Sabit üç satır: JavaScript olmadan "satır ekle" düğmesi
-                  yapılamıyor ve sunucuya gidip gelmek formu sıfırlardı.
-                */}
-                {/*
-                  ETİKET ALANI KALKTI (22 Ağustos 2026 · istek: "kaynak kod
-                  giriş alanını kaldıralım"). Her satırın yanında "kaynak kod"
-                  yer tutuculu bir ad kutusu vardı; adres zaten kendini
-                  anlatıyor ve iki kutulu satır formu iki kat uzatıyordu.
-
-                  ALAN SUNUCUDA HÂLÂ OKUNUYOR: eylem `baglantiEtiket` dizisini
-                  paralel okuyor ve gelmediğinde boş kabul ediyor
-                  (bkz. kazanim-eylemleri.ts). Etiketsiz bağlantı gösterimde
-                  adresiyle basılır; DAHA ÖNCE etiketle girilmiş kayıtlar
-                  etiketlerini korur.
-                */}
-                <div className="space-y-2">
-                  {[0, 1, 2].map((sira) => (
-                    <input
-                      key={sira}
-                      type="url"
-                      name="baglantiAdres"
-                      maxLength={500}
-                      placeholder="https://"
-                      className={SINIF_GIRDI}
-                      aria-label={`${sira + 1}. bağlantı adresi`}
-                    />
-                  ))}
-                </div>
-              </fieldset>
-            </>
-          )}
-
-          {seciliTanim.dereceVarMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">
-                Gösterdiğiniz başarı
-              </span>
-              <input
-                type="text"
-                name="derece"
-                maxLength={120}
-                placeholder="Türkiye 1.si"
-                className={SINIF_GIRDI}
-              />
-            </label>
-          )}
-
-          {/*
-            TARİH ÜRÜNDE SORULMUYOR (22 Ağustos 2026 · istek: "Tarih alanını
-            kaldır, otomatik atsın"). Ürünün tarihi, kaydın girildiği gündür ve
-            kişi onu bilmiyor da değil — yazmasının bir karşılığı yok.
-
-            ÖBÜR TÜRLERDE KALIYOR: sertifikanın, derecenin ve dış etkinliğin
-            tarihi GEÇMİŞTE ve kaydın kendisidir. "Bugün" atamak, üç yıl önce
-            alınmış sertifikayı bugün alınmış göstermek olurdu.
-
-            Alan hiç GÖNDERİLMEDİĞİNDE sunucu o günü yazıyor
-            (bkz. kazanim-eylemleri.ts) — boş bırakılmış bir alanla karışmasın
-            diye ayrım "gönderildi mi" üzerinden kuruluyor.
-          */}
-          {!seciliTanim.urunAlanlariVarMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">Tarih</span>
-              <input type="date" name="tarih" className={SINIF_GIRDI} />
-            </label>
-          )}
-
-          {/*
-            TEK BAĞLANTI ALANI ÜRÜNDE BASILMIYOR (22 Ağustos 2026 · istek:
-            "Bağlantı (isteğe bağlı) bu alanı kaldıralım").
-
-            Üründe hemen yukarıda üç satırlık "Bağlantılar" alanı var ve bu
-            tek kutu onun yanında ikinci bir bağlantı yeri gibi duruyordu:
-            kişi adresi hangisine yazacağını seçmek zorunda kalıyordu.
-
-            ÖBÜR TÜRLERDE KALIYOR: sertifikanın, derecenin ve dış etkinliğin
-            üçlü bağlantı alanı yok — orada bu kutu, kaydın belgesine giden
-            TEK yol. Hepsinden kaldırmak, beş türde bağlantı girmeyi
-            kapatırdı.
-          */}
-          {!seciliTanim.urunAlanlariVarMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">
-                Bağlantı (isteğe bağlı)
-              </span>
-              <input
-                type="url"
-                name="baglantiUrl"
-                maxLength={500}
-                placeholder="https://"
-                className={SINIF_GIRDI}
-              />
-            </label>
-          )}
-
-          <label className="block sm:col-span-2">
-            <span className="text-sm font-medium text-metin">
-              Açıklama (isteğe bağlı)
-            </span>
-            <textarea
-              name="aciklama"
-              rows={3}
-              maxLength={2000}
-              placeholder={seciliTanim.aciklamaOrnegi}
-              className={SINIF_GIRDI}
-            />
-          </label>
-
-          {/*
-            Destekleyici belgeler. Kayıt oluşturulduktan SONRA yazılır; dosya
-            reddedilirse kayıt geri alınmaz, uyarı gösterilir ve dosya sonradan
-            eklenebilir (bkz. kazanimEkleEylemi).
-          */}
-          <label className="block sm:col-span-2">
-            {/*
-              ALAN ETİKETİ EKRANDAN KALKTI (22 Ağustos 2026 · istek:
-              "Destekleyici belgeler (isteğe bağlı) bu yazı kalksın"). Altındaki
-              boyut satırı zaten neyin yükleneceğini söylüyor.
-
-              `aria-label` KALIYOR: görünen etiketi kaldırmak, alanı ekran
-              okuyucuda adsız bırakmak değil (aynı karar CV alanında da
-              verildi).
-            */}
-            <input
-              type="file"
-              name="belgeler"
-              multiple
-              /*
-                ZORUNLU OLAN TİPLER VAR (22 Ağustos 2026 · istek: "belge
-                yüklemek zorunlu olsun burada"). Tarayıcı doğrulaması tek
-                başına yeterli değil — sunucu da aynı koşulu ayrıca sınıyor
-                (bkz. kazanimEkleEylemi).
-              */
-              required={seciliTanim.belgeZorunluMu}
-              aria-label={
-                seciliTanim.belgeZorunluMu
-                  ? "Belge"
-                  : "Destekleyici belgeler (isteğe bağlı)"
-              }
-              accept={izinliBelgeTipleri.join(",")}
-              className="mt-1 block w-full text-sm text-metin file:mr-3 file:rounded-md file:border file:border-cizgi file:bg-kart file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-metin"
-            />
-            {/*
-              YALNIZCA BOYUT SINIRI KALDI (22 Ağustos 2026 · istek). Cümlenin
-              başındaki "ekleyebilirsiniz" alanın kendisinin söylediğini
-              tekrarlıyordu; sondaki "danışmanınız ve koordinatörünüz de görür"
-              ise bir gizlilik uyarısıydı — kaldırılması GÖRÜNÜRLÜĞÜ
-              değiştirmiyor, yalnızca uyarıyı kaldırıyor: belgeler danışman ve
-              koordinatör tarafından görülmeye devam ediyor.
-            */}
-            <span className="mt-1 block text-sm text-metin-yumusak">
-              {seciliTanim.belgeZorunluMu && "Belge yüklemek zorunludur. "}
-              Görsel için en fazla{" "}
-              {(belgeSinirlari.gorselMaksBayt / (1024 * 1024)).toFixed(0)} MB,
-              belge için{" "}
-              {(belgeSinirlari.belgeMaksBayt / (1024 * 1024)).toFixed(0)} MB.
-            </span>
-          </label>
-        </div>
+        <KazanimAlanlari
+          tanim={seciliTanim}
+          izinliBelgeTipleri={izinliBelgeTipleri}
+          belgeSinirlari={belgeSinirlari}
+          belgeAlaniVarMi
+        />
 
         <button type="submit" className={SINIF_BIRINCIL_BUTON}>
           <Plus size={15} aria-hidden />
@@ -1134,6 +1236,149 @@ export function KayitEklemeFormu({
         </button>
       </form>
     </>
+  );
+}
+
+/**
+ * Bir grubun ALTINDA duran "girdiğim kayıtlar" listesi (24 Ağustos 2026 ·
+ * istek: "her bir bölümün altına liste şeklinde en alta girdiği verileri
+ * görebilsin, tıklayınca sayfasına gidip düzenleyebilsin").
+ *
+ * ÖNCESİ: grup kutusu açıldığında yalnızca EKLEME FORMU çıkıyordu. Kişi kaydı
+ * giriyor, kutunun özetinde "2 kayıt" yazısını görüyor ama ne girdiğini
+ * göremiyordu — düzenlemenin yolu da hiç yoktu ("Girdiğim kayıtlar" bölümü 22
+ * Ağustos'ta kalkmıştı ve kayıtların tek göründüğü yer orasıydı).
+ *
+ * SATIR BAĞLANTIDIR, form değil: düzenleme kaydın kendi sayfasında yapılıyor
+ * (bkz. panel/kayitlarim/[id]). Sekiz alanlı bir düzenleme formunu her satırın
+ * altına basmak, üç kayıt giren kişide grubu okunamaz hâle getirirdi.
+ *
+ * ÇOK TİPLİ GRUPTA (Deneyimlerim) TÜR SATIRDA YAZAR: ekleme formunun tür
+ * seçimi yalnızca formu değiştirir, liste grubun BÜTÜN kayıtlarını gösterir —
+ * seçili türe göre süzülseydi kişi girdiği kaydı yine bulamazdı.
+ */
+export function GirilenKayitlar({
+  kazanimlar,
+  tanimlar,
+}: {
+  kazanimlar: KazanimSatiri[];
+  /** Grubun tip tanımları — satırdaki tür etiketi buradan okunur. */
+  tanimlar: KazanimTipiTanimi[];
+}) {
+  if (kazanimlar.length === 0) {
+    return (
+      <p className="mt-6 border-t border-cizgi pt-4 text-sm text-metin-yumusak">
+        Bu bölümde henüz kaydınız yok. Yukarıdaki formdan ekleyebilirsiniz.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-6 border-t border-cizgi pt-4">
+      <h3 className="text-sm font-semibold text-baslik">
+        Girdiğim kayıtlar
+        <span className="ml-2 font-normal text-metin-yumusak">
+          {kazanimlar.length}
+        </span>
+      </h3>
+      <ul className="mt-2 divide-y divide-cizgi">
+        {kazanimlar.map((kazanim) => {
+          const tanim = tanimlar.find((aday) => aday.tip === kazanim.tip);
+          const altBilgiler = [
+            /*
+             * Tür yalnızca ÇOK TİPLİ grupta yazılır: "Ürünlerim → Ürün" iki kez
+             * aynı şeyi söylerdi (aynı kural profildeki tip başlıklarında).
+             */
+            tanimlar.length > 1 ? (tanim?.baslik ?? null) : null,
+            kazanim.derece,
+            kazanim.tarih ? tarihYaz(kazanim.tarih) : null,
+            kazanim.ekler && kazanim.ekler.length > 0
+              ? `${kazanim.ekler.length} belge`
+              : null,
+          ].filter((deger): deger is string => Boolean(deger));
+
+          return (
+            <li key={kazanim.id}>
+              <Link
+                href={`/panel/kayitlarim/${kazanim.id}`}
+                className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 transition hover:bg-zemin"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-metin">
+                    {kazanim.baslik}
+                  </span>
+                  {altBilgiler.length > 0 && (
+                    <span className="mt-0.5 block truncate text-sm text-metin-yumusak">
+                      {altBilgiler.join(" · ")}
+                    </span>
+                  )}
+                </span>
+                {/*
+                  Kalem ikonu, satırın TIKLANABİLİR olduğunu ve nereye
+                  götürdüğünü söylüyor: düz bir başlık listesi salt gösterim
+                  gibi okunuyordu.
+                */}
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-vurgu-metin">
+                  <Pencil size={14} aria-hidden />
+                  Düzenle
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Var olan bir kaydın DÜZENLEME formu — kaydın kendi sayfasında (24 Ağustos
+ * 2026).
+ *
+ * Alanlar ekleme formuyla AYNI bileşenden gelir (bkz. KazanimAlanlari); burada
+ * değişen üç şey var:
+ *
+ *   1. Tür SEÇİLMEZ, kaydın tipi neyse odur. Türü değiştirmek, alan kuralları
+ *      tipe bağlı olduğu için (derece yalnızca yarışmada, ürün alanları
+ *      yalnızca üründe) kaydın yarısını sessizce düşürürdü.
+ *   2. Belge alanı basılmaz: belgeler sayfanın kendi bölümünde yönetiliyor.
+ *   3. Düğme "Kaydet" — "Ekle" ikinci bir kayıt açacakmış gibi okunuyordu.
+ */
+export function KayitDuzenlemeFormu({
+  kazanim,
+  tanim,
+  izinliBelgeTipleri,
+  belgeSinirlari,
+  guncelleEylemi,
+}: {
+  kazanim: KazanimSatiri;
+  tanim: KazanimTipiTanimi;
+  izinliBelgeTipleri: string[];
+  belgeSinirlari: BelgeSinirlari;
+  guncelleEylemi: Eylem;
+}) {
+  return (
+    <form action={guncelleEylemi} className="space-y-4">
+      {/*
+        Kaydın kimliği formda taşınıyor; TİPİ TAŞINMIYOR — sunucu onu kendi
+        satırından okuyor (bkz. kazanimGuncelleEylemi). Gizli alandan gelseydi
+        isteği elle kurcalayan biri kaydın tipini değiştirebilirdi.
+      */}
+      <input type="hidden" name="kazanimId" value={kazanim.id} />
+
+      <KazanimAlanlari
+        tanim={tanim}
+        kayit={kazanim}
+        izinliBelgeTipleri={izinliBelgeTipleri}
+        belgeSinirlari={belgeSinirlari}
+        belgeAlaniVarMi={false}
+      />
+
+      <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+        <Check size={15} aria-hidden />
+        Kaydet
+      </button>
+    </form>
   );
 }
 

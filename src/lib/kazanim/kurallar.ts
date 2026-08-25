@@ -465,7 +465,12 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
     kod: "DENEYIMLERIM",
     baslik: "Deneyimlerim",
     aciklama:
-      "GençTek dışında katıldığın etkinlikler, aldığın dereceler ve ödüller, sertifika ve eğitimlerin.",
+      /*
+       * 22 AĞUSTOS 2026 · istek. Eski cümle "GençTek dışında" diye
+       * başlıyordu; grup artık GençTek etkinliklerini de taşıyor
+       * (bkz. tipler) ve o sınır yanlış olmuştu.
+       */
+      "Katıldığın etkinlikler, gösterdiğin başarılar, tamamladığın eğitimler.",
     /*
      * SIRA İSTEKTEKİ SIRA (22 Ağustos 2026): "GençTek etkinliklerim,
      * derecelerim, sertifikalarım ve GençTek dışı etkinlikler". Açılır listede
@@ -712,7 +717,23 @@ export function baglantiGecerliMi(adres: string): boolean {
   }
 }
 
-export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
+/**
+ * `mevcutKayit`: VAR OLAN bir kaydın düzenlenmesi mi (24 Ağustos 2026)?
+ *
+ * Tek etkisi arşiv kontrolünü atlamaktır. Kapatılmış tipte YENİ kayıt açılamaz
+ * ama daha önce girilmiş kayıt düzenlenebilmeli: tip kapandığında kayıtlar
+ * silinmiyor ve sahibinin yazım hatasını düzeltememesi için bir sebep yok.
+ * Tip zaten form girdisinden değil, kaydın kendi satırından okunuyor
+ * (bkz. kazanimGuncelleEylemi) — yani bu kapı yeni bir yol açmıyor.
+ */
+export interface KazanimKararSecenekleri {
+  mevcutKayit?: boolean;
+}
+
+export function kazanimKabulEdilirMi(
+  girdi: KazanimGirdisi,
+  { mevcutKayit = false }: KazanimKararSecenekleri = {},
+): KazanimKarari {
   if (!kazanimTipiGecerliMi(girdi.tip)) {
     return { olurMu: false, neden: "Geçersiz kazanım türü." };
   }
@@ -722,7 +743,7 @@ export function kazanimKabulEdilirMi(girdi: KazanimGirdisi): KazanimKarari {
    * durdurmaz — ve o kayıt profilde hiçbir yerde görünmediği için kullanıcı
    * kaydettiğini sanıp kaybederdi.
    */
-  if (kazanimTipiArsivlenmisMi(girdi.tip)) {
+  if (!mevcutKayit && kazanimTipiArsivlenmisMi(girdi.tip)) {
     return {
       olurMu: false,
       neden:

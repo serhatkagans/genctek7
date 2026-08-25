@@ -81,6 +81,35 @@ function hataylaDon(capa: string, mesaj: string): never {
   kayitlaraDon(capa, `hata=${encodeURIComponent(mesaj)}`);
 }
 
+/**
+ * Kaydın KENDİ SAYFASI (24 Ağustos 2026 · istek: "tıklayınca sayfasına gidip
+ * düzenleyebilsin").
+ */
+function kayitSayfasi(kazanimId: number, sorgu: string): string {
+  return `/panel/kayitlarim/${kazanimId}?${sorgu}`;
+}
+
+/**
+ * Aynı eylem iki yerden çağrılıyor: paneldeki grup kutusundan ve kaydın kendi
+ * sayfasından. Formda `donus=kayit` varsa kişi kaydın sayfasındaydı ve oraya
+ * dönmeli — panele atılsaydı az önce açtığı kayıttan çıkmış olurdu.
+ *
+ * Değer FORMDAN geliyor ama serbest bir adres DEĞİL: yalnızca "kayit" kelimesi
+ * tanınıyor ve hedef, sahipliği doğrulanmış kaydın kimliğinden kuruluyor —
+ * form girdisiyle keyfi bir adrese yönlendirme (open redirect) mümkün değil.
+ */
+function kayitOrtamindaDon(
+  veri: FormData,
+  kazanimId: number,
+  capa: string,
+  sorgu: string,
+): never {
+  if (String(veri.get("donus") ?? "") === "kayit") {
+    redirect(kayitSayfasi(kazanimId, sorgu));
+  }
+  kayitlaraDon(capa, sorgu);
+}
+
 /** CV iki yerde görünüyor: panel ve kişinin envanterdeki detayı. */
 function cvYollariniTazele(kullanici: OturumKullanicisi): void {
   revalidatePath(YOL);
@@ -291,14 +320,28 @@ export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
   const belgeler = veri
     .getAll("belgeler")
     .filter((deger): deger is File => deger instanceof File && deger.size > 0);
-  if (belgeler.length === 0) hataylaDon(KAYITLAR_CAPASI, "Belge seçilmedi.");
+  if (belgeler.length === 0) {
+    kayitOrtamindaDon(
+      veri,
+      kazanim.id,
+      KAYITLAR_CAPASI,
+      `hata=${encodeURIComponent("Belge seçilmedi.")}`,
+    );
+  }
 
   const sonuc = await kazanimEkleriniKaydet({
     kazanimId: kazanim.id,
     dosyalar: belgeler,
     sinirlar: await kazanimEkSinirlariniGetir(),
   });
-  if (sonuc.uyari) hataylaDon(KAYITLAR_CAPASI, sonuc.uyari);
+  if (sonuc.uyari) {
+    kayitOrtamindaDon(
+      veri,
+      kazanim.id,
+      KAYITLAR_CAPASI,
+      `hata=${encodeURIComponent(sonuc.uyari)}`,
+    );
+  }
 
   await erisimLogla({
     kullaniciId: kullanici.id,
@@ -309,7 +352,7 @@ export async function kazanimBelgeEkleEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  kayitlaraDon(KAYITLAR_CAPASI, "durum=belge-eklendi");
+  kayitOrtamindaDon(veri, kazanim.id, KAYITLAR_CAPASI, "durum=belge-eklendi");
 }
 
 /** Destekleyici belgeyi kaldırır. */
@@ -331,7 +374,18 @@ export async function kazanimBelgeSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  kayitlaraDon(KAYITLAR_CAPASI, "durum=belge-silindi");
+  /*
+   * Kaydın kimliği FORMDAN okunuyor ve yalnızca DÖNÜŞ ADRESİ için kullanılıyor:
+   * silme yetkisi ekin kendi kimliği üzerinden doğrulandı
+   * (bkz. kazanimEkiSil · kullaniciId koşulu). Yanlış bir kimlik yazan kişi
+   * başkasının ekini silemez, yalnızca kendini boş bir sayfaya yollar.
+   */
+  kayitOrtamindaDon(
+    veri,
+    Number.parseInt(String(veri.get("kazanimId") ?? ""), 10),
+    KAYITLAR_CAPASI,
+    "durum=belge-silindi",
+  );
 }
 
 export async function kazanimSilEylemi(veri: FormData): Promise<void> {
@@ -347,7 +401,7 @@ export async function kazanimSilEylemi(veri: FormData): Promise<void> {
    */
   const kazanim = await prisma.kullaniciKazanim.findFirst({
     where: { id: kazanimId, kullaniciId: kullanici.id },
-    select: { baslik: true },
+    select: { baslik: true, tip: true },
   });
   if (!kazanim) throw new BulunamadiHatasi();
 
@@ -364,7 +418,108 @@ export async function kazanimSilEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
-  kayitlaraDon(KAYITLAR_CAPASI, "durum=kazanim-silindi");
+  /*
+   * SİLMEDE `donus` OKUNMUYOR: kayıt artık yok, kendi sayfasına dönmek
+   * "bulunamadı" ekranı demekti. Kişi kaydın GRUBUNA düşüyor — sildiği şeyin
+   * durduğu yere, ne sildiğini görebileceği listeye.
+   */
+  kayitlaraDon(
+    kazanimTipininCapasi(kazanim.tip) ?? KAYITLAR_CAPASI,
+    "durum=kazanim-silindi",
+  );
+}
+
+/**
+ * Var olan bir kaydın DÜZENLENMESİ (24 Ağustos 2026 · istek: "tıklayınca
+ * sayfasına gidip düzenleyebilsin").
+ *
+ * Kayıt eklemenin aynası: aynı kural katmanından geçiyor
+ * (`kazanimKabulEdilirMi`), yani biçim kontrolleri, alan düşürmeleri ve
+ * bağlantı doğrulaması tek yerde. Ayrıldığı üç nokta:
+ *
+ *   1. TİP KAYDIN KENDİ SATIRINDAN okunur, formdan değil. Gizli bir alandan
+ *      gelseydi isteği kurcalayan biri sertifikasını ürüne çevirip alan
+ *      kurallarını atlatabilirdi.
+ *   2. TARİH ALANI GÖNDERİLMEDİYSE (üründe sorulmuyor) kaydın MEVCUT tarihi
+ *      korunur. Eklemedeki "bugün" davranışı burada uygulansaydı, yıllar önce
+ *      girilmiş bir ürünün başlığını düzeltmek tarihini bugüne kaydırırdı.
+ *   3. BAĞLANTILAR YENİDEN YAZILIR: form kaydın bütün satırlarını gönderiyor,
+ *      dolayısıyla eskiler silinip yenileri sıralarıyla açılıyor. Tek tek
+ *      eşleştirme, sıra değiştirmeyi ve satır silmeyi kapsamayan bir iş olurdu.
+ */
+export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const kazanimId = Number.parseInt(String(veri.get("kazanimId") ?? ""), 10);
+  if (!Number.isFinite(kazanimId)) throw new BulunamadiHatasi();
+
+  // Sahiplik kontrolü: kullaniciId koşulu olmadan başkasının kaydı
+  // düzenlenebilirdi.
+  const mevcut = await prisma.kullaniciKazanim.findFirst({
+    where: { id: kazanimId, kullaniciId: kullanici.id },
+    select: { id: true, tip: true, tarih: true },
+  });
+  if (!mevcut) throw new BulunamadiHatasi();
+
+  const karar = kazanimKabulEdilirMi(
+    {
+      tip: mevcut.tip,
+      baslik: String(veri.get("baslik") ?? ""),
+      aciklama: String(veri.get("aciklama") ?? ""),
+      tarih:
+        veri.get("tarih") === null
+          ? mevcut.tarih
+          : gunBasi(String(veri.get("tarih") ?? "") || null),
+      baglantiUrl: String(veri.get("baglantiUrl") ?? ""),
+      derece: String(veri.get("derece") ?? ""),
+      duzenleyen: String(veri.get("duzenleyen") ?? ""),
+      katilimBicimi: String(veri.get("katilimBicimi") ?? ""),
+      hedefKitle: String(veri.get("hedefKitle") ?? ""),
+      gelistirenEkip: String(veri.get("gelistirenEkip") ?? ""),
+      markettePaylasilsin: veri.get("markettePaylasilsin") === "evet",
+      baglantilar: veri.getAll("baglantiAdres").map((adres, sira) => ({
+        adres: String(adres),
+        etiket: String(veri.getAll("baglantiEtiket")[sira] ?? ""),
+      })),
+    },
+    { mevcutKayit: true },
+  );
+  if (!karar.olurMu) {
+    redirect(kayitSayfasi(kazanimId, `hata=${encodeURIComponent(karar.neden)}`));
+  }
+
+  /*
+   * `temelEtkinlikProgramiId` YAZILMIYOR: form o alanı hiç sormuyor ve karar
+   * katmanı seçim gelmediğinde null üretiyor. Alan güncellemeye girseydi,
+   * katalogdaki programa bağlanmış eski bir kaydın bağlantısı ilk düzenlemede
+   * sessizce kopardı.
+   */
+  const { temelEtkinlikProgramiId: _program, tip: _tip, ...alanlar } = karar.kayit;
+
+  await prisma.$transaction([
+    prisma.kazanimBaglanti.deleteMany({
+      where: { kazanimId: mevcut.id },
+    }),
+    prisma.kullaniciKazanim.update({
+      where: { id: mevcut.id },
+      data: {
+        ...alanlar,
+        baglantilar: { create: karar.baglantilar },
+      },
+    }),
+  ]);
+
+  const sahip = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: `Kazanım düzenlendi (${kazanimTipiTanimi(mevcut.tip, sahip).baslik}): ${karar.kayit.baslik}`,
+  });
+
+  kazanimYollariniTazele(kullanici);
+  redirect(kayitSayfasi(mevcut.id, "durum=kazanim-guncellendi"));
 }
 
 export async function cvYukleEylemi(veri: FormData): Promise<void> {

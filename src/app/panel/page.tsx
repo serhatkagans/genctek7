@@ -53,6 +53,7 @@ import {
   DanismanlikDuzenleme,
   DestekGruplariDuzenleme,
   FotografDuzenleme,
+  GirilenKayitlar,
   IletisimDuzenleme,
   KayitEklemeFormu,
   ProfilFotografi,
@@ -2432,13 +2433,24 @@ export default async function PanelSayfasi({
           tanimlar.find((tanim) => tanim.tip === seciliKayitTuru) ??
           tanimlar[0];
         /*
-          Özet, kutuyu açmadan "burada kaç kayıt var" sorusunu cevaplıyor;
-          boş grupta hiç basılmıyor — "0 kayıt" satırı ekranı bilgi değil
-          eksik listesi gibi okuturdu (aynı kural İletişim bilgilerimde).
+          ÖZET ARTIK SAYI DEĞİL, KAYITLARIN KENDİSİ (22 Ağustos 2026 · istek:
+          "Topluluklarım / Ekiplerim ekleyince özetleri görünsün").
+
+          Önce "3 kayıt" yazıyordu; kişi ne girdiğini görmek için kutuyu açmak
+          zorundaydı ve kutu açılınca yalnızca EKLEME FORMU çıkıyordu — girilen
+          kayıtlar panelde başka hiçbir yerde görünmüyor ("Girdiğim kayıtlar"
+          bölümü kalktı). Başlıklar özette durunca kutu kapalıyken de "ne
+          eklemiştim" sorusunun cevabı ekranda.
+
+          BOŞ GRUPTA HİÇ BASILMIYOR: "0 kayıt" satırı ekranı bilgi değil eksik
+          listesi gibi okuturdu (aynı kural İletişim bilgilerimde).
+
+          ÜÇ GRUPTA DA aynı: istek Topluluklarım için geldi ama Ürünlerim ve
+          Deneyimlerim de aynı sebeple aynı durumdaydı.
         */
-        const grubunKayitSayisi = profilKaydi.kazanimlar.filter((kazanim) =>
+        const grubunKayitlari = profilKaydi.kazanimlar.filter((kazanim) =>
           grup.tipler.includes(kazanim.tip),
-        ).length;
+        );
 
         return (
           <KatlanabilirKart
@@ -2450,8 +2462,19 @@ export default async function PanelSayfasi({
             duzenlenebilir
             baslangictaAcik={acilacakBolum === capa}
             ozet={
-              grubunKayitSayisi > 0 ? (
-                <p>{grubunKayitSayisi} kayıt</p>
+              grubunKayitlari.length > 0 ? (
+                /*
+                  `line-clamp-2`: yirmi kayıt giren kişide özet, kutunun
+                  kendisinden uzun olurdu. Sayı başta duruyor — kırpılan
+                  listede kaç kaydın olduğu yine okunuyor.
+                */
+                <p className="line-clamp-2">
+                  <span className="font-medium">
+                    {grubunKayitlari.length} kayıt
+                  </span>
+                  {" · "}
+                  {grubunKayitlari.map((kazanim) => kazanim.baslik).join(" · ")}
+                </p>
               ) : undefined
             }
           >
@@ -2462,6 +2485,23 @@ export default async function PanelSayfasi({
               izinliBelgeTipleri={izinliBelgeTipleri}
               belgeSinirlari={belgeSinirlari}
               ekleEylemi={kazanimEkleEylemi}
+            />
+            {/*
+              GİRİLEN KAYITLAR FORMUN ALTINDA (24 Ağustos 2026 · istek: "veri
+              ekliyor ama sonra bunları kendisi göremiyor … her bir bölümün
+              altına liste şeklinde en alta girdiği verileri görebilsin,
+              tıklayınca sayfasına gidip düzenleyebilsin").
+
+              22 Ağustos'ta kayıtların listelendiği tek bölüm ("Girdiğim
+              kayıtlar") kalkmıştı ve yerine hiçbir şey konmamıştı: kutunun
+              özeti "2 kayıt" diyor, kutu açılınca yalnızca boş bir form
+              çıkıyordu. Liste artık kaydın girildiği yerin altında — ve her
+              satır kaydın kendi sayfasına gidiyor (bkz. panel/kayitlarim/[id]),
+              çünkü düzenlemenin başka bir kapısı yoktu.
+            */}
+            <GirilenKayitlar
+              kazanimlar={grubunKayitlari}
+              tanimlar={tanimlar}
             />
           </KatlanabilirKart>
         );

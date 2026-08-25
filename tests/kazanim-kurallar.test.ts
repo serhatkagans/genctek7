@@ -223,6 +223,23 @@ describe("arşivlenmiş kazanım tipleri", () => {
     expect(karar.olurMu).toBe(false);
   });
 
+  it("arşivlenmiş tipteki VAR OLAN kaydın düzenlenmesine izin verir", () => {
+    /*
+     * 24 Ağustos 2026 · kayıtlar kendi sayfasında düzenlenebilir oldu
+     * (bkz. panel/kayitlarim/[id]). Tip kapandığında kayıtlar silinmiyor;
+     * sahibinin yazım hatasını düzeltememesi için bir sebep yok. Kapı YENİ
+     * kayda kapalı kalıyor — aynı girdi `mevcutKayit` olmadan reddediliyor.
+     */
+    const girdi = {
+      tip: "DIGER",
+      baslik: "Mahalle kütüphanesi gönüllülüğü",
+      katilimBicimi: "YUZ_YUZE",
+    };
+
+    expect(kazanimKabulEdilirMi(girdi).olurMu).toBe(false);
+    expect(kazanimKabulEdilirMi(girdi, { mevcutKayit: true }).olurMu).toBe(true);
+  });
+
   it("arşivlenmiş tip yolculuk bölümü eksiği saymaz", () => {
     // Bölümü olmaması kural gereği; `kazanimBolumuBulunmayan` onu aramamalı.
     expect(kazanimBolumuBulunmayan()).toEqual([]);
