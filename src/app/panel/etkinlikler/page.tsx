@@ -325,11 +325,24 @@ function IlDisiBasvurular({
   );
 }
 
+/*
+ * ROZET METİNLERİ (26 Ağustos 2026 · istek: "etkinlik kartlarında 'rapor
+ * yazıldı' yerine 'etkinlik yazıldı', yazılmadıysa 'etkinlik bekliyor'
+ * desin").
+ *
+ * Kartın söylediği şey etkinliğin kendi durumu; "rapor" sözcüğü, raporu
+ * yazacak kişinin diliydi. Kart listede etkinliklerin yanında duruyor ve
+ * okuyan "hangi etkinlik tamam, hangisi bekliyor" diye bakıyor.
+ *
+ * ROZETİN KOŞULU DEĞİŞMEDİ: hâlâ raporun yazılıp yazılmadığına bakıyor
+ * (bkz. raporBekliyor / raporYazildi) ve yalnızca rapor yazabilenlere
+ * basılıyor.
+ */
 function RaporYazildiRozeti() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-olumlu-zemin px-2.5 py-0.5 text-xs font-medium text-olumlu-metin">
       <FileText size={12} aria-hidden />
-      Rapor yazıldı
+      Etkinlik yazıldı
     </span>
   );
 }
@@ -338,7 +351,7 @@ function RaporRozeti() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-uyari-zemin px-2.5 py-0.5 text-xs font-medium text-uyari-metin">
       <FileText size={12} aria-hidden />
-      Raporu bekliyor
+      Etkinlik bekliyor
     </span>
   );
 }

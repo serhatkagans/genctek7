@@ -1272,13 +1272,17 @@ export function GirilenKayitlar({
    * duruyor — üstte kalsaydı kutu başlığının hemen ardından ikinci bir çizgi
    * çıkardı.
    */
-  if (kazanimlar.length === 0) {
-    return (
-      <p className="mb-6 border-b border-cizgi pb-4 text-sm text-metin-yumusak">
-        Bu bölümde henüz kaydınız yok. Aşağıdaki formdan ekleyebilirsiniz.
-      </p>
-    );
-  }
+  /*
+   * BOŞ BÖLÜM SESSİZ (26 Ağustos 2026 · istek: "Ürünlerim bölümündeki 'Bu
+   * bölümde henüz kaydınız yok. Aşağıdaki formdan ekleyebilirsiniz.' yazısı
+   * kalksın").
+   *
+   * Cümlenin ikinci yarısı ekranın kendisini tarif ediyordu: form zaten
+   * hemen altında duruyor ve boş liste bunu söylemeye gerek bırakmıyor.
+   * Hiçbir kaydı olmayan kişinin profili üç bölümde üç kez aynı cümleyi
+   * okuyordu.
+   */
+  if (kazanimlar.length === 0) return null;
 
   return (
     <div className="mb-6 border-b border-cizgi pb-4">

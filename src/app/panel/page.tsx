@@ -2011,6 +2011,61 @@ export default async function PanelSayfasi({
               Kaydet
             </button>
           </form>
+
+          {/*
+            YEĞİTEK OKUL SORUMLULUĞU ARTIK BURADA (26 Ağustos 2026 · istek:
+            "profilden YEĞİTEK Okul Sorumluluğu bu bölümü kaldıralım ama …
+            üstteki hakkımda içine checkbox ile eklesin").
+
+            Kendi katlanır bölümü vardı ve içinde tek bir düğme duruyordu:
+            "YEĞİTEK Okul Sorumlusuyum" / "İşareti kaldır". Tek işaret için
+            bir bölüm, profilde açılıp kapanan kutulardan birini boşa
+            harcıyordu. İşaret kişinin kendisini tarif ettiği bir beyan,
+            yani Hakkımda ile aynı cins bilgi.
+
+            AYRI FORM, aynı kutunun içinde: metin ile işaret ayrı eylemlere
+            gidiyor (biri hakkindaKaydetEylemi, öbürü yegitek…). Tek forma
+            konsaydı metni düzeltmek istemeyen kişi de her kaydedişte
+            işaretini yeniden göndermek zorunda kalırdı.
+
+            KUTU İŞARETSİZ GÖNDERİLİRSE alan hiç gelmez ve eylem bunu
+            "sorumlu değil" olarak okur — işaretin kaldırılma yolu da bu.
+          */}
+          {danismanMi(kullanici) && (
+            <form
+              action={yegitekSorumlusuIsaretiEylemi}
+              className="mt-4 border-t border-cizgi pt-4"
+            >
+              <label className="flex items-start gap-2.5 text-metin">
+                <input
+                  type="checkbox"
+                  name="sorumluMu"
+                  value="evet"
+                  defaultChecked={
+                    profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu ?? false
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-cizgi accent-[var(--renk-birincil)]"
+                />
+                <span>
+                  YEĞİTEK Okul Sorumlusuyum
+                  {profilKaydi.ogretmenProfil?.yegitekIsaretlemeTarihi && (
+                    <span className="block text-sm text-metin-yumusak">
+                      {tarihYaz(
+                        profilKaydi.ogretmenProfil.yegitekIsaretlemeTarihi,
+                      )}{" "}
+                      tarihinde işaretlendi
+                    </span>
+                  )}
+                </span>
+              </label>
+              <button
+                type="submit"
+                className={`${SINIF_IKINCIL_BUTON} mt-3`}
+              >
+                İşareti kaydet
+              </button>
+            </form>
+          )}
         </details>
       </Kart>
 
@@ -2208,59 +2263,6 @@ export default async function PanelSayfasi({
         Eylemler aynı eylemler; değişen tek şey formun durduğu yer.
       */}
 
-      {/*
-        YEĞİTEK OKUL SORUMLULUĞU (13 Ağustos 2026 · istek: "okuldaki danışman
-        öğretmenlerden bazıları YEĞİTEK Okul Sorumlusu olarak görev alıyor
-        olabilir, bununla ilgili panelde bir işaretleme alanı yapalım").
-
-        YALNIZCA DANIŞMAN ÖĞRETMENDE: okulun YEĞİTEK muhatabı, okulda GençTek
-        işini yürüten kişidir. Görev almamış öğretmenin panelinde bu bölüm
-        olsaydı, işaret koyup hiçbir listede görünmediği bir hâl doğardı.
-
-        ONAY YOK, İŞARET YETKİ DE VERMEZ: kişi kendi beyan eder, karşılığı
-        merkezin yönetim panosundaki listede görünmektir (bkz. eylemler.ts).
-        Bu yüzden bölüm, danışmanlık işaretiyle aynı sadelikte: tek düğme.
-      */}
-      {danismanMi(kullanici) && (
-        <KatlanabilirKart
-          baslik="YEĞİTEK Okul Sorumluluğu"
-          Ikon={ShieldCheck}
-          capa="yegitek-sorumlulugum"
-          duzenlenebilir
-          baslangictaAcik={acilacakBolum === "yegitek-sorumlulugum"}
-        >
-          <p className="text-metin">
-            Durumunuz:{" "}
-            <strong>
-              {profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu
-                ? "YEĞİTEK Okul Sorumlusu olarak işaretli"
-                : "İşaretli değil"}
-            </strong>
-            {profilKaydi.ogretmenProfil?.yegitekIsaretlemeTarihi && (
-              <span className="text-metin-yumusak">
-                {" · "}
-                {tarihYaz(profilKaydi.ogretmenProfil.yegitekIsaretlemeTarihi)}
-                {" tarihinde işaretlendi"}
-              </span>
-            )}
-          </p>
-          <form action={yegitekSorumlusuIsaretiEylemi} className="mt-4">
-            <input
-              type="hidden"
-              name="sorumluMu"
-              value={
-                profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu ? "hayir" : "evet"
-              }
-            />
-            <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-              <ShieldCheck size={16} aria-hidden />
-              {profilKaydi.ogretmenProfil?.yegitekOkulSorumlusu
-                ? "İşareti kaldır"
-                : "YEĞİTEK Okul Sorumlusuyum"}
-            </button>
-          </form>
-        </KatlanabilirKart>
-      )}
 
       <KatlanabilirKart
         baslik={
@@ -2538,41 +2540,16 @@ export default async function PanelSayfasi({
         ekranın kendisi (`/panel/ogrenciler`) yerinde ve bağlantı oraya
         gidiyor.
       */}
-      {!ogrenci && danismanlikSecimiGosterilir && (
-        <Kart>
-          <KartBasligi
-            baslik="Öğrencilerim"
-            Ikon={Users}
-          />
-          {ogrencileri.length === 0 ? (
-            <p className="text-metin-yumusak">Danışmanlığınızda öğrenci yok.</p>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {ogrencileri.map((satir) => (
-                <li key={satir.ogrenci.id}>
-                  <Link
-                    href={`/panel/ogrenciler/${satir.ogrenci.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-rol-ogrenci-zemin px-3 py-1 text-sm text-rol-ogrenci-metin transition hover:opacity-80"
-                  >
-                    {satir.ogrenci.ad} {satir.ogrenci.soyad}
-                    {satir.ogrenci.sinif && (
-                      <span className="text-xs opacity-80">
-                        {satir.ogrenci.sinif}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link
-            href="/panel/ogrenciler"
-            className="mt-4 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
-          >
-            Öğrencilerim ekranına git →
-          </Link>
-        </Kart>
-      )}
+      {/*
+        "ÖĞRENCİLERİM" KARTI KALKTI (26 Ağustos 2026 · istek: "profilden
+        Öğrencilerim … bu alanı kaldır").
+
+        Kart, danışmanlıktaki öğrencileri hap biçiminde listeleyip altına
+        "Öğrencilerim ekranına git" bağlantısı koyuyordu. Aynı liste kendi
+        ekranında filtreleri, arama kutusu ve satır eylemleriyle duruyor;
+        panele düşen kopya yalnızca adları gösteriyordu. Panelin üstündeki
+        "Öğrencilerim" ölçüm kartı o ekrana zaten götürüyor.
+      */}
 
       {/*
         İLİMDEKİ KİŞİLER — koordinatörün "Öğrencilerim" karşılığı. Sayım,
@@ -2637,10 +2614,18 @@ export default async function PanelSayfasi({
       */}
 
       {/*
-        ÖĞRETMENİN GENÇTEK TARAFI. Katıldığı etkinlikler ÜRETİLEN BELGEDEN
-        türetilir, öğrencideki kuralın aynısı (lib/kazanim/katilim-kurallar.ts).
+        "KATILDIĞI GENÇTEK ETKİNLİKLERİ" KARTI KALKTI (26 Ağustos 2026 ·
+        istek: "bu alanı kaldırıp öğrenci sayfasındaki … ile aynı yap").
+
+        Kart, adına belge üretilen etkinlikleri sayıyordu ve öğretmenlerin
+        çoğunda "0 etkinlik" yazıyordu — belge çoğunlukla katılımcı öğrenciye
+        üretiliyor. Profilin öğretmen tarafı artık öğrencininkiyle aynı üç
+        bölümden oluşuyor: Ürünlerim · Deneyimlerim · Topluluklarım
+        (bkz. lib/kazanim/kurallar.ts · BILISIM_YOLCULUGU_GRUPLARI).
+
+        VERİ DURUYOR: katılım hesabı (lib/kazanim/getir.ts) yerinde ve
+        Katkılarım ekranında okunuyor; kalkan yalnızca panodaki kart.
       */}
-      {ogretmenKazanim && <KatilimKarti kazanim={ogretmenKazanim} />}
 
       {/*
         ÖĞRETMENİN KATKI NİŞANLARI DA /panel/nisanlarim ekranında (21 Ağustos

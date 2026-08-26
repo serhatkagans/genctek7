@@ -483,22 +483,17 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
       "DIS_ETKINLIK",
     ],
     /*
-     * ÖĞRENCİYE ÖZEL (10 Ağustos 2026). Öğretmenin profilindeki bölümün adı
-     * "Ürünlerim ve katkılarım" ve istek onu gerçekten ürünlere indirdi:
-     * öğretmenin sertifikası, katıldığı dış etkinlik ve topluluğu bir
-     * ÖZGEÇMİŞ bilgisi; o bilgi zaten CV alanında duruyor ve profilde ikinci
-     * kez, üstelik öğrenci diliyle ("Deneyimlerim") sayılmasının bir karşılığı
-     * yok.
+     * ÖĞRETMENDE DE AÇIK (26 Ağustos 2026 · istek: "öğretmendeki 'Katıldığı
+     * GençTek etkinlikleri' alanını kaldırıp öğrenci sayfasındaki Ürünlerim /
+     * Deneyimlerim / Topluluklarım ile aynı yap").
      *
-     * GİRİŞ FORMU DA KAPANIR, yalnızca gösterim değil: aynı listeden besleniyor
-     * (bkz. bilisimYolculuguGruplari). Profilde görünmeyecek bir kaydı
-     * girdirmek, kullanıcının yazdığını kaybetmesi demekti.
-     *
-     * DAHA ÖNCE GİRİLMİŞ KAYITLAR SİLİNMEZ ve görünmez olmaz: Panelim'deki
-     * "Girdiğim kayıtlar" bölümü tipin kendisinden beslenir, gruptan değil —
-     * öğretmen eski kayıtlarını görmeye ve silmeye devam eder.
+     * 10 Ağustos 2026'da bu grup öğretmene kapatılmıştı; gerekçe, sertifika
+     * ve dış etkinliğin öğretmen için bir ÖZGEÇMİŞ bilgisi olduğu ve CV
+     * alanında zaten durduğuydu. Uygulamada öğretmenin profili buna karşılık
+     * boş kaldı: tek bölümü Ürünlerim'di ve GençTek katılımı da elle
+     * girilemeyen, belgeden türeyen ayrı bir kartta duruyordu. İki rol artık
+     * aynı üç bölümü kullanıyor.
      */
-    sahipler: ["OGRENCI"],
   },
   {
     kod: "TOPLULUKLARIM",
@@ -510,7 +505,6 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
      * (bkz. KAZANIM_TIPLERI · TOPLULUK).
      */
     tipler: ["TOPLULUK"],
-    sahipler: ["OGRENCI"],
   },
 ];
 

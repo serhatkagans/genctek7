@@ -112,6 +112,10 @@ export async function yegitekSorumlusuIsaretiEylemi(
   revalidatePath("/panel");
   revalidatePath("/panel/okul-sorumlulari");
   redirect(
-    `/panel?durum=${sorumluMu ? "yegitek-isaretlendi" : "yegitek-kaldirildi"}#yegitek-sorumlulugum`,
+    /*
+     * ÇAPA KALKTI (26 Ağustos 2026): işaret artık kendi bölümünde değil,
+     * Hakkımda kutusunun içinde — `#yegitek-sorumlulugum` diye bir yer yok.
+     */
+    `/panel?durum=${sorumluMu ? "yegitek-isaretlendi" : "yegitek-kaldirildi"}`,
   );
 }

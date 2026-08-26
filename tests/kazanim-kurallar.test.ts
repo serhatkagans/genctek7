@@ -161,21 +161,21 @@ describe("bilişim yolculuğu grupları", () => {
   });
 
   /*
-   * 10 AĞUSTOS 2026 · istek: "profil sayfasındaki Ürünlerim ve katkılarım, bu
-   * bölümde sadece ürünlerim olsun, öğretmen için Deneyimlerim ve
-   * Topluluklarım / Ekiplerim kalksın."
+   * ÖĞRETMEN VE ÖĞRENCİ AYNI ÜÇ GRUP (26 Ağustos 2026 · istek: öğretmenin
+   * profili öğrencininkiyle aynı olsun).
    *
-   * Testin işi, kapanmanın yalnızca ÖĞRETMENDE olduğunu ve öğrencinin üç
-   * grubuna dokunulmadığını sabitlemek.
+   * 10 Ağustos 2026'da Deneyimlerim ve Topluluklarım öğretmene kapatılmıştı;
+   * öğretmenin profili bunun sonucunda tek bölüme inmişti. Test artık
+   * kapanmanın KALKTIĞINI sabitliyor.
    */
-  it("öğretmende yalnızca Ürünlerim grubu kalır", () => {
+  it("öğretmende de üç grup durur", () => {
     const ogretmen = bilisimYolculuguGruplari("OGRETMEN");
-    expect(ogretmen.map((b) => b.grup.kod)).toEqual(["URUNLERIM"]);
-    expect(ogretmen.flatMap((b) => b.tanimlar.map((t) => t.tip))).toEqual([
-      "URUN",
+    expect(ogretmen.map((b) => b.grup.kod)).toEqual([
+      "URUNLERIM",
+      "DENEYIMLERIM",
+      "TOPLULUKLARIM",
     ]);
   });
-
   it("öğrencide üç grup da durur", () => {
     expect(bilisimYolculuguGruplari("OGRENCI").map((b) => b.grup.kod)).toEqual([
       "URUNLERIM",
