@@ -468,6 +468,7 @@ model Kullanici {
   kararVerdigiBaglantilar     BaglantiIstegi[] @relation("BaglantiKararVeren")
   yazdigiMesajlar             Mesaj[]          @relation("MesajYazan")
   gizledigiMesajlar           Mesaj[]          @relation("MesajGizleyen")
+  yazismaOkumalari            YazismaOkuma[]
 
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
@@ -2107,8 +2108,30 @@ model Yazisma {
 
   baglantiIstegi BaglantiIstegi @relation(fields: [baglantiIstegiId], references: [id], onDelete: Cascade)
   mesajlar       Mesaj[]
+  okumalar       YazismaOkuma[]
 
   @@map("yazisma")
+}
+
+/// Kişinin bir yazışmayı en son ne zaman AÇTIĞI.
+///
+/// "Okunmamış mesaj var mı" sorusunun tek dayanağı budur. Mesajın kendisine
+/// `okunduMu` konmadı bilerek: bir yazışmayı taraflar dışında danışman, il
+/// koordinatörü ve proje yöneticisi de okuyabiliyor, dolayısıyla "okundu" tek
+/// bir bayrağa sığmaz — kişi başına tutulması gerekir.
+///
+/// Satır YAZIŞMA AÇILDIĞINDA yazılır/güncellenir; hiç açmamış kişinin satırı
+/// yoktur ve o durumda gelen her mesaj okunmamış sayılır.
+model YazismaOkuma {
+  yazismaId      Int      @map("yazisma_id")
+  kullaniciId    Int      @map("kullanici_id")
+  sonOkumaTarihi DateTime @default(now()) @map("son_okuma_tarihi") @db.Timestamptz(6)
+
+  yazisma   Yazisma   @relation(fields: [yazismaId], references: [baglantiIstegiId], onDelete: Cascade)
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+
+  @@id([yazismaId, kullaniciId])
+  @@map("yazisma_okuma")
 }
 
 model Mesaj {

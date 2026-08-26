@@ -177,7 +177,7 @@ export default async function BaglantilarimSayfasi({
       }
     : {};
 
-  const [yazismalar, okuldakiler, temsilciler] = await Promise.all([
+  const [yazismalar, okumalar, okuldakiler, temsilciler] = await Promise.all([
     prisma.yazisma.findMany({
       where: yazismaKapsamFiltresi(kullanici),
       orderBy: { olusturmaTarihi: "desc" },
@@ -212,7 +212,27 @@ export default async function BaglantilarimSayfasi({
           },
         },
         _count: { select: { mesajlar: true } },
+        /*
+         * SON MESAJ, okunmamış işareti ve sıralama için (26 Ağustos 2026).
+         * Gizlenmiş mesaj sayılmıyor: moderasyonun kaldırdığı bir metin için
+         * "yeni mesaj var" demek, okumaya gidip hiçbir şey bulamamak olurdu.
+         */
+        mesajlar: {
+          where: { gizlendiMi: false },
+          orderBy: { olusturmaTarihi: "desc" },
+          take: 1,
+          select: { yazanKullaniciId: true, olusturmaTarihi: true },
+        },
       },
+    }),
+    /*
+     * Kişinin okuma işaretleri. Yazışma başına tek satır ve yalnızca AÇILMIŞ
+     * yazışmalar için var; satırı olmayan yazışmada gelen her mesaj
+     * okunmamıştır (bkz. model YazismaOkuma).
+     */
+    prisma.yazismaOkuma.findMany({
+      where: { kullaniciId: kullanici.id },
+      select: { yazismaId: true, sonOkumaTarihi: true },
     }),
     /*
      * Kendi okulundan kişiler. `kurumKodu` yoksa (mezun, paydaş) sorgu hiç
@@ -267,6 +287,10 @@ export default async function BaglantilarimSayfasi({
    * de sayısı lazım, dolayısıyla süzme sorguda değil burada yapılır (liste
    * zaten `take: 100`).
    */
+  const sonOkumalar = new Map(
+    okumalar.map((okuma) => [okuma.yazismaId, okuma.sonOkumaTarihi]),
+  );
+
   const satirlar = yazismalar.map((yazisma) => {
     const { isteyen, hedef, talep } = yazisma.baglantiIstegi;
     const bendenMi = yazisma.baglantiIstegi.isteyenKullaniciId === kullanici.id;
@@ -291,9 +315,27 @@ export default async function BaglantilarimSayfasi({
       ...new Set([isteyen.kurum?.ad, hedef.kurum?.ad].filter(Boolean)),
     ].join(" → ");
 
+    /*
+     * OKUNMAMIŞ MI (26 Ağustos 2026 · istek: "yeni mesaj ya da okunmamış mesaj
+     * varsa kırmızı çerçeve olsun").
+     *
+     * Üç koşul birden: görünür bir son mesaj VAR, onu BAŞKASI yazmış ve
+     * yazışma o mesajdan sonra AÇILMAMIŞ. Kendi yazdığı mesaj okunmamış
+     * sayılsaydı, mesaj gönderen herkes kendi satırını kırmızı görürdü.
+     */
+    const sonMesaj = yazisma.mesajlar[0] ?? null;
+    const sonOkuma = sonOkumalar.get(yazisma.baglantiIstegiId) ?? null;
+    const okunmamisMi =
+      sonMesaj !== null &&
+      sonMesaj.yazanKullaniciId !== kullanici.id &&
+      (sonOkuma === null || sonMesaj.olusturmaTarihi > sonOkuma);
+
     return {
       id: yazisma.baglantiIstegiId,
       tarafMi,
+      okunmamisMi,
+      // Sıralama son harekete göre; hiç mesaj yoksa yazışmanın açılma anı.
+      sonHareket: sonMesaj?.olusturmaTarihi ?? yazisma.olusturmaTarihi,
       karsiTaraf,
       baslik: tarafMi
         ? `${karsiTaraf.ad} ${karsiTaraf.soyad}`
@@ -306,7 +348,8 @@ export default async function BaglantilarimSayfasi({
         : kurumlar,
       meta: [
         `${yazisma._count.mesajlar} mesaj`,
-        tarihSaatYaz(yazisma.olusturmaTarihi),
+        // Gösterilen tarih SON HAREKET: liste de ona göre sıralı.
+        tarihSaatYaz(sonMesaj?.olusturmaTarihi ?? yazisma.olusturmaTarihi),
         talep?.baslik,
         yazisma.kapatildiMi ? "kapatıldı" : null,
       ]
@@ -314,6 +357,14 @@ export default async function BaglantilarimSayfasi({
         .join(" · "),
     };
   });
+
+  /*
+   * SIRALAMA SON HAREKETE GÖRE (26 Ağustos 2026 · istek: "gelen mesajlar en
+   * altta … üste alalım"). Liste yazışmanın AÇILMA tarihine göre diziliydi;
+   * eski bir bağlantıya bugün gelen mesaj listenin dibinde kalıyordu ve
+   * okunmamış çerçevesi de oraya basılırdı, yani görünmezdi.
+   */
+  satirlar.sort((a, b) => b.sonHareket.getTime() - a.sonHareket.getTime());
 
   const benimSayisi = satirlar.filter((s) => s.tarafMi).length;
   const gozetimSayisi = satirlar.length - benimSayisi;
@@ -344,6 +395,140 @@ export default async function BaglantilarimSayfasi({
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      {/*
+        LİSTE YALNIZCA YAZIŞMA VARSA BASILIR (21 Ağustos 2026 · istek:
+        "bağlantılarım sayfasının en altından bunu kaldıralım: Bağlantılarım /
+        Görüntüleyebileceğiniz bağlantı yok").
+
+        Yazışması olmayan kişi için kart, boş bir başlık ve bir olumsuz
+        cümleden ibaretti; üstelik sayfanın asıl işi artık yukarıdaki iki
+        kartta — okuluyla ve okul temsilcileriyle yazışmayı oradan başlatıyor.
+        Yazışması olanda liste yerinde duruyor.
+      */}
+      {satirlar.length > 0 && (
+      <Kart>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
+            <MessagesSquare size={18} className="text-vurgu-metin" />
+            Bağlantılarım
+          </h2>
+
+          {suzgecGoster && (
+            /*
+              Süzgeç JAVASCRIPT'SİZ: her sekme bir bağlantı, sayfa sunucuda
+              yeniden basılıyor. Ekranın geri kalanı da böyle çalışıyor.
+            */
+            <nav className="flex gap-1 rounded-full border border-cizgi p-1">
+              {(
+                [
+                  ["tumu", "Tümü", satirlar.length],
+                  ["benim", "Bağlantılarım", benimSayisi],
+                  ["gozetim", "Gözetim", gozetimSayisi],
+                ] as const
+              ).map(([kod, etiket, sayi]) => (
+                <Link
+                  key={kod}
+                  href={
+                    kod === "tumu"
+                      ? "/panel/yazismalar"
+                      : `/panel/yazismalar?suzgec=${kod}`
+                  }
+                  aria-current={secili === kod ? "page" : undefined}
+                  className={`rounded-full px-3 py-1 text-sm transition ${
+                    secili === kod
+                      ? "bg-secili-zemin font-semibold text-secili-metin"
+                      : "text-metin-yumusak hover:text-metin"
+                  }`}
+                >
+                  {etiket} <span className="tabular-nums">{sayi}</span>
+                </Link>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        {gorunen.length === 0 ? (
+          <p className="text-metin-yumusak">
+            {satirlar.length === 0
+              ? "Görüntüleyebileceğiniz bağlantı yok."
+              : "Bu süzgeçte bağlantı yok."}
+          </p>
+        ) : (
+          /*
+            TEK KART, AYIRICI ÇİZGİLİ SATIRLAR — kart içinde ayrı ayrı çerçeveli
+            kutular değil (12 Ağustos · "çok basit"). Negatif kenar boşluğu,
+            çizgilerin kartın tam genişliğinde durması için: LinkedIn listesi
+            böyle, satır kenarda kesilmiyor.
+          */
+          <ul className="-mx-6 -mb-6 divide-y divide-cizgi border-t border-cizgi">
+            {gorunen.map((satir) => (
+              <li key={satir.id} className="group">
+                {/*
+                  SATIRIN TAMAMI TIKLANIR. Sağdaki eylem bir <span>: iki hedef
+                  de aynı adres ve <a> içine <a> geçersiz HTML.
+
+                  OKUNMAMIŞ SATIR KIRMIZI ÇERÇEVELİ (26 Ağustos 2026 · istek:
+                  "yeni mesaj ya da okunmamış mesaj varsa kırmızı çerçeve
+                  olsun"). Çerçeve satırın İÇİNDE: ayırıcı çizgili listede dış
+                  kenarlık komşu satırların çizgileriyle çakışıyordu.
+
+                  Renk TEK BAŞINA taşımıyor: yanında "yeni" rozeti ve ekran
+                  okuyucu için gizli bir metin var — kırmızıyı ayırt edemeyen
+                  kullanıcı da hangi satırın beklediğini görüyor.
+                */}
+                <Link
+                  href={`/panel/yazismalar/${satir.id}`}
+                  className={`flex items-center gap-4 px-6 py-4 transition hover:bg-zemin ${
+                    satir.okunmamisMi
+                      ? "rounded-kutu border-2 border-hata-cizgi bg-hata-zemin"
+                      : ""
+                  }`}
+                >
+                  {satir.tarafMi ? (
+                    <BasHarfCemberi
+                      ad={satir.karsiTaraf.ad}
+                      soyad={satir.karsiTaraf.soyad}
+                    />
+                  ) : (
+                    <GozetimCemberi />
+                  )}
+
+                  <span className="min-w-0 grow">
+                    <span className="block truncate text-base font-semibold text-baslik underline-offset-2 group-hover:text-vurgu-metin group-hover:underline">
+                      {satir.baslik}
+                      {satir.okunmamisMi && (
+                        <span className="ml-2 align-middle rounded-full bg-hata-zemin px-2 py-0.5 text-xs font-semibold text-hata-metin">
+                          yeni
+                          <span className="sr-only"> — okunmamış mesaj var</span>
+                        </span>
+                      )}
+                    </span>
+                    {satir.altBaslik && (
+                      <span className="block truncate text-sm text-metin">
+                        {satir.altBaslik}
+                      </span>
+                    )}
+                    <span className="mt-1 block text-xs text-metin-yumusak">
+                      {satir.meta}
+                    </span>
+                  </span>
+
+                  {!satir.tarafMi && (
+                    <span className="hidden shrink-0 rounded-full border border-cizgi px-2.5 py-0.5 text-xs text-metin-yumusak sm:inline">
+                      gözetim
+                    </span>
+                  )}
+                  <span className={`hidden sm:inline-flex ${SINIF_HAP_VURGU}`}>
+                    {satir.tarafMi ? "Mesaj" : "Aç"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Kart>
+      )}
 
       {/*
         GİZLİLİK UYARISI KUTUSU KALKTI (21 Ağustos 2026 · istek: "Bu sistemdeki
@@ -454,121 +639,6 @@ export default async function BaglantilarimSayfasi({
         VERİ SİLİNMEDİ: `baglanti_istegi` tablosu ve daha önce açılmış
         yazışmalar duruyor; aşağıdaki liste onları göstermeye devam ediyor.
       */}
-
-      {/*
-        LİSTE YALNIZCA YAZIŞMA VARSA BASILIR (21 Ağustos 2026 · istek:
-        "bağlantılarım sayfasının en altından bunu kaldıralım: Bağlantılarım /
-        Görüntüleyebileceğiniz bağlantı yok").
-
-        Yazışması olmayan kişi için kart, boş bir başlık ve bir olumsuz
-        cümleden ibaretti; üstelik sayfanın asıl işi artık yukarıdaki iki
-        kartta — okuluyla ve okul temsilcileriyle yazışmayı oradan başlatıyor.
-        Yazışması olanda liste yerinde duruyor.
-      */}
-      {satirlar.length > 0 && (
-      <Kart>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-baslik">
-            <MessagesSquare size={18} className="text-vurgu-metin" />
-            Bağlantılarım
-          </h2>
-
-          {suzgecGoster && (
-            /*
-              Süzgeç JAVASCRIPT'SİZ: her sekme bir bağlantı, sayfa sunucuda
-              yeniden basılıyor. Ekranın geri kalanı da böyle çalışıyor.
-            */
-            <nav className="flex gap-1 rounded-full border border-cizgi p-1">
-              {(
-                [
-                  ["tumu", "Tümü", satirlar.length],
-                  ["benim", "Bağlantılarım", benimSayisi],
-                  ["gozetim", "Gözetim", gozetimSayisi],
-                ] as const
-              ).map(([kod, etiket, sayi]) => (
-                <Link
-                  key={kod}
-                  href={
-                    kod === "tumu"
-                      ? "/panel/yazismalar"
-                      : `/panel/yazismalar?suzgec=${kod}`
-                  }
-                  aria-current={secili === kod ? "page" : undefined}
-                  className={`rounded-full px-3 py-1 text-sm transition ${
-                    secili === kod
-                      ? "bg-secili-zemin font-semibold text-secili-metin"
-                      : "text-metin-yumusak hover:text-metin"
-                  }`}
-                >
-                  {etiket} <span className="tabular-nums">{sayi}</span>
-                </Link>
-              ))}
-            </nav>
-          )}
-        </div>
-
-        {gorunen.length === 0 ? (
-          <p className="text-metin-yumusak">
-            {satirlar.length === 0
-              ? "Görüntüleyebileceğiniz bağlantı yok."
-              : "Bu süzgeçte bağlantı yok."}
-          </p>
-        ) : (
-          /*
-            TEK KART, AYIRICI ÇİZGİLİ SATIRLAR — kart içinde ayrı ayrı çerçeveli
-            kutular değil (12 Ağustos · "çok basit"). Negatif kenar boşluğu,
-            çizgilerin kartın tam genişliğinde durması için: LinkedIn listesi
-            böyle, satır kenarda kesilmiyor.
-          */
-          <ul className="-mx-6 -mb-6 divide-y divide-cizgi border-t border-cizgi">
-            {gorunen.map((satir) => (
-              <li key={satir.id} className="group">
-                {/*
-                  SATIRIN TAMAMI TIKLANIR. Sağdaki eylem bir <span>: iki hedef
-                  de aynı adres ve <a> içine <a> geçersiz HTML.
-                */}
-                <Link
-                  href={`/panel/yazismalar/${satir.id}`}
-                  className="flex items-center gap-4 px-6 py-4 transition hover:bg-zemin"
-                >
-                  {satir.tarafMi ? (
-                    <BasHarfCemberi
-                      ad={satir.karsiTaraf.ad}
-                      soyad={satir.karsiTaraf.soyad}
-                    />
-                  ) : (
-                    <GozetimCemberi />
-                  )}
-
-                  <span className="min-w-0 grow">
-                    <span className="block truncate text-base font-semibold text-baslik underline-offset-2 group-hover:text-vurgu-metin group-hover:underline">
-                      {satir.baslik}
-                    </span>
-                    {satir.altBaslik && (
-                      <span className="block truncate text-sm text-metin">
-                        {satir.altBaslik}
-                      </span>
-                    )}
-                    <span className="mt-1 block text-xs text-metin-yumusak">
-                      {satir.meta}
-                    </span>
-                  </span>
-
-                  {!satir.tarafMi && (
-                    <span className="hidden shrink-0 rounded-full border border-cizgi px-2.5 py-0.5 text-xs text-metin-yumusak sm:inline">
-                      gözetim
-                    </span>
-                  )}
-                  <span className={`hidden sm:inline-flex ${SINIF_HAP_VURGU}`}>
-                    {satir.tarafMi ? "Mesaj" : "Aç"}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Kart>
-      )}
 
       {/*
         AKIŞ BÖLÜMÜ DE KALKTI (21 Ağustos 2026 · istek: "Akış · Kendini tanıt,

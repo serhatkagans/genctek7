@@ -101,6 +101,36 @@ export default async function YazismaSayfasi({
    * Kendi yazışmasını okuyan için kayıt tutulmuyor: her açılışta satır
    * üretirdi ve kişinin kendi verisine bakması erişim olayı değildir.
    */
+  /*
+   * OKUNDU İŞARETİ (26 Ağustos 2026 · istek: "yeni mesaj ya da okunmamış mesaj
+   * varsa kırmızı çerçeve olsun"). Yazışmayı açmak onu okumaktır; liste
+   * ekranındaki kırmızı çerçeve bu satıra bakıyor.
+   *
+   * GÖZETİM İÇİN DE YAZILIR: danışman ve koordinatör de okunmamış işareti
+   * görüyor, kaydı yalnızca taraflar için tutsaydık onların listesinde çerçeve
+   * hiç sönmezdi.
+   *
+   * Yazma başarısız olursa sayfa yine açılır: okunma işareti bir kolaylık,
+   * yazışmanın kendisi değil.
+   */
+  await prisma.yazismaOkuma
+    .upsert({
+      where: {
+        yazismaId_kullaniciId: {
+          yazismaId: yazisma.baglantiIstegiId,
+          kullaniciId: kullanici.id,
+        },
+      },
+      update: { sonOkumaTarihi: new Date() },
+      create: {
+        yazismaId: yazisma.baglantiIstegiId,
+        kullaniciId: kullanici.id,
+      },
+    })
+    .catch((sebep: unknown) => {
+      console.error("Yazışma okuma işareti yazılamadı:", sebep);
+    });
+
   if (!tarafMi) {
     await erisimLogla({
       kullaniciId: kullanici.id,
