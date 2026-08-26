@@ -18,24 +18,23 @@ const TEMEL = {
 };
 
 describe("belgeMetniUret", () => {
-  it("katılım belgesi kalıp cümleyi kurar", () => {
+  it("katılım belgesi KATILIMA teşekkür eder", () => {
     const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM" });
     expect(metin.baslik).toBe("Katılım Belgesi");
     expect(metin.govde).toBe(
       "Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü " +
         "koordinesinde yürütülen GençTek: Akran Öğrenme Modeli ve Genç Bilişim " +
         "Ekosistemi çalışmaları kapsamında,\n12\u00A0Mart\u00A02026 tarihinde " +
-        "gerçekleştirilen Robotik Atölyesi etkinliğine katılımınız ve " +
-        "desteğiniz için teşekkür ederiz.",
+        "gerçekleştirilen Robotik Atölyesi etkinliğine katılımınızdan dolayı " +
+        "teşekkür ederiz.",
     );
   });
 
-  it("teşekkür belgesi katılım belgesiyle AYNI gövdeyi kurar", () => {
+  it("teşekkür belgesi katılımın yanında DESTEĞİ de anar", () => {
     /*
-     * İKİ TÜR AYNI CÜMLE (26 Ağustos 2026 · istek: "katılım listesindekiler
-     * için de varsayılan metin bu olsun"). Kısa süre ayrı bitişleri vardı;
-     * aynı etkinlikte kimine listeden kimine elle belge çıkınca iki belgenin
-     * farklı okunması açıklanamadı. Türler başlıkla ayrılıyor.
+     * İKİ KAPANIŞ KARIŞMAMALI (26 Ağustos 2026 · istek: "yanlışlık olmasın,
+     * birbiri ile karışmasın"). Katılım belgesi sadece etkinlikte bulunmayı
+     * belgeler; "desteğiniz" yalnızca teşekkür belgesine ait.
      */
     const metin = belgeMetniUret({ ...TEMEL, tur: "TESEKKUR" });
     expect(metin.baslik).toBe("Teşekkür Belgesi");
@@ -46,7 +45,18 @@ describe("belgeMetniUret", () => {
         "gerçekleştirilen Robotik Atölyesi etkinliğine katılımınız ve " +
         "desteğiniz için teşekkür ederiz.",
     );
-    expect(metin.govde).toBe(belgeMetniUret({ ...TEMEL, tur: "KATILIM" }).govde);
+    expect(metin.govde).not.toContain("katılımınızdan dolayı");
+  });
+
+  it("iki türün kapanışı BİRBİRİNE KARIŞMAZ", () => {
+    const katilim = belgeMetniUret({ ...TEMEL, tur: "KATILIM" }).govde;
+    const tesekkur = belgeMetniUret({ ...TEMEL, tur: "TESEKKUR" }).govde;
+
+    expect(katilim).not.toBe(tesekkur);
+    expect(katilim.endsWith("katılımınızdan dolayı teşekkür ederiz.")).toBe(true);
+    expect(
+      tesekkur.endsWith("katılımınız ve desteğiniz için teşekkür ederiz."),
+    ).toBe(true);
   });
 
   /*
@@ -107,7 +117,7 @@ describe("belgeMetniUret", () => {
 
   it("boş özel metin kalıbı bozmaz", () => {
     const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM", ozelMetin: "   " });
-    expect(metin.govde).toContain("katılımınız ve desteğiniz için teşekkür ederiz");
+    expect(metin.govde).toContain("katılımınızdan dolayı teşekkür ederiz");
   });
 
   it("adı kırpar", () => {

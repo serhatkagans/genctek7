@@ -63,8 +63,20 @@ const KOORDINASYON_CUMLESI =
   "koordinesinde yürütülen GençTek: Akran Öğrenme Modeli ve Genç Bilişim " +
   "Ekosistemi çalışmaları kapsamında,";
 
-/** Gövdenin kapanışı — iki belge türünde de aynı. */
-const KAPANIS_CUMLESI = "katılımınız ve desteğiniz için teşekkür ederiz.";
+/**
+ * Gövdenin kapanışı — TÜRE GÖRE AYRI ve karışmamalı (26 Ağustos 2026 · istek:
+ * "yanlışlık olmasın, birbiri ile karışmasın").
+ *
+ * Aynı gün bir tur ortaklaştırılıp geri alındı. Ortak cümle, katılım
+ * belgesinde olmayan bir şeyi ("desteğiniz") söylüyordu: katılım belgesi
+ * sadece etkinlikte bulunmayı belgeler, teşekkür belgesi ise destek verene
+ * yazılır. İki metin tek yerde, yan yana duruyor ki hangisinin nereye ait
+ * olduğu bakışta görünsün.
+ */
+const KAPANIS_CUMLELERI: Record<BelgeTuru, string> = {
+  KATILIM: "katılımınızdan dolayı teşekkür ederiz.",
+  TESEKKUR: "katılımınız ve desteğiniz için teşekkür ederiz.",
+};
 
 /**
  * Belge metnini üretir.
@@ -76,15 +88,10 @@ const KAPANIS_CUMLESI = "katılımınız ve desteğiniz için teşekkür ederiz.
  * mü) anlaması mümkün değildi. Cümlenin içinde "… tarihinde gerçekleştirilen"
  * olarak yeri belli.
  *
- * İKİ TÜR AYNI CÜMLEYİ KURAR (26 Ağustos 2026 · istek: "katılım
- * listesindekiler için de varsayılan metin bu olsun").
- *
- * Kısa bir süre iki ayrı bitiş cümlesi vardı — katılım belgesi yalnızca
- * katılıma, teşekkür belgesi katılım ve desteğe teşekkür ediyordu. Ayrım
- * pratikte işe yaramadı: aynı etkinlikte kimine listeden, kimine elle belge
- * çıkarılıyor ve iki belge yan yana geldiğinde metinlerinin farklı olması
- * açıklanamıyordu. Türler BAŞLIKLARIYLA ayrılıyor (Katılım Belgesi / Teşekkür
- * Belgesi); gövde ortak.
+ * GİRİŞ CÜMLESİ ORTAK, KAPANIŞ TÜRE GÖRE (bkz. KAPANIS_CUMLELERI): katılım
+ * belgesi katılıma, teşekkür belgesi katılım ve desteğe teşekkür eder. İkisi
+ * bir tur ortaklaştırılıp aynı gün geri alındı — ortak cümle katılım
+ * belgesinde olmayan bir şeyi söylüyordu.
  *
  * Özel metin verildiğinde gövde tamamen onunla değişir: teşekkür belgesi
  * çoğu zaman katılımcıya değil, konuşmacıya ya da destek veren kuruma
@@ -101,7 +108,8 @@ export function belgeMetniUret(girdi: BelgeGirdisi): BelgeMetni {
   const govde = ozel
     ? ozel
     : `${KOORDINASYON_CUMLESI}\n${tarihiBolunmezYap(girdi.tarihMetni)} tarihinde ` +
-      `gerçekleştirilen ${girdi.faaliyetAdi} etkinliğine ${KAPANIS_CUMLESI}`;
+      `gerçekleştirilen ${girdi.faaliyetAdi} etkinliğine ` +
+      `${KAPANIS_CUMLELERI[girdi.tur]}`;
 
   return {
     baslik: BELGE_TURU_ETIKETLERI[girdi.tur],
