@@ -307,6 +307,31 @@ const BILDIRIM_SABLONLARI = [
     govdeSablonu:
       "Merhaba,\n\nMentörlük başvurunuz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa menünüzde \"Mentörlüğüm\" sekmesi açıldı; panodaki ilanlara oradan cevap yazabilirsiniz.\n\nGençTek",
   },
+  /*
+   * GENÇTEK GÖREVLERİ (26 Ağustos 2026 · istek: "bunlardan birine öğrenci
+   * başvurduğunda yönetici sayfasına düşmüyor").
+   *
+   * İki şablon 21 Ağustos'ta koda eklenmiş ama SEED'E YAZILMAMIŞTI. Şablonu
+   * olmayan bildirim sessizce yutuluyor (bkz. lib/bildirim/gonder.ts: uyarı
+   * yazılıp çıkılıyor), dolayısıyla:
+   *   · başvuru geldiğinde proje yöneticisine hiçbir uyarı gitmiyordu,
+   *   · karar verildiğinde başvurana hiçbir sonuç gitmiyordu — üstelik yönetim
+   *     ekranı "başvurana bildirim gönderildi" diyordu.
+   * Başvurunun kendisi kaydediliyordu ve GençTek Görevleri ekranında
+   * görünüyordu; eksik olan haberdi.
+   */
+  {
+    kod: "ONAY_BEKLEYEN_GENCTEK_GOREVI",
+    konu: "Onay bekleyen GençTek görev başvurusu: {{basvuranAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{basvuranAdSoyad}}, {{gorevAdi}} görevine başvurdu ve onayınızı bekliyor.\n\nBaşvuruyu Yönetim Paneli'ndeki GençTek Görevleri kartından inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek",
+  },
+  {
+    kod: "GENCTEK_GOREV_KARARI",
+    konu: "GençTek görev başvurunuz {{sonuc}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{gorevAdi}} görevine yaptığınız başvuru {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa görev, Görevlerim ekranınızda listelenir.\n\nGençTek",
+  },
   {
     kod: "ONAY_BEKLEYEN_PANO_ILANI",
     konu: "Onay bekleyen pano ilanı: {{acanAdSoyad}}",

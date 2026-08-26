@@ -6,6 +6,8 @@ import {
   sablonuDoldur,
   yerTutuculariCikar,
 } from "@/lib/bildirim/sablon";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("bildirim şablonu", () => {
   it("yer tutucuları verilen değerlerle doldurur", () => {
@@ -182,5 +184,41 @@ describe("kontenjanda yer açıldı bildirimi", () => {
         degiskenler,
       ).olurMu,
     ).toBe(true);
+  });
+});
+
+/*
+ * SEED İLE KATALOG AYRIŞMASI (26 Ağustos 2026 · istek: "bunlardan birine
+ * öğrenci başvurduğunda yönetici sayfasına düşmüyor").
+ *
+ * ONAY_BEKLEYEN_GENCTEK_GOREVI ve GENCTEK_GOREV_KARARI kodda tanımlıydı ama
+ * seed'e yazılmamıştı. Şablonu olmayan bildirim SESSİZCE yutuluyor
+ * (lib/bildirim/gonder.ts uyarı yazıp çıkıyor), dolayısıyla ne proje
+ * yöneticisi başvurudan ne de öğrenci karardan haberdar oluyordu.
+ *
+ * Seed dosyası METİN OLARAK okunuyor: seed.ts içe aktarıldığında main()
+ * çalışıp veritabanına bağlanmaya kalkar. Test edilen şey bir davranış değil,
+ * iki listenin aynı kümeyi taşıdığı.
+ */
+describe("seed, kataloğun tamamını taşır", () => {
+  const seedMetni = readFileSync(
+    join(process.cwd(), "prisma", "seed.ts"),
+    "utf8",
+  );
+  const seeddekiKodlar = new Set(
+    [...seedMetni.matchAll(/kod: "([A-Z_]+)"/g)].map((eslesme) => eslesme[1]),
+  );
+
+  it("her bildirim kodunun seed'de bir şablonu vardır", () => {
+    const eksikler = Object.values(BILDIRIM_KODLARI).filter(
+      (kod) => !seeddekiKodlar.has(kod),
+    );
+    expect(eksikler).toEqual([]);
+  });
+
+  it("seed'de katalogda olmayan şablon yoktur", () => {
+    const kodlar = new Set<string>(Object.values(BILDIRIM_KODLARI));
+    const fazlalar = [...seeddekiKodlar].filter((kod) => !kodlar.has(kod));
+    expect(fazlalar).toEqual([]);
   });
 });
