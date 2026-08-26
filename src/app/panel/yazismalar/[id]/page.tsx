@@ -60,6 +60,7 @@ export default async function YazismaSayfasi({
       baglantiIstegi: {
         select: {
           mesaj: true,
+          onayDurumu: true,
           isteyenKullaniciId: true,
           hedefKullaniciId: true,
           isteyen: {
@@ -181,19 +182,37 @@ export default async function YazismaSayfasi({
         </BilgiKutusu>
       )}
 
-      <Kart>
-        <KartBasligi
-          baslik="Bağlantı isteği"
-          aciklama={
-            yazisma.baglantiIstegi.kararTarihi
-              ? tarihSaatYaz(yazisma.baglantiIstegi.kararTarihi)
-              : undefined
-          }
-        />
-        <p className="whitespace-pre-line text-metin">
-          {yazisma.baglantiIstegi.mesaj}
-        </p>
-      </Kart>
+      {/*
+        BAĞLANTI İSTEĞİ KARTI YALNIZCA GERÇEK İSTEKTE (26 Ağustos 2026 · istek:
+        "okul temsilcilerinden birine mesaj atarken kendi okulunda olmasa bile
+        mesaj sayfasında 'Bağlantı isteği · Okul içi doğrudan yazışma — onay
+        gerekmedi' çıkıyor").
+
+        Doğrudan yazışmada ortada bir istek YOK: kayıt ONAY_GEREKMEZ olarak
+        açılıyor ve `mesaj` alanı gerçek bir istek metni değil, kaydın niçin
+        açıldığını anlatan iç not. Onu "Bağlantı isteği" başlığıyla basmak,
+        kullanıcıya hiç yazmadığı bir isteği kendi cümlesi gibi gösteriyordu —
+        üstelik okul temsilcisiyle yazışırken "okul içi" diyerek yanlış da
+        söylüyordu.
+
+        Onaydan geçmiş eski yazışmalarda kart yerinde: orada metin gerçekten
+        isteği yapanın yazdığı cümle.
+      */}
+      {yazisma.baglantiIstegi.onayDurumu !== "ONAY_GEREKMEZ" && (
+        <Kart>
+          <KartBasligi
+            baslik="Bağlantı isteği"
+            aciklama={
+              yazisma.baglantiIstegi.kararTarihi
+                ? tarihSaatYaz(yazisma.baglantiIstegi.kararTarihi)
+                : undefined
+            }
+          />
+          <p className="whitespace-pre-line text-metin">
+            {yazisma.baglantiIstegi.mesaj}
+          </p>
+        </Kart>
+      )}
 
       <Kart>
         <KartBasligi

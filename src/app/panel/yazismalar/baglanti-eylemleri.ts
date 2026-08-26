@@ -150,7 +150,12 @@ export async function dogrudanYazismaAcEylemi(veri: FormData): Promise<void> {
           data: {
             isteyenKullaniciId: kullanici.id,
             hedefKullaniciId: hedef.id,
-            mesaj: "Okul içi doğrudan yazışma — onay gerekmedi.",
+            /*
+             * Bu metin EKRANDA GÖSTERİLMEZ, kaydın iç notudur (bkz. yazışma
+             * sayfası). "Okul içi" diyordu; oysa aynı yol okul temsilcisiyle
+             * yazışmayı da açıyor ve temsilcinin okulu farklı olabiliyor.
+             */
+            mesaj: "Doğrudan yazışma — onay gerekmedi.",
             // Karar veren ve karar tarihi BOŞ KALIR: ortada bir karar yok.
             onayDurumu: "ONAY_GEREKMEZ",
           },
