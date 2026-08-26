@@ -49,6 +49,7 @@ export default async function UrunDetaySayfasi({
       tarih: true,
       baglantiUrl: true,
       markettePaylasilsin: true,
+      marketOnayDurumu: true,
       goruntulenmeSayisi: true,
       baglantiTiklamasi: true,
       kullaniciId: true,
@@ -74,7 +75,17 @@ export default async function UrunDetaySayfasi({
    * Paylaşılmamış ürüne başkası ERİŞEMEZ. 403 değil 404: 403, "böyle bir ürün
    * var ama sana kapalı" bilgisini sızdırırdı (permissions.md · Bölüm 4).
    */
-  if (!urun || !urunGorunurMu({ sahipKullaniciId: urun.kullaniciId, markettePaylasilsin: urun.markettePaylasilsin }, kullanici.id)) {
+  if (
+    !urun ||
+    !urunGorunurMu(
+      {
+        sahipKullaniciId: urun.kullaniciId,
+        markettePaylasilsin: urun.markettePaylasilsin,
+        marketOnayDurumu: urun.marketOnayDurumu,
+      },
+      kullanici.id,
+    )
+  ) {
     notFound();
   }
 

@@ -116,6 +116,8 @@ export const BILDIRIM_KODLARI = {
    * sonradan eklendi ve arada kalan başvurular haftalarca görülmedi.
    */
   ONAY_BEKLEYEN_GENCTEK_GOREVI: "ONAY_BEKLEYEN_GENCTEK_GOREVI",
+  ONAY_BEKLEYEN_URUN: "ONAY_BEKLEYEN_URUN",
+  URUN_MARKET_KARARI: "URUN_MARKET_KARARI",
   /** Görev başvurusu karara bağlandı; BAŞVURANA gider, gerekçesiyle. */
   GENCTEK_GOREV_KARARI: "GENCTEK_GOREV_KARARI",
   /** Faaliyet onaylandı ya da reddedildi; faaliyeti açana gider. */
@@ -471,6 +473,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Başvuruyu yapan kişiye gider. Reddedildiyse gerekçe yazılıdır; onaylandıysa görev listesinde yer alır.",
     degiskenler: ["gorevAdi", "sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_URUN,
+    baslik: "Onay bekleyen ürün",
+    aciklama:
+      "Bir kullanıcı ürününü markette paylaşmayı seçtiğinde proje yöneticilerine gider. Ürün, onaylanana kadar markette yalnızca sahibine görünür.",
+    degiskenler: ["sahipAdSoyad", "urunAdi"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.URUN_MARKET_KARARI,
+    baslik: "Ürün market kararı",
+    aciklama:
+      "Ürünü paylaşan kişiye gider. Onaylandıysa ürün markette görünür; reddedildiyse gerekçe yazılıdır.",
+    degiskenler: ["urunAdi", "sonuc", "gerekce"],
   },
   {
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_PANO_ILANI,

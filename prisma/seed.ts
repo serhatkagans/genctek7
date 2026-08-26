@@ -333,6 +333,18 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{gorevAdi}} görevine yaptığınız başvuru {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa görev, Görevlerim ekranınızda listelenir.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_URUN",
+    konu: "Onay bekleyen ürün: {{urunAdi}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{sahipAdSoyad}}, {{urunAdi}} adlı ürününü markette paylaşmak istiyor ve onayınızı bekliyor.\n\nÜrünü Onay kuyruğu ekranından inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek",
+  },
+  {
+    kod: "URUN_MARKET_KARARI",
+    konu: "{{urunAdi}} ürününüz {{sonuc}}",
+    govdeSablonu:
+      "Merhaba,\n\nMarkette paylaşmak istediğiniz {{urunAdi}} adlı ürününüz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa ürününüz GençTek Market'te görünüyor.\n\nGençTek",
+  },
+  {
     kod: "ONAY_BEKLEYEN_PANO_ILANI",
     konu: "Onay bekleyen pano ilanı: {{acanAdSoyad}}",
     govdeSablonu:

@@ -1,3 +1,4 @@
+import type { OnayDurumu } from "@/generated/prisma/enums";
 import { Eye, ExternalLink, Plus, ScrollText, Users } from "lucide-react";
 import { projeYoneticisiMi } from "@/lib/yetki/izinler";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
@@ -7,6 +8,8 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
   MARKET_SUZGECLERI,
+  URUN_VITRIN_ETIKETLERI,
+  urunVitrinDurumu,
   sahipKumesi,
   sayiYaz,
   suzgeciCoz,
@@ -34,6 +37,14 @@ export const dynamic = "force-dynamic";
  * etti ve kullanıcıyı ekleme yapamayacağı ekrana yolladı — 13 Ağustos 2026'da
  * düzeltildi.
  */
+/** Sahibine basılacak rozet metni; vitrindeki üründe rozet yok. */
+function vitrinEtiketi(urun: {
+  markettePaylasilsin: boolean;
+  marketOnayDurumu: OnayDurumu;
+}): string | null {
+  return URUN_VITRIN_ETIKETLERI[urunVitrinDurumu(urun)];
+}
+
 export default async function MarketSayfasi({
   searchParams,
 }: {
@@ -52,6 +63,11 @@ export default async function MarketSayfasi({
   const kayitlar = await prisma.kullaniciKazanim.findMany({
     where: {
       tip: "URUN",
+      /*
+       * SORGU GENİŞ, SÜZME KURALDA: onay durumu burada da daraltılabilirdi
+       * ama kişinin kendi ürünü her hâlde listeye girmeli ve "vitrinde mi"
+       * kararı tek yerde duruyor (bkz. lib/market/kurallar.ts · urunleriSuz).
+       */
       OR: [{ markettePaylasilsin: true }, { kullaniciId: kullanici.id }],
     },
     select: {
@@ -62,6 +78,7 @@ export default async function MarketSayfasi({
       tarih: true,
       olusturmaTarihi: true,
       markettePaylasilsin: true,
+      marketOnayDurumu: true,
       goruntulenmeSayisi: true,
       baglantiTiklamasi: true,
       kullaniciId: true,
@@ -222,8 +239,18 @@ export default async function MarketSayfasi({
                             ? "Öğretmen ürünü"
                             : "Ekosistem ürünü"}
                       </Rozet>
-                      {!urun.markettePaylasilsin && (
-                        <Rozet cesit="uyari">Markette paylaşılmadı</Rozet>
+                      {/*
+                        DURUM ROZETİ (26 Ağustos 2026 · istek: "markette
+                        paylaşılmadı yerine onay bekliyor yazsın").
+
+                        Tek rozet vardı ve yalnızca "paylaşılmadı" diyordu;
+                        paylaşmayı seçmiş ama kararı bekleyen kişi de aynı
+                        cümleyi okuyor, işaretinin gitmediğini sanıyordu.
+                        Şimdi üç ayrı durum var: tercih edilmedi · karar
+                        bekliyor · yayımlanmadı.
+                      */}
+                      {vitrinEtiketi(urun) && (
+                        <Rozet cesit="uyari">{vitrinEtiketi(urun)}</Rozet>
                       )}
                     </RozetSeridi>
                   </div>

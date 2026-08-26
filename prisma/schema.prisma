@@ -469,6 +469,7 @@ model Kullanici {
   yazdigiMesajlar             Mesaj[]          @relation("MesajYazan")
   gizledigiMesajlar           Mesaj[]          @relation("MesajGizleyen")
   yazismaOkumalari            YazismaOkuma[]
+  urunMarketKararlari         KullaniciKazanim[] @relation("UrunMarketKararVeren")
 
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
@@ -1224,6 +1225,23 @@ model KullaniciKazanim {
   /// açık gelmesi kullanıcının istemeden vitrine çıkması demek olurdu.
   /// GençTek Market (I maddesi) bu bayrağı okuyacak.
   markettePaylasilsin     Boolean        @default(false) @map("markette_paylasilsin")
+  /// Market vitrinine çıkış ONAYA BAĞLI (26 Ağustos 2026 · istek: "markette
+  /// paylaşılmadı yerine onay bekliyor yazsın ve proje yöneticisine gitsin
+  /// onaya, öğretmen için de").
+  ///
+  /// `markettePaylasilsin` kişinin TERCİHİ, bu alan MERKEZİN KARARI. İkisi
+  /// ayrı: paylaşımı kapatan kişi kararı silmiş olmuyor, kararı veren de
+  /// kişinin tercihini değiştirmiyor.
+  ///
+  /// VARSAYILAN `ONAY_GEREKMEZ`: bu sütun eklenmeden önce paylaşılmış ürünler
+  /// vitrindeydi ve geriye dönük onaya sokmak, kimseye haber vermeden
+  /// marketi boşaltmak olurdu. Yeni paylaşımlar `BEKLIYOR` ile açılıyor.
+  marketOnayDurumu        OnayDurumu     @default(ONAY_GEREKMEZ) @map("market_onay_durumu")
+  marketKararVerenKullaniciId Int?       @map("market_karar_veren_kullanici_id")
+  marketKararTarihi       DateTime?      @map("market_karar_tarihi") @db.Timestamptz(6)
+  /// Rette ZORUNLU (uygulama katmanında): gerekçesiz ret, sahibine neyi
+  /// düzelteceğini söylemez.
+  marketRetGerekcesi      String?        @map("market_ret_gerekcesi") @db.Text
   /// Market vitrin sayaçları (I). Yalnızca tip=URUN kayıtlarında anlamlıdır.
   ///
   /// Ürün detayı her açıldığında artar — SAHİBİ AÇTIĞINDA ARTMAZ, yoksa kişi
@@ -1244,12 +1262,14 @@ model KullaniciKazanim {
   olusturmaTarihi         DateTime       @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   kullanici             Kullanici              @relation(fields: [kullaniciId], references: [id])
+  marketKararVeren      Kullanici?             @relation("UrunMarketKararVeren", fields: [marketKararVerenKullaniciId], references: [id])
   temelEtkinlikProgrami TemelEtkinlikProgrami? @relation(fields: [temelEtkinlikProgramiId], references: [id])
   ekler                 KazanimEk[]
   baglantilar           KazanimBaglanti[]
 
   @@index([kullaniciId])
   @@index([temelEtkinlikProgramiId])
+  @@index([marketOnayDurumu])
   @@map("kullanici_kazanim")
 }
 

@@ -8,6 +8,10 @@ import {
   suzgeciCoz,
   suzgecTanimi,
   urunGorunurMu,
+  urunMarketKarariGecerliMi,
+  URUN_VITRIN_ETIKETLERI,
+  urunVitrindeMi,
+  urunVitrinDurumu,
   urunleriSuz,
 } from "@/lib/market/kurallar";
 
@@ -23,6 +27,8 @@ function urun(ustune: Partial<MarketUrunu> & { id: number }): MarketUrunu {
     sahipKullaniciId: BASKA_OGRENCI,
     sahipKumesi: "OGRENCI",
     markettePaylasilsin: true,
+    /* Onay akışı öncesi paylaşılmış ürünlerin durumu; vitrinde sayılır. */
+    marketOnayDurumu: "ONAY_GEREKMEZ",
     ...ustune,
   };
 }
@@ -117,17 +123,17 @@ describe("urunleriSuz", () => {
 describe("urunGorunurMu", () => {
   it("paylaşılan ürünü herkes görür", () => {
     expect(
-      urunGorunurMu({ sahipKullaniciId: BASKA_OGRENCI, markettePaylasilsin: true }, BEN),
+      urunGorunurMu({ sahipKullaniciId: BASKA_OGRENCI, markettePaylasilsin: true, marketOnayDurumu: "ONAY_GEREKMEZ" }, BEN),
     ).toBe(true);
   });
 
   it("paylaşılmayan ürünü yalnızca sahibi görür", () => {
     expect(
-      urunGorunurMu({ sahipKullaniciId: BEN, markettePaylasilsin: false }, BEN),
+      urunGorunurMu({ sahipKullaniciId: BEN, markettePaylasilsin: false, marketOnayDurumu: "ONAY_GEREKMEZ" }, BEN),
     ).toBe(true);
     expect(
       urunGorunurMu(
-        { sahipKullaniciId: BASKA_OGRENCI, markettePaylasilsin: false },
+        { sahipKullaniciId: BASKA_OGRENCI, markettePaylasilsin: false, marketOnayDurumu: "ONAY_GEREKMEZ" },
         BEN,
       ),
     ).toBe(false);
@@ -178,5 +184,102 @@ describe("sayiYaz", () => {
   it("binlik ayracı koyar", () => {
     expect(sayiYaz(1240)).toBe("1.240");
     expect(sayiYaz(0)).toBe("0");
+  });
+});
+
+describe("market onayı", () => {
+  /*
+   * VİTRİNE ÇIKIŞ ONAYA BAĞLI (26 Ağustos 2026 · istek: "markette paylaşılmadı
+   * yerine onay bekliyor yazsın ve proje yöneticisine gitsin onaya").
+   */
+  it("onay bekleyen ürün vitrinde değildir", () => {
+    expect(
+      urunVitrindeMi({ markettePaylasilsin: true, marketOnayDurumu: "BEKLIYOR" }),
+    ).toBe(false);
+  });
+
+  it("onaylanan ürün vitrindedir", () => {
+    expect(
+      urunVitrindeMi({ markettePaylasilsin: true, marketOnayDurumu: "ONAYLANDI" }),
+    ).toBe(true);
+  });
+
+  /*
+   * Onay akışı eklenmeden önce paylaşılmış ürünler `ONAY_GEREKMEZ` durumunda.
+   * Geriye dönük onaya sokmak, kimseye haber vermeden marketi boşaltmak olurdu.
+   */
+  it("akış öncesi paylaşılmış ürün vitrinde kalır", () => {
+    expect(
+      urunVitrindeMi({
+        markettePaylasilsin: true,
+        marketOnayDurumu: "ONAY_GEREKMEZ",
+      }),
+    ).toBe(true);
+  });
+
+  it("paylaşılmayan ürün onaylı olsa da vitrinde değildir", () => {
+    expect(
+      urunVitrindeMi({
+        markettePaylasilsin: false,
+        marketOnayDurumu: "ONAYLANDI",
+      }),
+    ).toBe(false);
+  });
+
+  it("paylaşılmadı ile onay bekliyor AYRI etiketler", () => {
+    const paylasilmadi = urunVitrinDurumu({
+      markettePaylasilsin: false,
+      marketOnayDurumu: "ONAY_GEREKMEZ",
+    });
+    const bekliyor = urunVitrinDurumu({
+      markettePaylasilsin: true,
+      marketOnayDurumu: "BEKLIYOR",
+    });
+
+    expect(URUN_VITRIN_ETIKETLERI[paylasilmadi]).toBe("Markette paylaşılmadı");
+    expect(URUN_VITRIN_ETIKETLERI[bekliyor]).toBe("Onay bekliyor");
+  });
+
+  it("vitrindeki ürüne rozet basılmaz", () => {
+    const durum = urunVitrinDurumu({
+      markettePaylasilsin: true,
+      marketOnayDurumu: "ONAYLANDI",
+    });
+    expect(URUN_VITRIN_ETIKETLERI[durum]).toBeNull();
+  });
+});
+
+describe("urunMarketKarariGecerliMi", () => {
+  it("onayda gerekçe istemez", () => {
+    const karar = urunMarketKarariGecerliMi({
+      mevcutDurum: "BEKLIYOR",
+      onaylandiMi: true,
+      gerekce: "",
+    });
+    expect(karar).toEqual({
+      olurMu: true,
+      durum: "ONAYLANDI",
+      gerekce: null,
+    });
+  });
+
+  /* Gerekçesiz ret, sahibine neyi düzelteceğini söylemez. */
+  it("rette gerekçe zorunludur", () => {
+    const karar = urunMarketKarariGecerliMi({
+      mevcutDurum: "BEKLIYOR",
+      onaylandiMi: false,
+      gerekce: "   ",
+    });
+    expect(karar.olurMu).toBe(false);
+  });
+
+  /* İki yönetici aynı kuyruğa bakarsa ikincisi birincinin kararını bozmamalı. */
+  it("karar beklemeyen ürüne karar verilmez", () => {
+    const karar = urunMarketKarariGecerliMi({
+      mevcutDurum: "ONAYLANDI",
+      onaylandiMi: false,
+      gerekce: "Uygun değil.",
+    });
+    expect(karar.olurMu).toBe(false);
   });
 });

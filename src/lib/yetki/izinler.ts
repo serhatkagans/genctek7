@@ -160,6 +160,19 @@ export function mentorlukOnaylayabilirMi(
  * (lib/gorev/kurallar.ts · gorevKarariGecerliMi): bu fonksiyon "kim karar
  * verebilir" sorusunu cevaplıyor, o koşul "hangi kayda" sorusunu.
  */
+/**
+ * Ürünün markette yayımlanma kararını verebilir mi? (26 Ağustos 2026)
+ *
+ * YALNIZCA MERKEZ: market ülke geneline açık tek bir vitrin. Bir ilin
+ * koordinatörünün ülke çapında görünecek bir ürünü yayımlaması, GençTek
+ * görevlerinde olduğu gibi kapsamının dışında bir karar olurdu.
+ */
+export function urunMarketOnayiVerebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
 export function gencTekGoreviYonetebilirMi(
   kullanici: OturumKullanicisi,
 ): boolean {

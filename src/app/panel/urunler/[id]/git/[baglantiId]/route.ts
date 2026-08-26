@@ -46,7 +46,13 @@ export async function GET(
     select: {
       adres: true,
       kazanim: {
-        select: { id: true, tip: true, kullaniciId: true, markettePaylasilsin: true },
+        select: {
+          id: true,
+          tip: true,
+          kullaniciId: true,
+          markettePaylasilsin: true,
+          marketOnayDurumu: true,
+        },
       },
     },
   });
@@ -58,6 +64,7 @@ export async function GET(
       {
         sahipKullaniciId: baglanti.kazanim.kullaniciId,
         markettePaylasilsin: baglanti.kazanim.markettePaylasilsin,
+        marketOnayDurumu: baglanti.kazanim.marketOnayDurumu,
       },
       kullanici.id,
     )

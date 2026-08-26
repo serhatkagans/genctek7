@@ -1,4 +1,5 @@
 import type { RolKodu } from "@/generated/prisma/enums";
+import type { OnayDurumu } from "@/generated/prisma/enums";
 
 /**
  * GençTek Market — süzgeçler ve görünürlük kuralları (I).
@@ -119,7 +120,111 @@ export interface MarketUrunu {
   id: number;
   sahipKullaniciId: number;
   sahipKumesi: UrunSahipKumesi;
+  /** Kişinin TERCİHİ: bu ürün vitrine çıksın mı. */
   markettePaylasilsin: boolean;
+  /** MERKEZİN KARARI (26 Ağustos 2026). Tercihten ayrı bir alan. */
+  marketOnayDurumu: OnayDurumu;
+}
+
+/**
+ * Ürün VİTRİNDE mi — sahibi dışındaki herkes için.
+ *
+ * İKİ KOŞUL BİRDEN (26 Ağustos 2026 · istek: "markette paylaşılmadı yerine
+ * onay bekliyor yazsın ve proje yöneticisine gitsin onaya"): kişi paylaşmayı
+ * SEÇMİŞ olmalı ve merkez ONAYLAMIŞ olmalı.
+ *
+ * `ONAY_GEREKMEZ` de geçer: onay akışı eklenmeden önce paylaşılmış ürünlerin
+ * durumu bu. Onları geriye dönük vitrinden indirmek, kimseye haber vermeden
+ * marketi boşaltmak olurdu.
+ */
+export function urunVitrindeMi(
+  urun: Pick<MarketUrunu, "markettePaylasilsin" | "marketOnayDurumu">,
+): boolean {
+  return (
+    urun.markettePaylasilsin &&
+    (urun.marketOnayDurumu === "ONAYLANDI" ||
+      urun.marketOnayDurumu === "ONAY_GEREKMEZ")
+  );
+}
+
+export type UrunVitrinDurumu =
+  | "PAYLASILMADI"
+  | "ONAY_BEKLIYOR"
+  | "REDDEDILDI"
+  | "VITRINDE";
+
+/**
+ * Ürünün SAHİBİNE gösterilecek durum.
+ *
+ * "Paylaşılmadı" ile "onay bekliyor" AYRI ŞEYLER: ilki kişinin kendi
+ * tercihi, ikincisi merkezin henüz vermediği karar. Tek etiketle
+ * gösterildiğinde, ürününü paylaşmayı seçmiş kişi "markette paylaşılmadı"
+ * okuyup işaretin gitmediğini sanıyordu.
+ */
+export function urunVitrinDurumu(
+  urun: Pick<MarketUrunu, "markettePaylasilsin" | "marketOnayDurumu">,
+): UrunVitrinDurumu {
+  if (!urun.markettePaylasilsin) return "PAYLASILMADI";
+  if (urun.marketOnayDurumu === "BEKLIYOR") return "ONAY_BEKLIYOR";
+  if (urun.marketOnayDurumu === "REDDEDILDI") return "REDDEDILDI";
+  return "VITRINDE";
+}
+
+/** Sahibine basılan rozetin metni; vitrindeki üründe rozet yok. */
+export const URUN_VITRIN_ETIKETLERI: Record<
+  UrunVitrinDurumu,
+  string | null
+> = {
+  PAYLASILMADI: "Markette paylaşılmadı",
+  ONAY_BEKLIYOR: "Onay bekliyor",
+  REDDEDILDI: "Markette yayımlanmadı",
+  VITRINDE: null,
+};
+
+const GEREKCE_MAKS = 500;
+
+export type UrunMarketKarari =
+  | { olurMu: true; durum: OnayDurumu; gerekce: string | null }
+  | { olurMu: false; neden: string };
+
+/**
+ * Onay / ret kararını doğrular.
+ *
+ * KARAR BEKLEMEYEN ÜRÜNE KARAR VERİLMEZ: iki yönetici aynı kuyruğa
+ * baktığında ikincisinin tıklaması, birincinin kararını sessizce
+ * değiştirmemeli.
+ */
+export function urunMarketKarariGecerliMi(girdi: {
+  mevcutDurum: OnayDurumu;
+  onaylandiMi: boolean;
+  gerekce: string;
+}): UrunMarketKarari {
+  if (girdi.mevcutDurum !== "BEKLIYOR") {
+    return {
+      olurMu: false,
+      neden: "Bu ürün için karar bekleyen bir paylaşım isteği yok.",
+    };
+  }
+
+  const gerekce = girdi.gerekce.trim();
+
+  if (girdi.onaylandiMi) {
+    return { olurMu: true, durum: "ONAYLANDI", gerekce: gerekce || null };
+  }
+
+  /*
+   * RETTE GEREKÇE ZORUNLU: sahibine neyi düzelteceğini söylemeyen bir ret,
+   * aynı ürünün ikinci kez aynı hâliyle gönderilmesine yol açar.
+   */
+  if (!gerekce) return { olurMu: false, neden: "Ret gerekçesi yazılmalıdır." };
+  if (gerekce.length > GEREKCE_MAKS) {
+    return {
+      olurMu: false,
+      neden: `Gerekçe en fazla ${GEREKCE_MAKS} karakter olabilir.`,
+    };
+  }
+
+  return { olurMu: true, durum: "REDDEDILDI", gerekce };
 }
 
 /**
@@ -145,7 +250,7 @@ export function urunleriSuz<T extends MarketUrunu>(
       // ürünü "Tüm ürünler"de de görünmeli, yoksa paylaşımı kapattığında ürün
       // markette tamamen kaybolur ve silindiğini sanır.
       return urunler.filter(
-        (u) => u.markettePaylasilsin || u.sahipKullaniciId === oturumKullaniciId,
+        (u) => urunVitrindeMi(u) || u.sahipKullaniciId === oturumKullaniciId,
       );
   }
 }
@@ -158,10 +263,18 @@ export function urunleriSuz<T extends MarketUrunu>(
  * uyguluyor.
  */
 export function urunGorunurMu(
-  urun: Pick<MarketUrunu, "sahipKullaniciId" | "markettePaylasilsin">,
+  urun: Pick<
+    MarketUrunu,
+    "sahipKullaniciId" | "markettePaylasilsin" | "marketOnayDurumu"
+  >,
   oturumKullaniciId: number,
 ): boolean {
-  return urun.markettePaylasilsin || urun.sahipKullaniciId === oturumKullaniciId;
+  /*
+   * ONAY BEKLEYEN ÜRÜN DE YALNIZCA SAHİBİNE AÇIK (26 Ağustos 2026): karar
+   * verilmeden ürünün bağlantısını paylaşan biri, onaydan geçmemiş bir
+   * sayfayı dolaşıma sokabilirdi.
+   */
+  return urunVitrindeMi(urun) || urun.sahipKullaniciId === oturumKullaniciId;
 }
 
 /**

@@ -58,6 +58,7 @@ import {
   ogretmenEnvanteriGorebilirMi,
   panodaIlanAcabilirMi,
   panoIlaniOnaylayabilirMi,
+  urunMarketOnayiVerebilirMi,
   paydasGorebilirMi,
   projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
@@ -139,7 +140,12 @@ export default async function YonetimSayfasi({
    * Sayı `count`, liste değil: kart yalnızca kaç iş beklediğini söylüyor,
    * kimin beklediğini kuyruğun kendi ekranı gösteriyor.
    */
-  const [bekleyenGorevBasvurusu, bekleyenMentorluk, bekleyenIlan] =
+  const [
+    bekleyenGorevBasvurusu,
+    bekleyenMentorluk,
+    bekleyenIlan,
+    bekleyenUrun,
+  ] =
     await Promise.all([
       gencTekGoreviYonetebilirMi(kullanici)
         ? prisma.gencTekGorevBasvurusu.count({
@@ -153,6 +159,12 @@ export default async function YonetimSayfasi({
       panoIlaniOnaylayabilirMi(kullanici)
         ? prisma.talep.count({
             where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
+          })
+        : Promise.resolve(0),
+      /* Markette yayım bekleyen ürünler de aynı kuyrukta (26 Ağustos 2026). */
+      urunMarketOnayiVerebilirMi(kullanici)
+        ? prisma.kullaniciKazanim.count({
+            where: { tip: "URUN", marketOnayDurumu: "BEKLIYOR" },
           })
         : Promise.resolve(0),
     ]);
@@ -346,7 +358,7 @@ export default async function YonetimSayfasi({
           {panoIlaniOnaylayabilirMi(kullanici) && (
             <KisayolKarti
               baslik="Onay kuyruğu"
-              aciklama="Onay bekleyen öğrenci ilanları ve GençTek görev başvuruları"
+              aciklama="Onay bekleyen ilanlar, görev başvuruları ve market ürünleri"
               Ikon={Megaphone}
               yol="/panel/talepler/onaylar"
               /*
@@ -357,7 +369,7 @@ export default async function YonetimSayfasi({
                 ekranda toplamak istedi, görev ekranı ise ilan yönetimini
                 de taşıyor.
               */
-              bekleyen={bekleyenIlan + bekleyenGorevBasvurusu}
+              bekleyen={bekleyenIlan + bekleyenGorevBasvurusu + bekleyenUrun}
               ton="uyari"
             />
           )}

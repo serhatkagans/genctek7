@@ -39,6 +39,7 @@ import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
 import { tarihYaz } from "@/lib/tarih";
 import {
   gencTekGoreviYonetebilirMi,
+  urunMarketOnayiVerebilirMi,
   mentorlukBasvurabilirMi,
   panodaIlanAcabilirMi,
   panoIlaniOnaylayabilirMi,
@@ -148,6 +149,7 @@ export default async function TaleplerSayfasi({
     kendiTalepleri,
     bekleyenIlanSayisi,
     bekleyenGorevSayisi,
+    bekleyenUrunSayisi,
   ] = await Promise.all([
     prisma.calismaGrubu.findMany({
       where: { aktif: true },
@@ -265,10 +267,17 @@ export default async function TaleplerSayfasi({
     gencTekGoreviYonetebilirMi(kullanici)
       ? prisma.gencTekGorevBasvurusu.count({ where: { onayDurumu: "BEKLIYOR" } })
       : 0,
+    /* Markette yayım bekleyen ürünler de aynı kuyrukta (26 Ağustos 2026). */
+    urunMarketOnayiVerebilirMi(kullanici)
+      ? prisma.kullaniciKazanim.count({
+          where: { tip: "URUN", marketOnayDurumu: "BEKLIYOR" },
+        })
+      : 0,
   ]);
 
   /* Kart iki kuyruğu birden açıyor; sayı da ikisinin toplamı. */
-  const bekleyenSayisi = bekleyenIlanSayisi + bekleyenGorevSayisi;
+  const bekleyenSayisi =
+    bekleyenIlanSayisi + bekleyenGorevSayisi + bekleyenUrunSayisi;
 
   const filtreVar =
     Boolean(aramaMetni) || Number.isFinite(grupId) || Boolean(tur);
