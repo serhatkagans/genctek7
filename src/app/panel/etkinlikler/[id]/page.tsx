@@ -72,7 +72,6 @@ import { KATILIM_BICIMI_ETIKETLERI } from "@/lib/kazanim/kurallar";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
 import { girdiTarihi, girdiTarihSaati, tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import {
-  baskasiAdinaBasvurabilirMi,
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
   ekYukleyebilirMi,
@@ -289,7 +288,6 @@ export default async function FaaliyetDetaySayfasi({
 
   // Katılımcı öğretmen de olabilir; kapı "öğrenci mi" değil "başvurabilir mi".
   const kendiAdinaBasvurabilir = basvuruYapabilirMi(kullanici);
-  const vekaletenBasvurabilir = baskasiAdinaBasvurabilirMi(kullanici);
   const degerlendirebilir = basvuruDegerlendirebilirMi(kullanici, kapsamBilgisi);
   const devroldu = yetkiDevrolduMu(kullanici, kapsamBilgisi);
   const ekYonetebilir = ekYukleyebilirMi(kullanici, kapsamBilgisi);
@@ -560,34 +558,6 @@ export default async function FaaliyetDetaySayfasi({
     ? belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) })
     : { olurMu: false, neden: null };
 
-  /*
-   * Vekaleten başvuru için aday öğrenciler: kapsam filtresinden geçen ve bu
-   * faaliyete aktif başvurusu OLMAYAN öğrenciler. Aktif başvurusu olanı listede
-   * bırakmak, kullanıcıyı zaten reddedilecek bir seçime davet etmek olurdu.
-   */
-  const vekaletAdaylari =
-    vekaletenBasvurabilir && basvuruPenceresi(faaliyet, simdi) === "ACIK"
-      ? await prisma.kullanici.findMany({
-          where: {
-            AND: [
-              ogrenciKapsamFiltresi(kullanici),
-              {
-                basvurular: {
-                  none: {
-                    faaliyetId: faaliyet.id,
-                    durum: { notIn: ["GERI_CEKILDI", "IPTAL_EDILDI"] },
-                  },
-                },
-              },
-            ],
-          },
-          select: { id: true, ad: true, soyad: true, sinif: true },
-          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-          // Uzun listeyi seçim kutusuna sığdırmak anlamsız; okul ölçeğinde
-          // yeterli, il ölçeğinde kullanıcı öğrenci ekranından yönlendirilir.
-          take: 200,
-        })
-      : [];
 
   const paydaslar = await prisma.faaliyetPaydas.findMany({
     where: { faaliyetId: faaliyet.id },
@@ -1115,73 +1085,22 @@ export default async function FaaliyetDetaySayfasi({
       )}
 
       {/*
-        AYNI KURAL VEKÂLETEN BAŞVURUDA DA (26 Ağustos 2026 · istek: "Öğrenci
-        adına başvuru … Başvuru penceresi kapalı. bunu da sil"). Pencere
-        kapalıyken bölüm bir açıklama paragrafı ve bir olumsuzluk cümlesinden
-        ibaretti.
+        "ÖĞRENCİ ADINA BAŞVURU" BÖLÜMÜ KALDIRILDI (26 Ağustos 2026 · istek:
+        "Öğrenci adına başvuru … bunu da sil").
+
+        Öğretmen ve koordinatör, danışmanlığındaki/ilindeki bir öğrencinin
+        yerine başvuru yapabiliyordu; öğrenciye bildirim gidiyor ve dilerse
+        geri çekebiliyordu. Ekrandaki yol kapandı: başvuru artık öğrencinin
+        kendi işi.
+
+        SUNUCU EYLEMİ VE KURALLARI DURUYOR (basvuruYapEylemi içindeki
+        vekâlet dalı, baskasiAdinaBasvurabilirMi, vekaletenBasvuruGecerliMi)
+        ve daha önce vekâleten açılmış başvurular kayıtta duruyor. Eylem
+        ekransız kaldı ama YETKİ KAPISI YERİNDE: adresi bilen biri form
+        gönderse bile kapı aynı soruyu soruyor. Kapının kendisini kaldırmak
+        ayrı bir karar — kaldırılırsa geçmiş kayıtların açıklaması da
+        kodda kalmaz.
       */}
-      {vekaletenBasvurabilir && basvuruPenceresi(faaliyet, simdi) === "ACIK" && (
-        <Kart>
-          <KartBasligi
-            baslik="Öğrenci adına başvuru"
-            aciklama="Danışmanlığınızdaki / ilinizdeki bir öğrenci adına başvuru yapabilirsiniz. Öğrenciye bildirim gider ve dilerse başvurusunu kendisi geri çeker."
-            Ikon={UserPlus}
-          />
-
-          {faaliyet.durum === "IPTAL_EDILDI" ? (
-            <p className="text-sm text-metin-yumusak">
-              İptal edilmiş etkinliğe başvuru alınmıyor.
-            </p>
-          ) : basvuruPenceresi(faaliyet, simdi) !== "ACIK" ? (
-            <p className="text-sm text-metin-yumusak">
-              Başvuru penceresi kapalı.
-            </p>
-          ) : vekaletAdaylari.length === 0 ? (
-            <p className="text-sm text-metin-yumusak">
-              Kapsamınızda bu etkinliğe başvurmamış öğrenci kalmadı.
-            </p>
-          ) : (
-            <form action={basvuruYapEylemi} className="space-y-4">
-              <input type="hidden" name="faaliyetId" value={faaliyet.id} />
-
-              <label className="block">
-                <span className="text-sm font-medium text-metin">Öğrenci</span>
-                <select name="katilimciId" required className={SINIF_GIRDI}>
-                  {vekaletAdaylari.map((ogrenci) => (
-                    <option key={ogrenci.id} value={ogrenci.id}>
-                      {ogrenci.ad} {ogrenci.soyad}
-                      {ogrenci.sinif ? ` · ${ogrenci.sinif}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-medium text-metin">
-                  Öğrencinin bu alandaki ilgisi / başvuru gerekçesi
-                </span>
-                <textarea
-                  name="gerekce"
-                  required
-                  rows={3}
-                  className={SINIF_GIRDI}
-                />
-              </label>
-
-              {kontenjan.doluMu && (
-                <BilgiKutusu cesit="uyari">
-                  Kontenjan dolu; yeni başvuru alınamıyor.
-                </BilgiKutusu>
-              )}
-
-              <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                <UserPlus size={16} aria-hidden />
-                Öğrenci adına başvur
-              </button>
-            </form>
-          )}
-        </Kart>
-      )}
 
       <Kart>
         <KartBasligi
