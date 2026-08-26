@@ -36,16 +36,35 @@ export interface BelgeMetni {
   baslik: string;
   adSoyad: string;
   govde: string;
-  tarihMetni: string;
 }
+
+/**
+ * Belgenin değişmeyen giriş cümlesi.
+ *
+ * İstek (26 Ağustos 2026): belge yalnızca etkinliğin adını söylemesin, hangi
+ * program kapsamında yapıldığını da söylesin. Kurumun ve programın adı
+ * ETKİNLİKTEN GELMEZ — her belgede aynıdır — bu yüzden veri değil sabit.
+ */
+const KOORDINASYON_CUMLESI =
+  "Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü " +
+  "koordinesinde yürütülen GençTek: Akran Öğrenme Modeli ve Genç Bilişim " +
+  "Ekosistemi çalışmaları kapsamında,";
 
 /**
  * Belge metnini üretir.
  *
- * İki tür AYRI cümle kurar ve bu bilinçli: katılım belgesi bir OLGUYU
- * belgeler ("katılmıştır"), teşekkür belgesi bir DEĞERLENDİRME taşır
- * ("katkılarından dolayı teşekkür ederiz"). Aynı metni paylaşsalardı teşekkür
- * belgesi katılım belgesinin süslü hâline dönerdi.
+ * TARİH ARTIK GÖVDENİN İÇİNDE (26 Ağustos 2026 · istek: "sol altta da tarih
+ * var, tarihi oradan kaldıralım"). Eskiden gövde yalnızca etkinliğin adını
+ * söylüyor, tarih sayfanın sol alt köşesinde tek başına duruyordu; okuyan
+ * kişinin o tarihin neyin tarihi olduğunu (etkinlik mi, belgenin basıldığı gün
+ * mü) anlaması mümkün değildi. Cümlenin içinde "… tarihinde gerçekleştirilen"
+ * olarak yeri belli.
+ *
+ * İki tür AYRI bitiş cümlesi kurar ve bu bilinçli: katılım belgesi yalnızca
+ * KATILIMA teşekkür eder, teşekkür belgesi katılımın yanında DESTEĞİ de anar
+ * (26 Ağustos 2026 · istek: "bu katılım belgesi için, teşekkür belgesi başka
+ * yazı gelecek"). Aynı cümleyi paylaşsalardı teşekkür belgesi katılım
+ * belgesinin süslü hâline dönerdi.
  *
  * Özel metin verildiğinde gövde tamamen onunla değişir: teşekkür belgesi
  * çoğu zaman katılımcıya değil, konuşmacıya ya da destek veren kuruma
@@ -54,17 +73,20 @@ export interface BelgeMetni {
 export function belgeMetniUret(girdi: BelgeGirdisi): BelgeMetni {
   const ozel = girdi.ozelMetin?.trim();
 
+  const kapanis =
+    girdi.tur === "KATILIM"
+      ? "katılımınızdan dolayı teşekkür ederiz."
+      : "katılımınız ve desteğiniz için teşekkür ederiz.";
+
   const govde = ozel
     ? ozel
-    : girdi.tur === "KATILIM"
-      ? `${girdi.faaliyetAdi} adlı etkinliğe katılmıştır.`
-      : `${girdi.faaliyetAdi} adlı etkinliğe verdiği katkılardan dolayı teşekkür ederiz.`;
+    : `${KOORDINASYON_CUMLESI} ${girdi.tarihMetni} tarihinde gerçekleştirilen ` +
+      `${girdi.faaliyetAdi} etkinliğine ${kapanis}`;
 
   return {
     baslik: BELGE_TURU_ETIKETLERI[girdi.tur],
     adSoyad: girdi.adSoyad.trim(),
     govde,
-    tarihMetni: girdi.tarihMetni,
   };
 }
 

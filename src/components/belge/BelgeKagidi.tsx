@@ -34,8 +34,13 @@ export function BelgeKagidi({
           <p className="belge-ad">{belge.adSoyad}</p>
           <p className="belge-metin">{belge.govde}</p>
         </div>
+        {/*
+          TARİH BURADA DEĞİL (26 Ağustos 2026 · istek: "sol altta da tarih var,
+          tarihi oradan kaldıralım"). Tek başına duran tarih neyin tarihi
+          olduğunu söylemiyordu; artık gövde cümlesinin içinde "… tarihinde
+          gerçekleştirilen" olarak geçiyor. Alt satırda yalnız imza kaldı.
+        */}
         <div className="belge-alt">
-          <div className="belge-tarih">{belge.tarihMetni}</div>
           <div className="belge-imza">
             <div className="belge-imza-cizgi">{imzaAdSoyad}</div>
             <div className="belge-birim">{imzaBirim}</div>

@@ -158,19 +158,14 @@ export function BelgeStilleri(): React.ReactElement {
 
       .belge-alt {
         display: flex;
-        justify-content: space-between;
+        /* Tarih kaldırıldı; tek eleman kalan imza sağda durmalı. */
+        justify-content: flex-end;
         align-items: flex-end;
         gap: 2cqw;
         font-size: clamp(10px, 1.2cqw, 15px);
         font-family: system-ui, -apple-system, sans-serif;
         width: 100%;
         margin-top: 1cqw;
-      }
-
-      .belge-tarih {
-        white-space: nowrap;
-        font-weight: 500;
-        color: #374151;
       }
 
       .belge-imza {
