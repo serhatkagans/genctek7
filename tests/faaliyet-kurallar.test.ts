@@ -40,8 +40,24 @@ import {
  */
 
 describe("kapsam seçenekleri", () => {
-  it("danışman öğretmen yalnızca okul içi faaliyet açabilir", () => {
-    expect(kapsamSecenekleri(danismanYap())).toEqual(["OKUL"]);
+  /*
+   * ÖĞRETMEN ÜÇ KAPSAMDA DA AÇAR (26 Ağustos 2026). Kural katmanı bunu zaten
+   * söylüyordu — faaliyetAcabilirMi danışmana her kapsamı açık tutuyor ve okul
+   * dışı kapsamlar il koordinatörünün onayına gidiyor; geride kalan tek yer
+   * ekrana teklif edilen listeydi.
+   *
+   * SIRA DAR KAPSAMDAN GENİŞE: formda ilk seçenek varsayılan oluyor ve
+   * öğretmenin olağan işi kendi okulunda.
+   */
+  it("danışman öğretmen üç kapsamda da faaliyet açabilir", () => {
+    expect(kapsamSecenekleri(danismanYap())).toEqual(["OKUL", "IL", "ULUSAL"]);
+  });
+
+  it("öğretmenin okul dışı faaliyeti onaya gider, okul içi gitmez", () => {
+    const ogretmen = danismanYap();
+    expect(onayDurumuBelirle(ogretmen, "OKUL")).not.toBe("BEKLIYOR");
+    expect(onayDurumuBelirle(ogretmen, "IL")).toBe("BEKLIYOR");
+    expect(onayDurumuBelirle(ogretmen, "ULUSAL")).toBe("BEKLIYOR");
   });
 
   it("il koordinatörü il ve ulusal faaliyet açar, okul faaliyeti açmaz", () => {

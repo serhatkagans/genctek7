@@ -181,7 +181,18 @@ export function etkinlikKategorisiDogrula(
 /**
  * Kullanıcının açabileceği kapsamlar.
  *
- * Danışman öğretmen yalnızca kendi okulunda faaliyet açar. YEĞİTEK'e okul
+ * ÖĞRETMEN HER KAPSAMDA (26 Ağustos 2026 · istek: "yeni etkinlik oluştururken
+ * kapsam kısmında sadece okul içinde oluşturabiliyor, bunu il geneli, ulusal …
+ * açabilsin — öğretmen için bunlar").
+ *
+ * Kural katmanı bunu ZATEN SÖYLÜYORDU: `faaliyetAcabilirMi` danışmana her
+ * kapsamı açıyor ve `faaliyetOnayGerekiyorMu` 20 Ağustos 2026'dan beri okul
+ * dışı kapsamları il koordinatörünün onayına gönderiyor. Ekranın açıklama
+ * satırı da "öğretmen her kapsamda (okul dışı olanlar il koordinatörü
+ * onayıyla)" diyordu. Geride kalan tek yer bu listeydi; öğretmen formda
+ * yalnızca "Okul içi" görüyordu.
+ *
+ * YEĞİTEK'e okul
  * kapsamı SUNULMAZ: tek bir okulun faaliyetini o okulun sorumlusu açar, merkez
  * il ve ulusal düzeyde çalışır. Yetki matrisi (faaliyetAcabilirMi) merkeze okul
  * kapsamını da açık bırakır; burada yalnızca ekranda teklif edilenleri
@@ -202,7 +213,7 @@ export function kapsamSecenekleri(kullanici: OturumKullanicisi): Kapsam[] {
   if (ilKoordinatoruMu(kullanici)) return ["IL", "ULUSAL"];
   if (ogrenciMi(kullanici)) return ["OKUL", "IL", "ULUSAL"];
   if (disKullaniciMi(kullanici)) return ["IL", "ULUSAL"];
-  if (danismanMi(kullanici)) return ["OKUL"];
+  if (danismanMi(kullanici)) return ["OKUL", "IL", "ULUSAL"];
   return [];
 }
 

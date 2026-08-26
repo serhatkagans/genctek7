@@ -381,7 +381,18 @@ export default async function YeniFaaliyetSayfasi({
               {/* "(isteğe bağlı)" notu kalktı (21 Ağustos 2026 · istek):
                   alan zaten `required` değil ve altındaki satır biçim ile
                   boyut sınırını söylüyor. */}
-              <span className={SINIF_ETIKET}>Tanıtıcı görsel</span>
+              {/*
+                ALAN ADI SADECE "GÖRSEL" (26 Ağustos 2026 · istek: "Tanıtıcı
+                görsel bunu sadece görsel yapalım"). Etkinlik açılırken
+                yüklenen tek bir dosya var ve ne işe yaradığını altındaki satır
+                söylüyor; "tanıtıcı" sıfatı formda ayırt edeceği ikinci bir
+                görsel olmadığı için bilgi taşımıyordu.
+
+                EK LİSTESİNDEKİ "Tanıtıcı görsel" ROZETİ DURUYOR: orada
+                gerçekten bir ayrım var — yüklenmiş görsellerden hangisinin
+                kapak olduğunu o rozet söylüyor.
+              */}
+              <span className={SINIF_ETIKET}>Görsel</span>
               <input
                 type="file"
                 name="kapakGorseli"
