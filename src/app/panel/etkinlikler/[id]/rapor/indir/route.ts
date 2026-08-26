@@ -1,5 +1,6 @@
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { yoklamaOzeti } from "@/lib/belge/kapi";
 import {
   faaliyetKapsamiCikar,
   gorunurFaaliyetGetir,
@@ -59,6 +60,7 @@ export async function GET(
       select: {
         durum: true,
         katilimciId: true,
+        katildiMi: true,
         katilimci: {
           select: {
             ad: true,
@@ -91,7 +93,27 @@ export async function GET(
   ]);
 
   const secilenler = basvurular.filter((basvuru) => basvuru.durum === "SECILDI");
-  const tekiller = new Set(secilenler.map((basvuru) => basvuru.katilimciId));
+
+  /*
+   * YOKLAMA ÇIKTIYA DA İŞLER (26 Ağustos 2026 · istek: "yoklamayı alıyorum
+   * sonra rapor oluşturunca katılmayan öğrenciler de katıldı gibi görünüyor").
+   *
+   * Burası eskiden seçilmiş başvuruları "Katılan" sayıyor ve hepsini katılımcı
+   * listesine basıyordu. Seçilmek "katılabilir" demek; gelmedi işaretlenen kişi
+   * indirilen belgede katılmış görünüyordu. Ekran zaten yoklamayı sayıyordu
+   * (bkz. rapor sayfasındaki yoklamaOzeti) — çelişen tek yer dışarıya verilen
+   * nüshaydı.
+   *
+   * GELMEYENLER LİSTEDEN ÇIKAR, sayı olarak durur: kimin gelmediği raporu
+   * yazanın bilgisi ama katılımcı listesi katılanların listesidir. Yoklaması
+   * alınmamış kişi listede kalır ve durumu açıkça yazılır; sessizce atılsaydı
+   * yoklama alınmamış bir etkinliğin raporu boş katılımcıyla çıkardı.
+   */
+  const ozet = yoklamaOzeti(secilenler);
+  const listelenenler = secilenler.filter(
+    (basvuru) => basvuru.katildiMi !== false,
+  );
+  const tekiller = new Set(listelenenler.map((basvuru) => basvuru.katilimciId));
 
   const veri: RaporVerisi = {
     faaliyetAdi: faaliyet.ad,
@@ -115,13 +137,17 @@ export async function GET(
     duzenleyenBirim: faaliyet.duzenleyenBirim,
     kontenjan: faaliyet.kontenjan,
     toplamBasvuru: basvurular.length,
-    katilanSayisi: secilenler.length,
+    secilenSayisi: secilenler.length,
+    gelenSayisi: ozet.gelen,
+    gelmeyenSayisi: ozet.gelmeyen,
+    isaretlenmeyenSayisi: ozet.isaretlenmeyen,
     tekilKatilimci: tekiller.size,
-    katilimcilar: secilenler.map((basvuru) => ({
+    katilimcilar: listelenenler.map((basvuru) => ({
       adSoyad: `${basvuru.katilimci.ad} ${basvuru.katilimci.soyad}`,
       sinifVeyaBrans: basvuru.katilimci.sinif ?? basvuru.katilimci.brans,
       okul: basvuru.katilimci.kurum?.ad ?? null,
       il: basvuru.katilimci.il?.ad ?? null,
+      katildiMi: basvuru.katildiMi,
     })),
     gorselAdlari: ekler.map((ek) => ek.dosyaAdi),
     degerlendirme: rapor?.degerlendirme ?? null,
@@ -165,7 +191,10 @@ export async function GET(
       ["Düzenleyen", veri.duzenleyen],
       ["Kontenjan", veri.kontenjan],
       ["Toplam başvuru", veri.toplamBasvuru],
-      ["Katılan (seçilmiş)", veri.katilanSayisi],
+      ["Seçilen", veri.secilenSayisi],
+      ["Yoklamada gelen", veri.gelenSayisi],
+      ["Gelmeyen", veri.gelmeyenSayisi],
+      ["Yoklaması alınmayan", veri.isaretlenmeyenSayisi],
       ["Farklı kişi sayısı", veri.tekilKatilimci],
       ["", ""],
       /*
@@ -178,10 +207,12 @@ export async function GET(
       ["Raporu yazan", veri.raporYazan ?? "—"],
       ["Rapor tarihi", veri.raporTarihi ?? "—"],
       ["", ""],
-      ["Katılımcı", "Sınıf / Branş · Okul / İl"],
+      ["Katılımcı", "Sınıf / Branş · Okul / İl · Katılım"],
       ...veri.katilimcilar.map((katilimci) => [
         katilimci.adSoyad,
-        `${katilimci.sinifVeyaBrans ?? "—"} · ${katilimci.okul ?? katilimci.il ?? "—"}`,
+        `${katilimci.sinifVeyaBrans ?? "—"} · ${katilimci.okul ?? katilimci.il ?? "—"} · ${
+          katilimci.katildiMi === true ? "Geldi" : "Yoklama alınmadı"
+        }`,
       ]),
     ],
   );

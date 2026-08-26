@@ -27,10 +27,19 @@ const VERI: RaporVerisi = {
   duzenleyenBirim: "Ankara İl Koordinatörlüğü",
   kontenjan: 20,
   toplamBasvuru: 25,
-  katilanSayisi: 18,
+  secilenSayisi: 20,
+  gelenSayisi: 18,
+  gelmeyenSayisi: 2,
+  isaretlenmeyenSayisi: 0,
   tekilKatilimci: 18,
   katilimcilar: [
-    { adSoyad: "Elif Demir", sinifVeyaBrans: "11-A", okul: "Kadıköy AL", il: "İstanbul" },
+    {
+      adSoyad: "Elif Demir",
+      sinifVeyaBrans: "11-A",
+      okul: "Kadıköy AL",
+      il: "İstanbul",
+      katildiMi: true,
+    },
   ],
   gorselAdlari: ["acilis.jpg"],
   degerlendirme: "Atölye planlandığı gibi yürüdü.\nKatılım yüksekti.",
@@ -62,10 +71,49 @@ describe("faaliyetRaporuHtml", () => {
   });
 
   it("katılım sayılarını AYRI yazar", () => {
-    // Toplam ve tekil farklı sorulardır; raporda ikisi de görünmeli.
+    // Seçilen, gelen ve tekil farklı sorulardır; raporda hepsi görünmeli.
     const html = faaliyetRaporuHtml(VERI);
-    expect(html).toContain("Katılan (seçilmiş)");
+    expect(html).toContain("Seçilen");
+    expect(html).toContain("Yoklamada gelen");
     expect(html).toContain("Farklı kişi sayısı");
+  });
+
+  /*
+   * YOKLAMA (26 Ağustos 2026 · istek: "yoklamayı alıyorum sonra rapor
+   * oluşturunca katılmayan öğrenciler de katıldı gibi görünüyor"). Çıktı
+   * seçilmiş başvuruları "Katılan" sayıyordu; seçilmek "katılabilir" demek.
+   */
+  it("seçileni katılan diye YAZMAZ", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).not.toContain("Katılan (seçilmiş)");
+  });
+
+  it("gelmeyen sayısını ayrıca yazar", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).toContain("Gelmeyen");
+  });
+
+  it("yoklaması alınmayan yoksa o satırı hiç basmaz", () => {
+    expect(faaliyetRaporuHtml(VERI)).not.toContain("Yoklaması alınmayan");
+  });
+
+  it("yoklaması alınmayan varsa satırı basar", () => {
+    const html = faaliyetRaporuHtml({ ...VERI, isaretlenmeyenSayisi: 3 });
+    expect(html).toContain("Yoklaması alınmayan");
+  });
+
+  it("listedeki kişinin katılım durumunu yazar", () => {
+    const html = faaliyetRaporuHtml(VERI);
+    expect(html).toContain("<td>Geldi</td>");
+  });
+
+  it("yoklaması alınmamış kişiyi katılmış gibi göstermez", () => {
+    const html = faaliyetRaporuHtml({
+      ...VERI,
+      katilimcilar: [{ ...VERI.katilimcilar[0], katildiMi: null }],
+    });
+    expect(html).toContain("<td>Yoklama alınmadı</td>");
+    expect(html).not.toContain("<td>Geldi</td>");
   });
 
   it("katılımcıları numaralı listeler", () => {
@@ -76,7 +124,7 @@ describe("faaliyetRaporuHtml", () => {
 
   it("katılımcı yoksa boş tablo yerine açıklama yazar", () => {
     const html = faaliyetRaporuHtml({ ...VERI, katilimcilar: [] });
-    expect(html).toContain("Seçilmiş katılımcı yok.");
+    expect(html).toContain("Yoklamada gelen katılımcı yok.");
   });
 
   it("görsel yoksa bunu söyler", () => {
@@ -108,7 +156,13 @@ describe("faaliyetRaporuHtml", () => {
     const html = faaliyetRaporuHtml({
       ...VERI,
       katilimcilar: [
-        { adSoyad: "<b>Kalın</b>", sinifVeyaBrans: null, okul: null, il: null },
+        {
+          adSoyad: "<b>Kalın</b>",
+          sinifVeyaBrans: null,
+          okul: null,
+          il: null,
+          katildiMi: true,
+        },
       ],
     });
     expect(html).not.toContain("<b>Kalın</b>");

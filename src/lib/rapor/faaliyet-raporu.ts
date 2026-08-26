@@ -21,6 +21,8 @@ export interface RaporKatilimcisi {
   sinifVeyaBrans: string | null;
   okul: string | null;
   il: string | null;
+  /** Yoklama sonucu: geldi / gelmedi / henüz işaretlenmedi (null). */
+  katildiMi: boolean | null;
 }
 
 export interface RaporVerisi {
@@ -38,10 +40,23 @@ export interface RaporVerisi {
   duzenleyenBirim: string;
   kontenjan: number;
   toplamBasvuru: number;
-  /** Seçilmiş başvuru sayısı. */
-  katilanSayisi: number;
+  /** Seçilmiş başvuru sayısı — "katılabilir" demek, "katıldı" demek DEĞİL. */
+  secilenSayisi: number;
+  /*
+   * KATILIM YOKLAMADAN GELİR (26 Ağustos 2026 · istek: "yoklamayı alıyorum
+   * sonra rapor oluşturunca katılmayan öğrenciler de katıldı gibi görünüyor").
+   *
+   * Çıktı eskiden seçilmiş başvuruları "Katılan" diye yazıyor, listeye de
+   * hepsini basıyordu; gelmedi işaretlenen kişi raporda katılmış görünüyordu.
+   * Ekran (rapor sayfası) yoklamayı zaten sayıyordu — çelişen tek yer indirilen
+   * belgeydi, yani resmî olarak dolaşan nüsha.
+   */
+  gelenSayisi: number;
+  gelmeyenSayisi: number;
+  isaretlenmeyenSayisi: number;
   /** Kaç FARKLI kişi — tek faaliyette ikisi eşittir, dönem raporunda ayrışır. */
   tekilKatilimci: number;
+  /** Gelmedi işaretlenenler BURADA YOKTUR; çağıran ayıklar. */
   katilimcilar: RaporKatilimcisi[];
   gorselAdlari: string[];
   /*
@@ -75,13 +90,14 @@ function satir(etiket: string, deger: string): string {
 export function faaliyetRaporuHtml(veri: RaporVerisi): string {
   const katilimciSatirlari =
     veri.katilimcilar.length === 0
-      ? `<tr><td colspan="4">Seçilmiş katılımcı yok.</td></tr>`
+      ? `<tr><td colspan="5">Yoklamada gelen katılımcı yok.</td></tr>`
       : veri.katilimcilar
           .map(
             (k, sira) =>
               `<tr><td>${sira + 1}</td><td>${htmlKacir(k.adSoyad)}</td>` +
               `<td>${htmlKacir(k.sinifVeyaBrans ?? "—")}</td>` +
-              `<td>${htmlKacir(k.okul ?? k.il ?? "—")}</td></tr>`,
+              `<td>${htmlKacir(k.okul ?? k.il ?? "—")}</td>` +
+              `<td>${k.katildiMi === true ? "Geldi" : "Yoklama alınmadı"}</td></tr>`,
           )
           .join("");
 
@@ -135,7 +151,10 @@ ${satir("Düzenleyen birim", veri.duzenleyenBirim)}
 <table>
 ${satir("Kontenjan", String(veri.kontenjan))}
 ${satir("Toplam başvuru", String(veri.toplamBasvuru))}
-${satir("Katılan (seçilmiş)", String(veri.katilanSayisi))}
+${satir("Seçilen", String(veri.secilenSayisi))}
+${satir("Yoklamada gelen", String(veri.gelenSayisi))}
+${satir("Gelmeyen", String(veri.gelmeyenSayisi))}
+${veri.isaretlenmeyenSayisi > 0 ? satir("Yoklaması alınmayan", String(veri.isaretlenmeyenSayisi)) : ""}
 ${satir("Farklı kişi sayısı", String(veri.tekilKatilimci))}
 </table>
 
@@ -158,8 +177,15 @@ ${
 }
 
 <h2>Katılımcılar</h2>
+<p class="not">Liste yoklamaya göredir: gelmedi işaretlenen ${veri.gelmeyenSayisi} kişi
+buraya yazılmaz.${
+    veri.isaretlenmeyenSayisi > 0
+      ? ` ${veri.isaretlenmeyenSayisi} kişinin yoklaması henüz alınmadı; listede
+         &quot;yoklama alınmadı&quot; olarak görünüyorlar.`
+      : ""
+  }</p>
 <table>
-<tr><th>#</th><th>Ad Soyad</th><th>Sınıf / Branş</th><th>Okul / İl</th></tr>
+<tr><th>#</th><th>Ad Soyad</th><th>Sınıf / Branş</th><th>Okul / İl</th><th>Katılım</th></tr>
 ${katilimciSatirlari}
 </table>
 

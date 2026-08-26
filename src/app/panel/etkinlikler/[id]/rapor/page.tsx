@@ -363,12 +363,15 @@ export default async function FaaliyetRaporuSayfasi({
         ) : !hazir.olurMu ? (
           <BilgiKutusu cesit="uyari">{hazir.neden}</BilgiKutusu>
         ) : (
-          <form
-            action={raporKaydetEylemi}
-            // Dosya alanı formun içinde: gönderim çok parçalı olmak zorunda.
-            encType="multipart/form-data"
-            className="space-y-4"
-          >
+          /*
+            encType VERİLMEZ (26 Ağustos 2026): dosya alanı formun içinde ve
+            gönderimin çok parçalı olması gerekiyor ama bunu React kendisi
+            ayarlıyor — sunucu eylemi kullanan formda encType'ı elle vermek
+            "Cannot specify a encType or method for a form that specifies a
+            function as the action" hatasını üretiyor ve sayfa açılmıyor.
+            Aynı ders etkinlik oluşturma formunda da yazılı.
+          */
+          <form action={raporKaydetEylemi} className="space-y-4">
             <input type="hidden" name="faaliyetId" value={faaliyet.id} />
             <label className="block">
               <span className="text-sm font-medium text-metin">
