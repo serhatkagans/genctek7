@@ -444,6 +444,12 @@ export function KatlanabilirKart({
    *
    * Varsayılan `false`: aynı kart okunacak bir liste de taşıyabiliyor
    * (yazışmalardaki istek listeleri gibi) ve orada kalem yanlış söz verirdi.
+   *
+   * SAYFA BİRLİĞİ ROZETTEN ÖNCE GELİR (26 Ağustos 2026 · istek: "bazılarının
+   * sağ tarafta aç kapa yazıyor bazılarında kalem işareti var hepsinde kalem
+   * olsun"): bir sayfadaki bölümlerin kimisi rozetli kimisi kalemli olunca
+   * işaret farkı, bölümler arasında olmayan bir fark anlatıyor. Böyle bir
+   * sayfada okunacak bölüm de `true` alır — bkz. etkinlik detayı.
    */
   duzenlenebilir?: boolean;
   /**

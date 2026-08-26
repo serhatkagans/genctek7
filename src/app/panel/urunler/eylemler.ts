@@ -19,17 +19,11 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
  *
  * ŞİMDİLİK TEK EYLEM VAR: paylaşımı açıp kapatmak.
  *
- * NEDEN BU EYLEM GEREKLİ. Kazanım kayıtlarının düzenleme eylemi yok — yalnızca
- * ekleme ve silme var (bkz. profil/kazanim-eylemleri.ts). "Bu ürünü markette
- * paylaş" kutusu işaretlenmeden eklenmiş bir ürün, o hâliyle markete HİÇ
- * çıkamıyordu: kişinin ürünü silip açıklamasıyla, görselleriyle, bağlantılarıyla
- * baştan girmesi gerekirdi. "Kendi ürünlerim" sekmesi paylaşılmamış ürünleri
- * gösterdiği için sonuç, kullanıcının gördüğü ama hiçbir şey yapamadığı bir
- * kayıt oluyordu.
- *
- * Bunun için tam bir ürün düzenleme formu yazılmadı: eksik olan tek şey bu
- * bayraktı ve düzenleme formu, kazanım kayıtlarının tamamı için verilmiş
- * "ekle/sil" kararını tek tip için delen ayrı bir karardır.
+ * NEDEN BU EYLEM GEREKLİ. "Bu ürünü markette paylaş" kutusu işaretlenmeden
+ * eklenmiş bir ürünü markete çıkarmanın yolu, ürünü profilden düzenlemekten
+ * geçiyor; oysa "Kendi ürünlerim" sekmesi o ürünü zaten gösteriyor ve
+ * kullanıcı onu MARKETTE görüyor. Anahtar, gördüğü yerde bir işi
+ * yapabilmesi için burada duruyor.
  */
 
 const KOK = "/panel/urunler";
@@ -68,9 +62,9 @@ export async function paylasimiDegistirEylemi(veri: FormData): Promise<void> {
    *
    * DAHA ÖNCE ONAYLANMIŞSA yeniden sorulmaz: kişi ürününü vitrinden çekip
    * geri koyduğunda aynı ürün için ikinci kez sıraya girmesi, kararı veren
-   * merkezi de bekleyeni de boşuna meşgul ederdi. Ürünün içeriği
-   * değiştirilemiyor (kazanım kaydında düzenleme yok), yani onaylanan şey
-   * hâlâ aynı şey.
+   * merkezi de bekleyeni de boşuna meşgul ederdi. Onaylanan şey hâlâ aynı
+   * şey — ürünün İÇERİĞİ değiştiğinde onay zaten orada tazeleniyor (bkz.
+   * profil/kazanim-eylemleri.ts · kazanimGuncelleEylemi · `onayTazelensin`).
    *
    * PAYLAŞIM KAPATILIRKEN KARARA DOKUNULMAZ: tercih ile karar ayrı alanlar.
    */
@@ -85,7 +79,11 @@ export async function paylasimiDegistirEylemi(veri: FormData): Promise<void> {
       markettePaylasilsin: yeniDurum,
       marketOnayDurumu: yeniOnayDurumu,
       ...(yeniOnayDurumu === "BEKLIYOR"
-        ? { marketRetGerekcesi: null, marketKararVerenKullaniciId: null, marketKararTarihi: null }
+        ? {
+            marketRetGerekcesi: null,
+            marketKararVerenKullaniciId: null,
+            marketKararTarihi: null,
+          }
         : {}),
     },
   });
@@ -165,9 +163,7 @@ export async function urunMarketKarariEylemi(veri: FormData): Promise<void> {
     gerekce: String(veri.get("gerekce") ?? ""),
   });
   if (!karar.olurMu) {
-    redirect(
-      `/panel/talepler/onaylar?hata=${encodeURIComponent(karar.neden)}`,
-    );
+    redirect(`/panel/talepler/onaylar?hata=${encodeURIComponent(karar.neden)}`);
   }
 
   await prisma.kullaniciKazanim.update({

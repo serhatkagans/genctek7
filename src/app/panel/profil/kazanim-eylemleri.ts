@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import {
+  BILDIRIM_KODLARI,
+  projeYoneticilerineBildir,
+} from "@/lib/bildirim/gonder";
 import { cvKaydet, cvSil, cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import {
   kazanimEkiSil,
@@ -250,14 +254,36 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   });
   if (!karar.olurMu) hataylaDon(capa, karar.neden);
 
+  /*
+   * PROFİLDEN PAYLAŞILAN ÜRÜN DE ONAYA GİRER (26 Ağustos 2026 · istek:
+   * "markette bir ürün paylaştım ama markette paylaşılmadı yazıyor, bu onaya
+   * gitmiyor mu").
+   *
+   * Onay akışı market ekranındaki paylaşım düğmesine bağlanmıştı; ürünü
+   * eklerken "markette paylaş" kutusunu işaretleyen kişi ise kuyruğa hiç
+   * uğramadan vitrine çıkıyordu — yani onay, hangi kapıdan girdiğinize göre
+   * vardı ya da yoktu. Kapı artık tek: paylaşım tercihi işaretliyse kayıt
+   * `BEKLIYOR` doğar (bkz. urunler/eylemler.ts · paylasimiDegistirEylemi).
+   */
+  const onayaGirsin = karar.kayit.markettePaylasilsin === true;
+
   const kazanim = await prisma.kullaniciKazanim.create({
     data: {
       kullaniciId: kullanici.id,
       ...karar.kayit,
+      ...(onayaGirsin ? { marketOnayDurumu: "BEKLIYOR" as const } : {}),
       baglantilar: { create: karar.baglantilar },
     },
     select: { id: true },
   });
+
+  /* Kuyruk sessiz değil: kararı verecek merkez uyarılıyor. */
+  if (onayaGirsin) {
+    await projeYoneticilerineBildir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_URUN, {
+      sahipAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+      urunAdi: karar.kayit.baslik,
+    });
+  }
 
   /*
    * Destekleyici belgeler kayıttan SONRA yazılır: eke bağlanacak kazanım
@@ -457,7 +483,13 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
   // düzenlenebilirdi.
   const mevcut = await prisma.kullaniciKazanim.findFirst({
     where: { id: kazanimId, kullaniciId: kullanici.id },
-    select: { id: true, tip: true, tarih: true },
+    select: {
+      id: true,
+      tip: true,
+      tarih: true,
+      markettePaylasilsin: true,
+      marketOnayDurumu: true,
+    },
   });
   if (!mevcut) throw new BulunamadiHatasi();
 
@@ -485,7 +517,9 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
     { mevcutKayit: true },
   );
   if (!karar.olurMu) {
-    redirect(kayitSayfasi(kazanimId, `hata=${encodeURIComponent(karar.neden)}`));
+    redirect(
+      kayitSayfasi(kazanimId, `hata=${encodeURIComponent(karar.neden)}`),
+    );
   }
 
   /*
@@ -494,7 +528,23 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
    * katalogdaki programa bağlanmış eski bir kaydın bağlantısı ilk düzenlemede
    * sessizce kopardı.
    */
-  const { temelEtkinlikProgramiId: _program, tip: _tip, ...alanlar } = karar.kayit;
+  const {
+    temelEtkinlikProgramiId: _program,
+    tip: _tip,
+    ...alanlar
+  } = karar.kayit;
+
+  /*
+   * DÜZENLENEN ÜRÜN ONAYI TAZELER (26 Ağustos 2026). Onay ürünün İÇERİĞİNE
+   * verilir: başlığı, açıklaması ve bağlantıları değişen bir kayıt, merkezin
+   * baktığı kayıt değildir. Tazelenmeseydi, onaydan geçen bir ürünün içeriği
+   * sonradan sessizce değiştirilebilirdi.
+   *
+   * Yalnızca PAYLAŞIMDA olan üründe çalışır: paylaşmadığı ürününü düzenleyen
+   * kişi kimseyi meşgul etmez, kuyruğa da girmez.
+   */
+  const onayTazelensin =
+    mevcut.tip === "URUN" && alanlar.markettePaylasilsin === true;
 
   await prisma.$transaction([
     prisma.kazanimBaglanti.deleteMany({
@@ -504,10 +554,26 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
       where: { id: mevcut.id },
       data: {
         ...alanlar,
+        ...(onayTazelensin
+          ? {
+              marketOnayDurumu: "BEKLIYOR" as const,
+              marketRetGerekcesi: null,
+              marketKararVerenKullaniciId: null,
+              marketKararTarihi: null,
+            }
+          : {}),
         baglantilar: { create: karar.baglantilar },
       },
     }),
   ]);
+
+  /* Karar zaten bekliyorsa merkezi ikinci kez uyandırmaya gerek yok. */
+  if (onayTazelensin && mevcut.marketOnayDurumu !== "BEKLIYOR") {
+    await projeYoneticilerineBildir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_URUN, {
+      sahipAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+      urunAdi: karar.kayit.baslik,
+    });
+  }
 
   const sahip = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
   await erisimLogla({

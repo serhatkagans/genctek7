@@ -775,13 +775,19 @@ export default async function PanelSayfasi({
 
   /*
    * "İl koordinatörüm" kartı, ilinde kime bağlı olduğunu bilmesi gereken okul
-   * personeline gösterilir. Dış kullanıcılar (mezun, paydaş temsilcisi)
-   * DIŞARIDA: koşul yalnızca "ili var ve öğrenci/koordinatör değil" deseydi,
-   * kart onlara da koordinatörün adını ve e-postasını basardı — dar başlangıç
-   * kararına aykırı.
+   * personeline VE ÖĞRENCİYE gösterilir. Dış kullanıcılar (mezun, paydaş
+   * temsilcisi) DIŞARIDA: koşul yalnızca "ili var ve koordinatör değil"
+   * deseydi, kart onlara da koordinatörün adını ve e-postasını basardı — dar
+   * başlangıç kararına aykırı.
+   *
+   * ÖĞRENCİ 26 AĞUSTOS 2026'DA İÇERİ ALINDI (istek: "öğrenci panelinde ilk
+   * kartta danışman öğretmenim var, oraya bir de il koordinatörüm kartı
+   * ekleyelim"). Başlangıçta öğrenci dışarıdaydı; gerekçe "öğrencinin muhatabı
+   * danışman öğretmenidir" idi. Doğru ama eksik: danışmanı atanmamış öğrencinin
+   * ilde soracağı kimse kalmıyordu ve koordinatörün adı zaten ilin herkese açık
+   * bilgisi. Kartın gösterdiği veri (ad, e-posta) öğretmene basılanla aynı.
    */
   const koordinatorGosterilir =
-    !ogrenciMi(kullanici) &&
     !ilKoordinatoruMu(kullanici) &&
     !projeYoneticisiMi(kullanici) &&
     !disKullaniciMi(kullanici) &&
@@ -1284,9 +1290,14 @@ export default async function PanelSayfasi({
 
           Kart daha önce sayım kartlarının ardında, ızgaranın ortasındaydı.
           Okul personeli için burası bir sayım değil BİR MUHATAP: ile dair
-          her soruda önce onu arıyor. Yalnızca okul personelinde basıldığı
-          için (koordinatorGosterilir) öğrencinin, koordinatörün ve merkezin
-          ızgara sırası değişmiyor.
+          her soruda önce onu arıyor.
+
+          ÖĞRENCİDE DE AYNI YERDE (26 Ağustos 2026 · istek: "öğrenci panelinde
+          ... il koordinatörüm kartı ekleyelim, aynı öğretmen sayfasındaki gibi
+          en başa gelsin"). Kart burada durduğu için öğrencide de ızgaranın ilk
+          kartı oluyor; "Danışman öğretmenim" onun hemen ardından geliyor.
+          Koordinatörün ve merkezin ızgara sırası değişmiyor
+          (koordinatorGosterilir onları eliyor).
         */}
         {koordinatorGosterilir && (
           <OlcumKarti
@@ -1298,13 +1309,15 @@ export default async function PanelSayfasi({
                 : "Atanmadı"
             }
             /*
-             * E-posta kişinin kendi girdiği alandır, boş olabilir. Boşken
-             * "—" yazmak yerine ne yapılacağı söyleniyor: öğretmen
-             * koordinatöre ulaşmak istediğinde çıkmaz sokakta kalmasın.
-             */
-            /* E-posta bir VERİ: koordinatör yoksa ya da adres girilmemişse
-               satır basılmıyor — kartın değeri zaten "Atanmadı" diyor. */
-            aciklama={ilKoordinatorum?.eposta ?? undefined}
+              AÇIKLAMA SATIRI (e-posta) KALKTI (26 Ağustos 2026 · istek: "il
+              koordinatörü kartının altında mail adresi yazıyor onu kaldır,
+              ayrı sayfa yaptık zaten").
+
+              Kart artık bir muhatabın ADINI söylüyor, adresi değil: ulaşma
+              bilgisinin tamamı — fotoğraf, unvan, tıklanabilir mailto —
+              /panel/il-koordinatorum sayfasında ve kart oraya gidiyor. Aynı
+              adresi iki yerde basmak, kartı da tıklamaya değmez gösteriyordu.
+            */
             /*
               KART TIKLANABİLİR (26 Ağustos 2026 · istek: "bu kartı tıklanabilir
               istemiştim, koordinatör resmi ve epostası çıkacaktı yeni sayfada").
@@ -1323,9 +1336,8 @@ export default async function PanelSayfasi({
         {/*
           YAKLAŞAN ETKİNLİĞİM — HERKESTE BASILAN İLK KART (13 Ağustos 2026).
 
-          26 Ağustos'ta önüne "İl koordinatörüm" geçti ama YALNIZCA okul
-          personelinde; öğrencide, koordinatörde ve merkezde ızgaranın ilk
-          kartı hâlâ bu.
+          26 Ağustos'ta önüne "İl koordinatörüm" geçti — okul personelinde ve
+          öğrencide; koordinatörde ve merkezde ızgaranın ilk kartı hâlâ bu.
 
           Kartların geri kalanı ayar ve sayım: danışman seçimi, grup seçimi,
           başvuru adedi. Bunlarda acele yoktur. Buradaki tek tarihli taahhüt

@@ -1,4 +1,12 @@
-import { ArrowLeft, Eye, EyeOff, ExternalLink, Pencil, Store, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Pencil,
+  Store,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -9,7 +17,13 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { sahipKumesi, sayacArtmaliMi, sayiYaz, urunGorunurMu } from "@/lib/market/kurallar";
+import {
+  sahipKumesi,
+  sayacArtmaliMi,
+  sayiYaz,
+  urunGorunurMu,
+  urunVitrinDurumu,
+} from "@/lib/market/kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -110,7 +124,9 @@ export default async function UrunDetaySayfasi({
 
   // Yalnızca görseller basılıyor; diğer belgeler bağlantı olarak veriliyor.
   const gorseller = urun.ekler.filter((ek) => ek.mimeTipi.startsWith("image/"));
-  const digerEkler = urun.ekler.filter((ek) => !ek.mimeTipi.startsWith("image/"));
+  const digerEkler = urun.ekler.filter(
+    (ek) => !ek.mimeTipi.startsWith("image/"),
+  );
   const kume = sahipKumesi(urun.kullanici.roller.map((r) => r.rolKodu));
 
   return (
@@ -139,24 +155,53 @@ export default async function UrunDetaySayfasi({
       />
 
       {/*
-        PAYLAŞIM ANAHTARI. Kazanım kayıtlarının düzenleme eylemi yok (yalnızca
-        ekle/sil); kutuyu işaretlemeden eklenen ürün, o hâliyle markete hiç
-        çıkamıyordu. Anahtar bu boşluğu kapatıyor — gerekçesi eylemler.ts'te.
+        PAYLAŞIM ANAHTARI. Kutuyu işaretlemeden eklenen ürün, o hâliyle markete
+        hiç çıkamıyordu; anahtar bu boşluğu kapatıyor — gerekçesi eylemler.ts'te.
+
+        METİN DÖRT DURUMU BİRDEN SÖYLER (26 Ağustos 2026 · istek: "markette bir
+        ürün paylaştım ama markette paylaşılmadı yazıyor, bu onaya gitmiyor
+        mu"). Önceden yalnızca kişinin TERCİHİNE bakıyordu: onay bekleyen ürün
+        için "markette paylaşılıyor" yazıyor, reddedilen üründe de aynı cümle
+        duruyordu. Karar `urunVitrinDurumu`dan geliyor — market listesindeki
+        rozetle aynı kaynak.
       */}
       {kendisiMi && (
         <Kart className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-metin">
-            {urun.markettePaylasilsin ? (
-              <>
-                Bu ürün <strong>markette paylaşılıyor</strong> — GençTek&apos;e
-                girmiş herkes görebilir.
-              </>
-            ) : (
-              <>
-                Bu ürün <strong>markette paylaşılmadı</strong> — yalnızca sen
-                görüyorsun.
-              </>
-            )}
+            {
+              {
+                VITRINDE: (
+                  <>
+                    Bu ürün <strong>markette paylaşılıyor</strong> —
+                    GençTek&apos;e girmiş herkes görebilir.
+                  </>
+                ),
+                ONAY_BEKLIYOR: (
+                  <>
+                    Bu ürün <strong>onay bekliyor</strong> — proje yöneticisi
+                    karar verene kadar markette yalnızca sen görüyorsun.
+                  </>
+                ),
+                REDDEDILDI: (
+                  <>
+                    Bu ürün <strong>markette yayımlanmadı</strong> — gerekçe
+                    bildirimlerinde yazıyor. Düzenleyip yeniden gönderebilirsin.
+                  </>
+                ),
+                PAYLASILMADI: (
+                  <>
+                    Bu ürün <strong>markette paylaşılmadı</strong> — yalnızca
+                    sen görüyorsun. Paylaştığında önce proje yöneticisinin
+                    onayına gider.
+                  </>
+                ),
+              }[
+                urunVitrinDurumu({
+                  markettePaylasilsin: urun.markettePaylasilsin,
+                  marketOnayDurumu: urun.marketOnayDurumu,
+                })
+              ]
+            }
           </p>
           <form action={paylasimiDegistirEylemi}>
             <input type="hidden" name="urunId" value={urun.id} />
@@ -252,7 +297,9 @@ export default async function UrunDetaySayfasi({
             {urun.baglantilar.map((baglanti) => (
               <li key={baglanti.id}>
                 <a
-                  href={uygulamaYolu(`/panel/urunler/${urun.id}/git/${baglanti.id}`)}
+                  href={uygulamaYolu(
+                    `/panel/urunler/${urun.id}/git/${baglanti.id}`,
+                  )}
                   rel="noopener noreferrer nofollow"
                   target="_blank"
                   className="inline-flex items-center gap-1.5 text-vurgu-metin hover:underline"

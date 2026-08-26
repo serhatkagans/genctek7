@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { basHarfler } from "@/lib/kullanici/profil-foto-kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
-import { disKullaniciMi, ilKoordinatoruMu, ogrenciMi, projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { disKullaniciMi, ilKoordinatoruMu, projeYoneticisiMi } from "@/lib/yetki/izinler";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +23,14 @@ export const dynamic = "force-dynamic";
  * gösterir hem de öğrenciye kapalıdır (bkz. ogretmenEnvanteriGorebilirMi),
  * oysa koordinatörüne ulaşmak öğrencinin de hakkı.
  *
- * KAPI PANELDEKİ KARTLA AYNI: kartı gören sayfayı da açabilmeli. Öğrenci,
- * koordinatörün kendisi, merkez ve dış kullanıcı dışarıda — kartın koşulu da
- * bu (bkz. panel/page.tsx · koordinatorGosterilir). Öğrencinin muhatabı
- * danışman öğretmenidir; merkezin tek bir ile bağlılığı yok.
+ * KAPI PANELDEKİ KARTLA AYNI: kartı gören sayfayı da açabilmeli.
+ * Koordinatörün kendisi, merkez ve dış kullanıcı dışarıda — kartın koşulu da
+ * bu (bkz. panel/page.tsx · koordinatorGosterilir). Merkezin tek bir ile
+ * bağlılığı yok, koordinatörün muhatabı da kendisi değil.
+ *
+ * ÖĞRENCİ 26 AĞUSTOS 2026'DA İÇERİ ALINDI: panelde "İl koordinatörüm" kartı
+ * ona da basılıyor, kart tıklanınca açılacak sayfa burasıdır. İki kapı tek
+ * koşulda tutuluyor ki biri açılıp diğeri kapalı kalmasın.
  *
  * GÖSTERİLEN VERİ DAR: ad, unvan, il ve e-posta. Telefon burada YOK — iletişim
  * bilgisi kişinin kendi girdiği alandır ve e-posta zaten panelde de görünüyor;
@@ -36,7 +40,6 @@ export default async function IlKoordinatorumSayfasi() {
   const kullanici = await oturumKullanicisiZorunlu();
 
   const gorebilir =
-    !ogrenciMi(kullanici) &&
     !ilKoordinatoruMu(kullanici) &&
     !projeYoneticisiMi(kullanici) &&
     !disKullaniciMi(kullanici) &&

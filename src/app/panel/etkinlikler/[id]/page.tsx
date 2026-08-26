@@ -36,7 +36,6 @@ import {
 import { MetinBaglantili } from "@/components/MetinBaglantili";
 import {
   BilgiKutusu,
-  Kart,
   KartBasligi,
   KatlanabilirKart,
   KirintiYolu,
@@ -54,7 +53,10 @@ import {
 import { faaliyetRaporuVarMi } from "@/lib/belge/kayit";
 import { prisma } from "@/lib/db";
 import { uygulamaYolu } from "@/lib/ortam";
-import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import {
+  faaliyetKapsamiCikar,
+  gorunurFaaliyetGetir,
+} from "@/lib/faaliyet/erisim";
 import {
   AKTIF_BASVURU_DURUMLARI,
   basvuruPenceresi,
@@ -70,7 +72,12 @@ import {
 } from "@/lib/faaliyet/kurallar";
 import { KATILIM_BICIMI_ETIKETLERI } from "@/lib/kazanim/kurallar";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
-import { girdiTarihi, girdiTarihSaati, tarihSaatYaz, tarihYaz } from "@/lib/tarih";
+import {
+  girdiTarihi,
+  girdiTarihSaati,
+  tarihSaatYaz,
+  tarihYaz,
+} from "@/lib/tarih";
 import {
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
@@ -288,7 +295,10 @@ export default async function FaaliyetDetaySayfasi({
 
   // Katılımcı öğretmen de olabilir; kapı "öğrenci mi" değil "başvurabilir mi".
   const kendiAdinaBasvurabilir = basvuruYapabilirMi(kullanici);
-  const degerlendirebilir = basvuruDegerlendirebilirMi(kullanici, kapsamBilgisi);
+  const degerlendirebilir = basvuruDegerlendirebilirMi(
+    kullanici,
+    kapsamBilgisi,
+  );
   const devroldu = yetkiDevrolduMu(kullanici, kapsamBilgisi);
   const ekYonetebilir = ekYukleyebilirMi(kullanici, kapsamBilgisi);
   const iptalEdebilir = faaliyetIptalEdebilirMi(kullanici, kapsamBilgisi);
@@ -558,7 +568,6 @@ export default async function FaaliyetDetaySayfasi({
     ? belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) })
     : { olurMu: false, neden: null };
 
-
   const paydaslar = await prisma.faaliyetPaydas.findMany({
     where: { faaliyetId: faaliyet.id },
     orderBy: { eklemeTarihi: "asc" },
@@ -667,10 +676,17 @@ export default async function FaaliyetDetaySayfasi({
         ETKİNLİK BİLGİLERİ AÇIK BAŞLIYOR: sayfanın konusu o ve kapalı
         gelseydi etkinliğe giren kişi boş bir ekran görürdü.
       */}
+      {/*
+        Sağdaki "Aç / Kapat" rozeti yerine kalem (26 Ağustos 2026 · istek:
+        "bazılarının sağ tarafta aç kapa yazıyor bazılarında kalem işareti
+        var hepsinde kalem olsun"). Sayfadaki üç bölüm aynı işi yapıyor —
+        iki ayrı işaret, aralarında olmayan bir fark varmış gibi görünüyordu.
+      */}
       <KatlanabilirKart
         baslik="Etkinlik bilgileri"
         Ikon={Info}
         baslangictaAcik
+        duzenlenebilir
         ozet={<p>{bilgiOzeti}</p>}
       >
         <MetinBaglantili
@@ -765,20 +781,25 @@ export default async function FaaliyetDetaySayfasi({
         )}
       </KatlanabilirKart>
 
+      {/*
+        Metin AÇANA GÖRE yazılıyor. Sabit "Ulusal etkinlik onayı · il
+        koordinatörü tarafından açıldı" cümlesi yalnızca bir hâlde doğruydu:
+        bu kutu öğrencinin ve danışman öğretmenin açtığı etkinliklerde de
+        çıkıyor (bkz. faaliyetOnayGerekiyorMu) ve o zaman onaylayan kişiye
+        olmayan bir gerçeği anlatıyordu.
+
+        KARAR BEKLEYEN İKİ BÖLÜM AÇIK BAŞLIYOR: katlanabilir oldular ama
+        kapalı gelselerdi, sırf kutu kapalı diye bekleyen bir onay
+        gözden kaçardı.
+      */}
       {onayBekliyor && (
-        <Kart>
-          {/*
-            Metin AÇANA GÖRE yazılıyor. Sabit "Ulusal etkinlik onayı · il
-            koordinatörü tarafından açıldı" cümlesi yalnızca bir hâlde doğruydu:
-            bu kutu öğrencinin ve danışman öğretmenin açtığı etkinliklerde de
-            çıkıyor (bkz. faaliyetOnayGerekiyorMu) ve o zaman onaylayan kişiye
-            olmayan bir gerçeği anlatıyordu.
-          */}
-          <KartBasligi
-            baslik="Etkinlik onayı"
-            aciklama={`${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad} tarafından açıldı; yayına girmek ve başvuru alabilmek için onayınızı bekliyor. Onaylanana kadar öğrencilere görünmez.`}
-            Ikon={ClipboardCheck}
-          />
+        <KatlanabilirKart
+          baslik="Etkinlik onayı"
+          aciklama={`${faaliyet.duzenleyen.ad} ${faaliyet.duzenleyen.soyad} tarafından açıldı; yayına girmek ve başvuru alabilmek için onayınızı bekliyor. Onaylanana kadar öğrencilere görünmez.`}
+          Ikon={ClipboardCheck}
+          baslangictaAcik
+          duzenlenebilir
+        >
           <div className="flex flex-wrap gap-3">
             <form action={faaliyetOnayEylemi}>
               <input type="hidden" name="faaliyetId" value={faaliyet.id} />
@@ -796,26 +817,27 @@ export default async function FaaliyetDetaySayfasi({
               </button>
             </form>
           </div>
-        </Kart>
+        </KatlanabilirKart>
       )}
 
       {bekleyenKaynakIlSayisi > 0 && (
-        <Kart>
+        <KatlanabilirKart
+          baslik="Kaynak il kararı bekleyen başvurular"
+          aciklama={
+            projeYoneticisiMi(kullanici)
+              ? `Bu etkinliğe başka illerden ${bekleyenKaynakIlSayisi} başvuru yapıldı ve öğrencinin kendi ilinin onayı bekleniyor. Bu karar verilmeden başvurular değerlendirilemez; ilde koordinatör yoksa kararı siz verirsiniz. Aşağıdaki başvuru satırlarından tek tek karara bağlayabilirsiniz.`
+              : `Bu etkinliğe ilinizden ${bekleyenKaynakIlSayisi} başvuru yapıldı. Öğrenciyi başka bir ile göndermeye önce siz onay verirsiniz; siz karar verene kadar etkinliğin ili bu başvuruları değerlendiremez.`
+          }
+          Ikon={ArrowRightLeft}
+          baslangictaAcik
+          duzenlenebilir
+        >
           {/*
-            METİN ROLE GÖRE. Koordinatör için bu "kendi ilimden çıkan
-            başvurular", proje yöneticisi için "hangi il olursa olsun" demektir;
-            merkeze "ilinizden" demek, karar kendisine düştüğü hâlde başkasını
-            beklemesi gerektiğini düşündürürdü.
+            METİN ROLE GÖRE (başlıkta). Koordinatör için bu "kendi ilimden
+            çıkan başvurular", proje yöneticisi için "hangi il olursa olsun"
+            demektir; merkeze "ilinizden" demek, karar kendisine düştüğü hâlde
+            başkasını beklemesi gerektiğini düşündürürdü.
           */}
-          <KartBasligi
-            baslik="Kaynak il kararı bekleyen başvurular"
-            aciklama={
-              projeYoneticisiMi(kullanici)
-                ? `Bu etkinliğe başka illerden ${bekleyenKaynakIlSayisi} başvuru yapıldı ve öğrencinin kendi ilinin onayı bekleniyor. Bu karar verilmeden başvurular değerlendirilemez; ilde koordinatör yoksa kararı siz verirsiniz. Aşağıdaki başvuru satırlarından tek tek karara bağlayabilirsiniz.`
-                : `Bu etkinliğe ilinizden ${bekleyenKaynakIlSayisi} başvuru yapıldı. Öğrenciyi başka bir ile göndermeye önce siz onay verirsiniz; siz karar verene kadar etkinliğin ili bu başvuruları değerlendiremez.`
-            }
-            Ikon={ArrowRightLeft}
-          />
           {/*
             Bağlantı artık Etkinlikler ekranının il dışı bölümüne gidiyor
             (11 Ağustos 2026): `/panel/il-disi-basvurular` kalktı, liste oraya
@@ -829,7 +851,7 @@ export default async function FaaliyetDetaySayfasi({
             <ArrowRightLeft size={16} aria-hidden />
             Tüm il dışı başvuruları gör
           </Link>
-        </Kart>
+        </KatlanabilirKart>
       )}
 
       {/*
@@ -845,7 +867,6 @@ export default async function FaaliyetDetaySayfasi({
           duzenlenebilir
           capa="etkinligi-duzenle"
         >
-
           <form action={faaliyetDuzenleEylemi} className="space-y-4">
             <input type="hidden" name="faaliyetId" value={faaliyet.id} />
             <div className="grid gap-4 sm:grid-cols-3">
@@ -941,38 +962,38 @@ export default async function FaaliyetDetaySayfasi({
             yerine bakan koordinatör etkinliği sürdürebilir ama kapatamaz.
           */}
           {iptalEdebilir && (
-          <div className="mt-6 border-t border-cizgi pt-5">
-            <h3 className="text-sm font-semibold text-baslik">
-              Etkinliği iptal et
-            </h3>
-            <p className="mt-1 text-sm text-metin-yumusak">
-              Etkinlik silinmez; listelerde &quot;İptal edildi&quot; etiketiyle
-              kalır. Bekleyen, seçilen ve yedek başvuruların tamamı kapatılır ve
-              öğrencilere bildirim gider. Bu işlem geri alınamaz.
-            </p>
-            <form action={faaliyetIptalEylemi} className="mt-3 space-y-3">
-              <input type="hidden" name="faaliyetId" value={faaliyet.id} />
-              <label className="block">
-                <span className="text-sm font-medium text-metin">
-                  İptal gerekçesi{" "}
-                  <span className="text-metin-yumusak">(isteğe bağlı)</span>
-                </span>
-                <textarea
-                  name="iptalGerekcesi"
-                  rows={2}
-                  maxLength={1000}
-                  className={SINIF_GIRDI}
-                />
-              </label>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-md border border-hata-cizgi bg-hata-zemin px-4 py-2 text-sm font-semibold text-hata-metin transition hover:opacity-90"
-              >
-                <Ban size={16} aria-hidden />
+            <div className="mt-6 border-t border-cizgi pt-5">
+              <h3 className="text-sm font-semibold text-baslik">
                 Etkinliği iptal et
-              </button>
-            </form>
-          </div>
+              </h3>
+              <p className="mt-1 text-sm text-metin-yumusak">
+                Etkinlik silinmez; listelerde &quot;İptal edildi&quot;
+                etiketiyle kalır. Bekleyen, seçilen ve yedek başvuruların tamamı
+                kapatılır ve öğrencilere bildirim gider. Bu işlem geri alınamaz.
+              </p>
+              <form action={faaliyetIptalEylemi} className="mt-3 space-y-3">
+                <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+                <label className="block">
+                  <span className="text-sm font-medium text-metin">
+                    İptal gerekçesi{" "}
+                    <span className="text-metin-yumusak">(isteğe bağlı)</span>
+                  </span>
+                  <textarea
+                    name="iptalGerekcesi"
+                    rows={2}
+                    maxLength={1000}
+                    className={SINIF_GIRDI}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-md border border-hata-cizgi bg-hata-zemin px-4 py-2 text-sm font-semibold text-hata-metin transition hover:opacity-90"
+                >
+                  <Ban size={16} aria-hidden />
+                  Etkinliği iptal et
+                </button>
+              </form>
+            </div>
           )}
         </KatlanabilirKart>
       )}
@@ -991,9 +1012,9 @@ export default async function FaaliyetDetaySayfasi({
           baslik="Başvurum"
           Ikon={Send}
           baslangictaAcik={kendiBasvurum === null}
+          duzenlenebilir
           ozet={basvuruOzeti ? <p>{basvuruOzeti}</p> : undefined}
         >
-
           {kendiBasvurum && kendiBasvurum.durum !== "GERI_CEKILDI" ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -1102,17 +1123,23 @@ export default async function FaaliyetDetaySayfasi({
         kodda kalmaz.
       */}
 
-      <Kart>
-        <KartBasligi
-          baslik="Paydaş bilgisi"
-          aciklama={
-            paydasSecenekleri.length > 0 || paydaslar.length > 0
-              ? "Etkinlikte iş birliği yapılan kurum ve kuruluşlar."
-              : "Etkinlikte iş birliği yapılan kurum ve kuruluşlar. Kayıtlar il paydaş envanterinden gelir."
-          }
-          Ikon={Handshake}
-        />
-
+      <KatlanabilirKart
+        baslik="Paydaş bilgisi"
+        aciklama={
+          paydasSecenekleri.length > 0 || paydaslar.length > 0
+            ? "Etkinlikte iş birliği yapılan kurum ve kuruluşlar."
+            : "Etkinlikte iş birliği yapılan kurum ve kuruluşlar. Kayıtlar il paydaş envanterinden gelir."
+        }
+        Ikon={Handshake}
+        duzenlenebilir
+        ozet={
+          <p>
+            {paydaslar.length > 0
+              ? paydaslar.map((bag) => bag.paydas.ad).join(" · ")
+              : "Bağlı paydaş yok."}
+          </p>
+        }
+      >
         {paydaslar.length === 0 ? (
           <p className="text-sm text-metin-yumusak">
             Bu etkinliğe bağlı paydaş yok.
@@ -1139,8 +1166,16 @@ export default async function FaaliyetDetaySayfasi({
                 </div>
                 {faaliyetPaydasiYonetebilirMi(kullanici, kapsamBilgisi) && (
                   <form action={faaliyetPaydasCikarEylemi}>
-                    <input type="hidden" name="faaliyetId" value={faaliyet.id} />
-                    <input type="hidden" name="paydasId" value={bag.paydas.id} />
+                    <input
+                      type="hidden"
+                      name="faaliyetId"
+                      value={faaliyet.id}
+                    />
+                    <input
+                      type="hidden"
+                      name="paydasId"
+                      value={bag.paydas.id}
+                    />
                     <button
                       type="submit"
                       className="text-sm text-metin-yumusak underline underline-offset-2 transition hover:text-metin"
@@ -1209,28 +1244,42 @@ export default async function FaaliyetDetaySayfasi({
               girilmesi il raporlarını bozuyor.
             </p>
           )}
-      </Kart>
+      </KatlanabilirKart>
 
-      <Kart>
-        {/*
-          ÇAPA: rapor ekranı buraya iniyor (bkz. rapor/page.tsx · "etkinliğin ek
-          listesine"). Rapor yazarken fotoğraf eklemek formun içinde yapılıyor;
-          görsel silmek, kapak seçmek ve PDF eklemek için buraya geliniyor.
-          Çapa olmadan bağlantı sayfanın en tepesine düşüyor ve kullanıcı ek
-          kartını uzun bir detay ekranında elle arıyordu. Kalıp `yorumlar`
-          çapasıyla aynı: boş bir div, KartBasligi'nden önce.
-        */}
-        <div id="ekler" className="scroll-mt-6" />
-        <KartBasligi
-          baslik="Görseller ve belgeler"
-          aciklama={
-            ekYonetebilir
-              ? "Görsel (jpg, png, webp) ve belge (pdf) ekleyebilirsiniz. Görsellerden birini tanıtıcı görsel yapabilirsiniz."
-              : "Etkinliğe eklenen görsel ve belgeler."
-          }
-          Ikon={Paperclip}
-        />
+      {/*
+        ÇAPA: rapor ekranı buraya iniyor (bkz. rapor/page.tsx · "etkinliğin ek
+        listesine"). Rapor yazarken fotoğraf eklemek formun içinde yapılıyor;
+        görsel silmek, kapak seçmek ve PDF eklemek için buraya geliniyor.
+        Çapa olmadan bağlantı sayfanın en tepesine düşüyor ve kullanıcı ek
+        kartını uzun bir detay ekranında elle arıyordu.
 
+        Bölüm katlanabilir olunca boş `div` yerine `capa` prop'u kullanılıyor
+        (aynısı `yorumlar` için de geçerli): bağlantı bölümün başlığına iner,
+        özet neyin olduğunu söyler, ayrıntı bir tıklama uzaktadır.
+      */}
+      <KatlanabilirKart
+        baslik="Görseller ve belgeler"
+        aciklama={
+          ekYonetebilir
+            ? "Görsel (jpg, png, webp) ve belge (pdf) ekleyebilirsiniz. Görsellerden birini tanıtıcı görsel yapabilirsiniz."
+            : "Etkinliğe eklenen görsel ve belgeler."
+        }
+        Ikon={Paperclip}
+        capa="ekler"
+        duzenlenebilir
+        ozet={
+          <p>
+            {gorseller.length === 0 && belgeler.length === 0
+              ? "Henüz görsel veya belge yok."
+              : [
+                  gorseller.length > 0 ? `${gorseller.length} görsel` : null,
+                  belgeler.length > 0 ? `${belgeler.length} belge` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+          </p>
+        }
+      >
         {gorseller.length === 0 && belgeler.length === 0 && (
           <p className="text-metin-yumusak">Henüz görsel veya belge yok.</p>
         )}
@@ -1337,7 +1386,11 @@ export default async function FaaliyetDetaySayfasi({
                 </a>
                 {ekYonetebilir && (
                   <form action={ekSilEylemi}>
-                    <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+                    <input
+                      type="hidden"
+                      name="faaliyetId"
+                      value={faaliyet.id}
+                    />
                     <input type="hidden" name="ekId" value={ek.id} />
                     <button
                       type="submit"
@@ -1375,20 +1428,19 @@ export default async function FaaliyetDetaySayfasi({
             </button>
           </form>
         )}
-      </Kart>
+      </KatlanabilirKart>
 
-      <Kart>
-        <div id="yorumlar" />
-        <KartBasligi
-          baslik="Yorumlar"
-          aciklama={`${yorumlar.filter((yorum) => !yorum.silindiMi).length} yorum · ${
-            icerikEklenebilir
-              ? "etkinliği görebilen herkes yazabilir"
-              : "etkinlik iptal edildiği için yeni yorum alınmıyor"
-          }`}
-          Ikon={MessageSquare}
-        />
-
+      <KatlanabilirKart
+        baslik="Yorumlar"
+        aciklama={`${yorumlar.filter((yorum) => !yorum.silindiMi).length} yorum · ${
+          icerikEklenebilir
+            ? "etkinliği görebilen herkes yazabilir"
+            : "etkinlik iptal edildiği için yeni yorum alınmıyor"
+        }`}
+        Ikon={MessageSquare}
+        capa="yorumlar"
+        duzenlenebilir
+      >
         {kokYorumlar.length === 0 ? (
           <p className="text-metin-yumusak">Henüz yorum yok.</p>
         ) : (
@@ -1398,7 +1450,11 @@ export default async function FaaliyetDetaySayfasi({
                 <YorumSatiri
                   yorum={yorum}
                   faaliyetId={faaliyet.id}
-                  silebilirMi={yorumSilebilirMi(kullanici, yorum, kapsamBilgisi)}
+                  silebilirMi={yorumSilebilirMi(
+                    kullanici,
+                    yorum,
+                    kapsamBilgisi,
+                  )}
                   yanitYazabilirMi={yorumYazabilir}
                 />
                 {(yanitlar.get(yorum.id) ?? []).length > 0 && (
@@ -1444,7 +1500,7 @@ export default async function FaaliyetDetaySayfasi({
             </button>
           </form>
         )}
-      </Kart>
+      </KatlanabilirKart>
 
       {/*
         RAPOR VE BELGE KARTI KENDİ BAŞINA DURUYOR (11 Ağustos 2026 · istek:
@@ -1470,12 +1526,12 @@ export default async function FaaliyetDetaySayfasi({
         iki bölüm ayrı durduğunda sıra olarak okunuyor.
       */}
       {yurutucuMu && (
-        <Kart>
-          <KartBasligi
-            baslik="Bilgi notu"
-            aciklama="Etkinliğin nasıl geçtiğini yazın: değerlendirme, kazanımlar ve görseller."
-            Ikon={FileText}
-          />
+        <KatlanabilirKart
+          baslik="Bilgi notu"
+          aciklama="Etkinliğin nasıl geçtiğini yazın: değerlendirme, kazanımlar ve görseller."
+          Ikon={FileText}
+          duzenlenebilir
+        >
           <Link
             href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
             className={SINIF_IKINCIL_BUTON}
@@ -1483,17 +1539,16 @@ export default async function FaaliyetDetaySayfasi({
             <FileText size={16} aria-hidden />
             Bilgi notunu aç
           </Link>
-        </Kart>
+        </KatlanabilirKart>
       )}
 
       {yurutucuMu && (
-        <Kart>
-          <KartBasligi
-            baslik="Belgeleme"
-            aciklama="Sıra: yoklama → bilgi notu → belge. Belge, kişinin GençTek Yolculuğu'na katılım düşürdüğü için son adımdır."
-            Ikon={Award}
-          />
-
+        <KatlanabilirKart
+          baslik="Belgeleme"
+          aciklama="Sıra: yoklama → bilgi notu → belge. Belge, kişinin GençTek Yolculuğu'na katılım düşürdüğü için son adımdır."
+          Ikon={Award}
+          duzenlenebilir
+        >
           {/*
             YOKLAMA BELGELEMENİN İÇİNDE (26 Ağustos 2026 · istek: "Yoklama bu
             alanı yeni oluşturacağımız belgeleme alanına ekleyelim").
@@ -1509,96 +1564,96 @@ export default async function FaaliyetDetaySayfasi({
           */}
           {yoklamaKapisi.olurMu && (
             <div className="mb-5 border-b border-cizgi pb-5">
-        <KartBasligi
-          baslik="Yoklama"
-          aciklama={
-            yoklamaListesi.length === 0
-              ? "Bu etkinliğe seçilmiş katılımcı yok."
-              : `${yoklamaSayilari.gelen} geldi · ${yoklamaSayilari.gelmeyen} gelmedi · ${yoklamaSayilari.isaretlenmeyen} işaretlenmedi`
-          }
-          Ikon={UserCheck}
-        />
+              <KartBasligi
+                baslik="Yoklama"
+                aciklama={
+                  yoklamaListesi.length === 0
+                    ? "Bu etkinliğe seçilmiş katılımcı yok."
+                    : `${yoklamaSayilari.gelen} geldi · ${yoklamaSayilari.gelmeyen} gelmedi · ${yoklamaSayilari.isaretlenmeyen} işaretlenmedi`
+                }
+                Ikon={UserCheck}
+              />
 
-        {yoklamaListesi.length === 0 ? (
-          <p className="text-metin-yumusak">
-            Yoklama, seçilmiş katılımcılar üzerinden alınır. Listede olmayan
-            konuşmacı ve destek verenler için belge, yoklamadan bağımsız
-            üretilir.
-          </p>
-        ) : (
-          <form action={yoklamaKaydetEylemi} className="space-y-4">
-            <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+              {yoklamaListesi.length === 0 ? (
+                <p className="text-metin-yumusak">
+                  Yoklama, seçilmiş katılımcılar üzerinden alınır. Listede
+                  olmayan konuşmacı ve destek verenler için belge, yoklamadan
+                  bağımsız üretilir.
+                </p>
+              ) : (
+                <form action={yoklamaKaydetEylemi} className="space-y-4">
+                  <input type="hidden" name="faaliyetId" value={faaliyet.id} />
 
-            <ul className="divide-y divide-cizgi">
-              {yoklamaListesi.map((satir) => (
-                <li
-                  key={satir.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-metin">
-                      {satir.katilimci.ad} {satir.katilimci.soyad}
-                    </p>
-                    <p className="text-sm text-metin-yumusak">
-                      {[
-                        satir.katilimci.sinif ?? satir.katilimci.brans,
-                        satir.katilimci.kurum?.ad,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </p>
-                  </div>
-                  {/*
+                  <ul className="divide-y divide-cizgi">
+                    {yoklamaListesi.map((satir) => (
+                      <li
+                        key={satir.id}
+                        className="flex flex-wrap items-center justify-between gap-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-metin">
+                            {satir.katilimci.ad} {satir.katilimci.soyad}
+                          </p>
+                          <p className="text-sm text-metin-yumusak">
+                            {[
+                              satir.katilimci.sinif ?? satir.katilimci.brans,
+                              satir.katilimci.kurum?.ad,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "—"}
+                          </p>
+                        </div>
+                        {/*
                     ÜÇ SEÇENEK, İKİ DEĞİL: "işaretlenmedi" geçerli bir cevap
                     ve varsayılan o. İki seçenek olsaydı formu açan herkes
                     farkında olmadan bir beyanda bulunmuş olurdu.
                   */}
-                  <div className="flex shrink-0 flex-wrap gap-3 text-sm">
-                    {(
-                      [
-                        ["evet", "Geldi"],
-                        ["hayir", "Gelmedi"],
-                        ["", "İşaretlenmedi"],
-                      ] as const
-                    ).map(([deger, etiket]) => (
-                      <label
-                        key={etiket}
-                        className="flex items-center gap-1.5 text-metin"
-                      >
-                        <input
-                          type="radio"
-                          name={`yoklama-${satir.id}`}
-                          value={deger}
-                          defaultChecked={
-                            satir.katildiMi === true
-                              ? deger === "evet"
-                              : satir.katildiMi === false
-                                ? deger === "hayir"
-                                : deger === ""
-                          }
-                          className="h-4 w-4 border-cizgi accent-[var(--renk-birincil)]"
-                        />
-                        {etiket}
-                      </label>
+                        <div className="flex shrink-0 flex-wrap gap-3 text-sm">
+                          {(
+                            [
+                              ["evet", "Geldi"],
+                              ["hayir", "Gelmedi"],
+                              ["", "İşaretlenmedi"],
+                            ] as const
+                          ).map(([deger, etiket]) => (
+                            <label
+                              key={etiket}
+                              className="flex items-center gap-1.5 text-metin"
+                            >
+                              <input
+                                type="radio"
+                                name={`yoklama-${satir.id}`}
+                                value={deger}
+                                defaultChecked={
+                                  satir.katildiMi === true
+                                    ? deger === "evet"
+                                    : satir.katildiMi === false
+                                      ? deger === "hayir"
+                                      : deger === ""
+                                }
+                                className="h-4 w-4 border-cizgi accent-[var(--renk-birincil)]"
+                              />
+                              {etiket}
+                            </label>
+                          ))}
+                        </div>
+                      </li>
                     ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </ul>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                <UserCheck size={16} aria-hidden />
-                Yoklamayı kaydet
-              </button>
-              <p className="text-sm text-metin-yumusak">
-                Yalnızca &quot;geldi&quot; işaretlenenlerin GençTek
-                Yolculuğu&apos;na bu etkinlik düşer ve belge yalnızca onlara
-                üretilebilir.
-              </p>
-            </div>
-          </form>
-        )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                      <UserCheck size={16} aria-hidden />
+                      Yoklamayı kaydet
+                    </button>
+                    <p className="text-sm text-metin-yumusak">
+                      Yalnızca &quot;geldi&quot; işaretlenenlerin GençTek
+                      Yolculuğu&apos;na bu etkinlik düşer ve belge yalnızca
+                      onlara üretilebilir.
+                    </p>
+                  </div>
+                </form>
+              )}
             </div>
           )}
           {/*
@@ -1631,20 +1686,18 @@ export default async function FaaliyetDetaySayfasi({
               {belgeKapisiKarari.neden}
             </p>
           )}
-        </Kart>
+        </KatlanabilirKart>
       )}
 
-
       {degerlendirebilir && (
-        <Kart>
-          <KartBasligi
-            baslik="Başvurular"
-            aciklama={`${basvuranlar.length} başvuru · kontenjan ${kontenjan.secilen}/${kontenjan.kontenjan}${
-              kontenjan.doluMu ? " (dolu)" : ""
-            }`}
-            Ikon={ClipboardList}
-          />
-
+        <KatlanabilirKart
+          baslik="Başvurular"
+          aciklama={`${basvuranlar.length} başvuru · kontenjan ${kontenjan.secilen}/${kontenjan.kontenjan}${
+            kontenjan.doluMu ? " (dolu)" : ""
+          }`}
+          Ikon={ClipboardList}
+          duzenlenebilir
+        >
           {/*
             İndirme bağlantısı yalnızca başvuru VARKEN gösteriliyor: boş bir
             listeyi indirmeye davet etmenin anlamı yok. Dosya bu kartın
@@ -1663,8 +1716,8 @@ export default async function FaaliyetDetaySayfasi({
           {devroldu && (
             <div className="mb-4">
               <BilgiKutusu cesit="uyari">
-                Bu etkinliği açan kullanıcı görevden ayrıldığı için değerlendirme
-                ve moderasyon yetkisi il koordinatörlüğüne geçti.
+                Bu etkinliği açan kullanıcı görevden ayrıldığı için
+                değerlendirme ve moderasyon yetkisi il koordinatörlüğüne geçti.
               </BilgiKutusu>
             </div>
           )}
@@ -1813,8 +1866,7 @@ export default async function FaaliyetDetaySayfasi({
                     ) : (
                       <p className="mt-3 rounded-md bg-uyari-zemin px-3 py-2 text-sm text-uyari-metin">
                         Bu başvuru, öğrencinin kendi ilinin koordinatörünün
-                        onayını bekliyor. Onay verilene kadar
-                        değerlendirilemez.
+                        onayını bekliyor. Onay verilene kadar değerlendirilemez.
                       </p>
                     ))}
 
@@ -1857,7 +1909,7 @@ export default async function FaaliyetDetaySayfasi({
               ))}
             </ul>
           )}
-        </Kart>
+        </KatlanabilirKart>
       )}
     </div>
   );
