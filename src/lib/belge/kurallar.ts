@@ -45,10 +45,26 @@ export interface BelgeMetni {
  * program kapsamında yapıldığını da söylesin. Kurumun ve programın adı
  * ETKİNLİKTEN GELMEZ — her belgede aynıdır — bu yüzden veri değil sabit.
  */
+/** Bağlantısız boşluk (U+00A0): tarayıcı buradan satır kırmaz. */
+const BOLUNMEZ_BOSLUK = "\u00A0";
+
+/**
+ * Tarihi BÖLÜNMEZ yapar: "11 Ağustos 2026" satır sonunda ikiye ayrılmasın
+ * (26 Ağustos 2026 · istek: "11 üst satırda, Kasım 2026 alt satırda …
+ * bölünmesin"). Aradaki boşluklar bağlantısız boşluğa (NBSP) çevriliyor;
+ * tarayıcı bu boşluktan satır kırmıyor.
+ */
+function tarihiBolunmezYap(tarih: string): string {
+  return tarih.trim().replace(/\s+/g, BOLUNMEZ_BOSLUK);
+}
+
 const KOORDINASYON_CUMLESI =
   "Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü " +
   "koordinesinde yürütülen GençTek: Akran Öğrenme Modeli ve Genç Bilişim " +
   "Ekosistemi çalışmaları kapsamında,";
+
+/** Gövdenin kapanışı — iki belge türünde de aynı. */
+const KAPANIS_CUMLESI = "katılımınız ve desteğiniz için teşekkür ederiz.";
 
 /**
  * Belge metnini üretir.
@@ -60,11 +76,15 @@ const KOORDINASYON_CUMLESI =
  * mü) anlaması mümkün değildi. Cümlenin içinde "… tarihinde gerçekleştirilen"
  * olarak yeri belli.
  *
- * İki tür AYRI bitiş cümlesi kurar ve bu bilinçli: katılım belgesi yalnızca
- * KATILIMA teşekkür eder, teşekkür belgesi katılımın yanında DESTEĞİ de anar
- * (26 Ağustos 2026 · istek: "bu katılım belgesi için, teşekkür belgesi başka
- * yazı gelecek"). Aynı cümleyi paylaşsalardı teşekkür belgesi katılım
- * belgesinin süslü hâline dönerdi.
+ * İKİ TÜR AYNI CÜMLEYİ KURAR (26 Ağustos 2026 · istek: "katılım
+ * listesindekiler için de varsayılan metin bu olsun").
+ *
+ * Kısa bir süre iki ayrı bitiş cümlesi vardı — katılım belgesi yalnızca
+ * katılıma, teşekkür belgesi katılım ve desteğe teşekkür ediyordu. Ayrım
+ * pratikte işe yaramadı: aynı etkinlikte kimine listeden, kimine elle belge
+ * çıkarılıyor ve iki belge yan yana geldiğinde metinlerinin farklı olması
+ * açıklanamıyordu. Türler BAŞLIKLARIYLA ayrılıyor (Katılım Belgesi / Teşekkür
+ * Belgesi); gövde ortak.
  *
  * Özel metin verildiğinde gövde tamamen onunla değişir: teşekkür belgesi
  * çoğu zaman katılımcıya değil, konuşmacıya ya da destek veren kuruma
@@ -73,15 +93,15 @@ const KOORDINASYON_CUMLESI =
 export function belgeMetniUret(girdi: BelgeGirdisi): BelgeMetni {
   const ozel = girdi.ozelMetin?.trim();
 
-  const kapanis =
-    girdi.tur === "KATILIM"
-      ? "katılımınızdan dolayı teşekkür ederiz."
-      : "katılımınız ve desteğiniz için teşekkür ederiz.";
-
+  /*
+   * TARİH YENİ SATIRDAN BAŞLAR: kalıp cümlenin ortasında kalınca "11" üst
+   * satırda, "Ağustos 2026" alt satırda kalabiliyordu. Satır sonu belgede
+   * korunuyor (bkz. BelgeStilleri · .belge-metin white-space: pre-line).
+   */
   const govde = ozel
     ? ozel
-    : `${KOORDINASYON_CUMLESI} ${girdi.tarihMetni} tarihinde gerçekleştirilen ` +
-      `${girdi.faaliyetAdi} etkinliğine ${kapanis}`;
+    : `${KOORDINASYON_CUMLESI}\n${tarihiBolunmezYap(girdi.tarihMetni)} tarihinde ` +
+      `gerçekleştirilen ${girdi.faaliyetAdi} etkinliğine ${KAPANIS_CUMLESI}`;
 
   return {
     baslik: BELGE_TURU_ETIKETLERI[girdi.tur],

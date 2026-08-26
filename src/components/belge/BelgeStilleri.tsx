@@ -152,7 +152,19 @@ export function BelgeStilleri(): React.ReactElement {
         color: #374151;
         max-width: 95%;
         overflow-wrap: break-word;
-        word-break: break-word;
+        /*
+          SATIR SONLARI KORUNUR (26 Ağustos 2026 · istek: "tarihi komple alt
+          satırdan başlatalım, bölünmesin"). Gövde metni tarihin önüne bir satır
+          sonu koyuyor; pre-line olmasaydı o satır sonu boşluğa dönüşür ve
+          tarih yine cümlenin ortasında kalırdı. Elle girilen özel metnin
+          satırları da böylece korunuyor.
+        */
+        white-space: pre-line;
+        /*
+          word-break: break-word KALDIRILDI: tarihi bölünmez yapmak için
+          konan bağlantısız boşluklar (NBSP) bile bu kuralla kırılabiliyordu.
+          Uzun tek kelimeler overflow-wrap ile zaten sarılıyor.
+        */
         hyphens: auto;
       }
 

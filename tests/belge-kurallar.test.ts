@@ -18,34 +18,35 @@ const TEMEL = {
 };
 
 describe("belgeMetniUret", () => {
-  it("katılım belgesi KATILIMA teşekkür eder", () => {
+  it("katılım belgesi kalıp cümleyi kurar", () => {
     const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM" });
     expect(metin.baslik).toBe("Katılım Belgesi");
     expect(metin.govde).toBe(
       "Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü " +
         "koordinesinde yürütülen GençTek: Akran Öğrenme Modeli ve Genç Bilişim " +
-        "Ekosistemi çalışmaları kapsamında, 12 Mart 2026 tarihinde " +
-        "gerçekleştirilen Robotik Atölyesi etkinliğine katılımınızdan dolayı " +
-        "teşekkür ederiz.",
+        "Ekosistemi çalışmaları kapsamında,\n12\u00A0Mart\u00A02026 tarihinde " +
+        "gerçekleştirilen Robotik Atölyesi etkinliğine katılımınız ve " +
+        "desteğiniz için teşekkür ederiz.",
     );
   });
 
-  it("teşekkür belgesi katılımın yanında DESTEĞİ de anar", () => {
+  it("teşekkür belgesi katılım belgesiyle AYNI gövdeyi kurar", () => {
     /*
-     * İki tür ayrı bitiş cümlesi kuruyor (26 Ağustos 2026 · istek: "bu katılım
-     * belgesi için, teşekkür belgesi başka yazı gelecek"). Aynı cümleyi
-     * paylaşsalardı teşekkür belgesi katılım belgesinin süslü hâli olurdu.
+     * İKİ TÜR AYNI CÜMLE (26 Ağustos 2026 · istek: "katılım listesindekiler
+     * için de varsayılan metin bu olsun"). Kısa süre ayrı bitişleri vardı;
+     * aynı etkinlikte kimine listeden kimine elle belge çıkınca iki belgenin
+     * farklı okunması açıklanamadı. Türler başlıkla ayrılıyor.
      */
     const metin = belgeMetniUret({ ...TEMEL, tur: "TESEKKUR" });
     expect(metin.baslik).toBe("Teşekkür Belgesi");
     expect(metin.govde).toBe(
       "Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü " +
         "koordinesinde yürütülen GençTek: Akran Öğrenme Modeli ve Genç Bilişim " +
-        "Ekosistemi çalışmaları kapsamında, 12 Mart 2026 tarihinde " +
+        "Ekosistemi çalışmaları kapsamında,\n12\u00A0Mart\u00A02026 tarihinde " +
         "gerçekleştirilen Robotik Atölyesi etkinliğine katılımınız ve " +
         "desteğiniz için teşekkür ederiz.",
     );
-    expect(metin.govde).not.toContain("katılımınızdan dolayı");
+    expect(metin.govde).toBe(belgeMetniUret({ ...TEMEL, tur: "KATILIM" }).govde);
   });
 
   /*
@@ -55,7 +56,24 @@ describe("belgeMetniUret", () => {
    */
   it("tarihi gövde cümlesinin içine yazar", () => {
     const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM" });
-    expect(metin.govde).toContain("12 Mart 2026 tarihinde gerçekleştirilen");
+    expect(metin.govde).toContain("12\u00A0Mart\u00A02026 tarihinde gerçekleştirilen");
+  });
+
+  /*
+   * TARİH BÖLÜNMEZ VE YENİ SATIRDAN BAŞLAR (26 Ağustos 2026 · istek: "11 üst
+   * satırda, Kasım 2026 alt satırda … tarihi komple alt satırdan başlatalım,
+   * bölünmesin"). Boşluklar bağlantısız boşluk; satır sonu belgede korunuyor
+   * (BelgeStilleri · white-space: pre-line).
+   */
+  it("tarihi yeni satırdan başlatır", () => {
+    const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM" });
+    expect(metin.govde).toContain("kapsamında,\n12");
+  });
+
+  it("tarihin içinde bölünebilir boşluk bırakmaz", () => {
+    const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM" });
+    expect(metin.govde).not.toContain("12 Mart");
+    expect(metin.govde).not.toContain("Mart 2026");
   });
 
   it("koordinasyon cümlesi her iki türde de vardır", () => {
@@ -83,13 +101,13 @@ describe("belgeMetniUret", () => {
       tur: "TESEKKUR",
       ozelMetin: "Destekleri için.",
     });
-    expect(metin.govde).not.toContain("12 Mart 2026");
+    expect(metin.govde).not.toContain("12");
     expect(metin.govde).not.toContain("koordinesinde");
   });
 
   it("boş özel metin kalıbı bozmaz", () => {
     const metin = belgeMetniUret({ ...TEMEL, tur: "KATILIM", ozelMetin: "   " });
-    expect(metin.govde).toContain("katılımınızdan dolayı teşekkür ederiz");
+    expect(metin.govde).toContain("katılımınız ve desteğiniz için teşekkür ederiz");
   });
 
   it("adı kırpar", () => {
@@ -104,7 +122,7 @@ describe("belgeMetniUret", () => {
   it("tarih ÜRETİM tarihi değil, verilen tarihtir", () => {
     // Belgede faaliyetin tarihi yazar; belgeyi ne zaman bastığınız değil.
     expect(belgeMetniUret({ ...TEMEL, tur: "KATILIM" }).govde).toContain(
-      "12 Mart 2026",
+      "12\u00A0Mart\u00A02026",
     );
   });
 });
