@@ -678,6 +678,17 @@ export default async function FaaliyetlerSayfasi({
   const nerede = faaliyetListeFiltresi(kullanici, filtreler, simdi);
 
   /*
+   * Raporsuz sayımının koşulu: EKRANDAKİ FİLTRELERDEN BAĞIMSIZ, kapsamdan
+   * değil. Kart "toplam kaç iş bekliyor" diyor; kullanıcı listeyi bir ile
+   * daralttığında sayının değişmesi, işin bittiği izlenimi verirdi.
+   */
+  const raporsuzKosulu = faaliyetListeFiltresi(
+    kullanici,
+    { ...faaliyetFiltreleriniCoz({}), yalnizcaRaporsuz: true },
+    simdi,
+  );
+
+  /*
    * SAYFALAMA (15 Ağustos 2026 · Aşama 6a — DEFEKT DÜZELTMESİ).
    *
    * Bu ekran kapsamdaki BÜTÜN etkinlikleri tek sorguyla çekip tek sayfaya
@@ -691,62 +702,75 @@ export default async function FaaliyetlerSayfasi({
     Number.parseInt(tekil(parametreler.sayfa) ?? "1", 10) || 1,
   );
 
-  const [toplam, faaliyetler, gruplar, iller] = await Promise.all([
-    prisma.faaliyet.count({ where: nerede }),
-    prisma.faaliyet.findMany({
-      where: nerede,
-      orderBy: [{ tarih: "asc" }],
-      skip: (sayfaNo - 1) * SAYFA_BOYUTU,
-      take: SAYFA_BOYUTU,
-      select: {
-        id: true,
-        ad: true,
-        aciklama: true,
-        tarih: true,
-        kapsam: true,
-        etkinlikKategorisi: true,
-        temelEtkinlikProgrami: { select: { ad: true } },
-        kontenjan: true,
-        onayDurumu: true,
-        durum: true,
-        duzenleyenBirim: true,
-        duzenleyenKullaniciId: true,
-        bitisTarihi: true,
-        basvuruBaslangic: true,
-        basvuruBitis: true,
-        // Silinen ek kapak olarak bırakılmaz; yine de savunmacı davranıp
-        // silinmişse gösterme.
-        kapakEk: { select: { id: true, dosyaAdi: true, silindiMi: true } },
-        kurum: { select: { ad: true } },
-        il: { select: { ad: true } },
-        calismaGruplari: {
-          select: { calismaGrubu: { select: { id: true, ad: true } } },
+  const [toplam, raporsuzSayisi, faaliyetler, gruplar, iller] =
+    await Promise.all([
+      prisma.faaliyet.count({ where: nerede }),
+      /*
+       * RAPORSUZ BİTEN ETKİNLİK SAYISI (26 Ağustos 2026 · istek: "bu kartı
+       * etkinlikler sayfasına alalım"). Panelde bir sayaç olarak duruyordu
+       * ve tıklayınca raporlar ekranına götürüyordu; sayının karşılığı ise
+       * bu ekrandaki listeydi.
+       *
+       * Sayı KAPSAMDAN BAĞIMSIZ değil: `raporsuzKosulu` aynı kapsam
+       * filtresini taşıyor, yani kişi yalnızca kendi yazabileceği raporları
+       * sayıyor. Ekrandaki filtrelerden ise BAĞIMSIZ — kart "şu an listede
+       * kaç tane" değil, "toplam kaç iş bekliyor" diyor.
+       */
+      prisma.faaliyet.count({ where: raporsuzKosulu }),
+      prisma.faaliyet.findMany({
+        where: nerede,
+        orderBy: [{ tarih: "asc" }],
+        skip: (sayfaNo - 1) * SAYFA_BOYUTU,
+        take: SAYFA_BOYUTU,
+        select: {
+          id: true,
+          ad: true,
+          aciklama: true,
+          tarih: true,
+          kapsam: true,
+          etkinlikKategorisi: true,
+          temelEtkinlikProgrami: { select: { ad: true } },
+          kontenjan: true,
+          onayDurumu: true,
+          durum: true,
+          duzenleyenBirim: true,
+          duzenleyenKullaniciId: true,
+          bitisTarihi: true,
+          basvuruBaslangic: true,
+          basvuruBitis: true,
+          // Silinen ek kapak olarak bırakılmaz; yine de savunmacı davranıp
+          // silinmişse gösterme.
+          kapakEk: { select: { id: true, dosyaAdi: true, silindiMi: true } },
+          kurum: { select: { ad: true } },
+          il: { select: { ad: true } },
+          calismaGruplari: {
+            select: { calismaGrubu: { select: { id: true, ad: true } } },
+          },
+          basvurular: { select: { durum: true } },
+          // Katılımcı sütunu (Aşama 6c): "kaç kişiye yer verildi" sorusunun
+          // cevabı seçilen başvurulardır, toplam başvuru değil.
+          _count: { select: { basvurular: { where: { durum: "SECILDI" } } } },
+          // Rapor durumu listede gösteriliyor (J3): "raporu bekleyenler"
+          // filtresi açıkken hangi kaydın neden listelendiği görünmeli.
+          rapor: { select: { faaliyetId: true } },
         },
-        basvurular: { select: { durum: true } },
-        // Katılımcı sütunu (Aşama 6c): "kaç kişiye yer verildi" sorusunun
-        // cevabı seçilen başvurulardır, toplam başvuru değil.
-        _count: { select: { basvurular: { where: { durum: "SECILDI" } } } },
-        // Rapor durumu listede gösteriliyor (J3): "raporu bekleyenler"
-        // filtresi açıkken hangi kaydın neden listelendiği görünmeli.
-        rapor: { select: { faaliyetId: true } },
-      },
-    }),
-    prisma.calismaGrubu.findMany({
-      where: { aktif: true },
-      orderBy: { siraNo: "asc" },
-      select: { id: true, ad: true },
-    }),
-    /*
-     * İL SÜZGECİNİN LİSTESİ (21 Ağustos 2026 · istek: "illere göre de arama
-     * yapabilsin tümü ya da il seç"). Liste kapsamla daraltılmıyor: süzgeç
-     * yalnızca daraltır, kapsam filtresi kimin neyi göreceğini zaten
-     * söylüyor — başka bir ili seçen kişi boş liste görür, o ilin
-     * etkinliklerini değil.
-     */
-    prisma.il.findMany({
-      orderBy: { ad: "asc" },
-      select: { ilKodu: true, ad: true },
-    }),
+      }),
+      prisma.calismaGrubu.findMany({
+        where: { aktif: true },
+        orderBy: { siraNo: "asc" },
+        select: { id: true, ad: true },
+      }),
+      /*
+       * İL SÜZGECİNİN LİSTESİ (21 Ağustos 2026 · istek: "illere göre de arama
+       * yapabilsin tümü ya da il seç"). Liste kapsamla daraltılmıyor: süzgeç
+       * yalnızca daraltır, kapsam filtresi kimin neyi göreceğini zaten
+       * söylüyor — başka bir ili seçen kişi boş liste görür, o ilin
+       * etkinliklerini değil.
+       */
+      prisma.il.findMany({
+        orderBy: { ad: "asc" },
+        select: { ilKodu: true, ad: true },
+      }),
   ]);
 
   // Kişi kendi başvuru durumunu listede görür; başkasının başvurusu okunmaz.
@@ -961,6 +985,35 @@ export default async function FaaliyetlerSayfasi({
         }
       />
 
+      {/*
+        RAPORSUZ BİTEN ETKİNLİK (26 Ağustos 2026 · istek: "bu kartı
+        etkinlikler sayfasına alalım"). Panelde bir sayaçtı ve raporlar
+        ekranına götürüyordu; sayının karşılığı olan liste ise burası.
+
+        SIFIRDA BASILMAZ: "0 etkinlik raporu bekliyor" bir iş değil, bir
+        gürültü. Yalnızca rapor yazabilenlere basılır — öğrenciye bekleyen
+        rapor göstermek, yapamayacağı bir işi sayması olurdu.
+
+        Bağlantı listeyi SÜZÜYOR (?raporsuz=1): kart tıklanınca aynı ekranda
+        yalnızca o etkinlikler kalıyor, kişi başka bir sayfaya düşmüyor.
+      */}
+      {raporYazabilir && raporsuzSayisi > 0 && (
+        <Link href="/panel/etkinlikler?raporsuz=1" className="block">
+          <div className="flex items-center gap-4 rounded-kart border border-uyari-cizgi bg-uyari-zemin p-4 transition hover:border-uyari-metin">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-kart text-uyari-metin">
+              <FileText size={20} aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-uyari-metin">
+                {raporsuzSayisi} etkinliğin raporu bekliyor
+              </span>
+              <span className="block text-sm text-uyari-metin">
+                Bitti ama raporu yazılmadı. Listeyi süzmek için tıklayın.
+              </span>
+            </span>
+          </div>
+        </Link>
+      )}
       <form
         method="get"
         className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"

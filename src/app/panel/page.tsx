@@ -932,16 +932,6 @@ export default async function PanelSayfasi({
     ? null
     : await ogretmenKatkiSayilariGetir(kullanici.id);
 
-  /*
-   * Katkı kartının özeti — yalnızca kartı BASILAN rollerde kuruluyor (danışman
-   * öğretmen ve il koordinatörü); metni herkes için hazırlamak, kullanılmayan
-   * bir cümle üretmek olurdu.
-   */
-  const katkiOzeti =
-    ogretmenKatkiSayilari &&
-    (danismanMi(kullanici) || ilKoordinatoruMu(kullanici))
-      ? katkiKartiMetni(ogretmenKatkiSayilari)
-      : null;
 
   /*
    * ÜST KARTLARIN SAYILARI (21 Ağustos 2026). Kartlar kendi sayfalarına
@@ -1462,12 +1452,23 @@ export default async function PanelSayfasi({
           varlığı değil. Sayı kartın üstünde çünkü kartın işi, sayfaya girmeden
           önce "burada bir şey var mı" sorusunu cevaplamak.
         */}
-        <OlcumKarti
-          baslik="GençTek görevlerim"
-          Ikon={BadgeCheck}
-          deger={String(gorevSayisi)}
-          yol="/panel/gorevlerim"
-        />
+        {/*
+          KART YALNIZCA ÖĞRENCİDE (26 Ağustos 2026 · istek: "öğretmendeki
+          GençTek görevlerim ve katkı kartım kartlarını silelim profildeki").
+
+          Görev alma öğretmende de var ama onun görevleri ayrı yerlerden
+          okunuyor (danışmanlık, düzenlediği etkinlikler, rol envanteri);
+          kartın saydığı GençTek görev başvurusu pratikte öğrencinin işi.
+          Sayfa duruyor, yalnızca öğretmenin panosunda kartı basılmıyor.
+        */}
+        {ogrenciMi(kullanici) && (
+          <OlcumKarti
+            baslik="GençTek görevlerim"
+            Ikon={BadgeCheck}
+            deger={String(gorevSayisi)}
+            yol="/panel/gorevlerim"
+          />
+        )}
         {danismanMi(kullanici) && (
           <>
             {/*
@@ -1496,21 +1497,6 @@ export default async function PanelSayfasi({
               deger={String(kapsamdakiOgrenciSayisi)}
               yol="/panel/ogrenciler"
             />
-            {/*
-              KART ARTIK SAYI GÖSTERİYOR (12 Ağustos 2026 · istek: "katkı kartım
-              kartında tıklayın diyor ama katkıların özeti yok kartta"). Metin
-              tek yerde kuruluyor (lib/ogretmen/katki-ozeti.ts) — iki rolde iki
-              ayrı cümle yazılsaydı biri güncellenip öbürü geride kalırdı.
-            */}
-            {katkiOzeti && (
-              <OlcumKarti
-                baslik="Katkı kartım"
-                Ikon={Sparkles}
-                deger={katkiOzeti.deger}
-                aciklama={katkiOzeti.aciklama}
-                yol="/panel/kazanimlarim"
-              />
-            )}
           </>
         )}
 
@@ -1542,15 +1528,6 @@ export default async function PanelSayfasi({
                   yol="/panel/etkinlikler#il-disi"
                 />
               </>
-            )}
-            {katkiOzeti && (
-              <OlcumKarti
-                baslik="Katkı kartım"
-                Ikon={Sparkles}
-                deger={katkiOzeti.deger}
-                aciklama={katkiOzeti.aciklama}
-                yol="/panel/kazanimlarim"
-              />
             )}
           </>
         )}
@@ -1787,13 +1764,14 @@ export default async function PanelSayfasi({
                 yol: "/panel/ogrenciler",
                 Ikon: UserCheck,
               },
-              {
-                etiket: "Raporsuz biten etkinlik",
-                deger: bosluklar.raporsuzFaaliyet,
-                alt: "Bitti ama raporu yazılmadı",
-                yol: "/panel/raporlar",
-                Ikon: FileText,
-              },
+              /*
+                "Raporsuz biten etkinlik" ETKİNLİKLER EKRANINA TAŞINDI
+                (26 Ağustos 2026 · istek: "bu kartı etkinlikler sayfasına
+                alalım"). Sayının karşılığı bir etkinlik listesiydi ve o
+                liste orada; kart burada dururken tıklayan kişi raporlar
+                ekranına düşüyor, aradığı etkinliği ayrıca süzmek zorunda
+                kalıyordu. Şimdi kart, kendi listesinin başında duruyor.
+              */
               {
                 etiket: "Onay bekleyen etkinlik",
                 deger: bosluklar.bekleyenFaaliyetOnayi,
@@ -1808,25 +1786,19 @@ export default async function PanelSayfasi({
                 yol: "/panel/etkinlikler#il-disi",
                 Ikon: ArrowRightLeft,
               },
-              {
-                /*
-                  DANIŞMAN DEĞİŞİKLİĞİ TALEPLERİ (20 Ağustos 2026). Satır
-                  öğretmende ve koordinatörde basılıyor; karşılığı
-                  "Öğrencilerim" ekranının başındaki kuyruk ve bağlantı
-                  doğrudan oraya iniyor.
-
-                  Bekleyen talep, karşılığı BAŞKASININ tıklamasına bağlı olan
-                  tek iş: öğrenci ekranında "onay bekliyor" satırını görüyor ve
-                  bekliyor. Sayaç olmasaydı cevapsız kalan talebin farkına
-                  ancak öğrenci sorunca varılırdı.
-                */
-                etiket: "Bekleyen danışman talebi",
-                deger: bosluklar.bekleyenDanismanTalebi,
-                alt: "Öğrenci danışmanını değiştirmek istiyor",
-                yol: "/panel/ogrenciler#danisman-talepleri",
-                Ikon: UserCheck,
-              },
               /*
+                "Bekleyen danışman talebi" KARTI KALKTI (26 Ağustos 2026 ·
+                istek: "bu kartı silelim ama danışmanlık başvurusu varsa
+                mutlaka bildirime düşsün, ya da danışmanlığı bırakırsa da
+                bildirim gelsin").
+
+                Bildirim ZATEN GİDİYOR ve kaldırılmadı: talep açıldığında
+                istenen öğretmene DANISMAN_TALEBI_GELDI, danışmanlık sona
+                erdiğinde ilgili öğretmene OGRENCI_DANISMANLIKTAN_AYRILDI
+                düşüyor (bkz. lib/danisman/talep.ts ve atama.ts). Kuyruğun
+                kendisi de yerinde: "Öğrencilerim" ekranının başında.
+                Kalkan yalnızca panodaki sayaç.
+              */              /*
                 "Bekleyen bağlantı isteği" satırı kalktı (21 Ağustos 2026 ·
                 istek: "bağlantılarımdan normal mesaj göndermeyi tamamen
                 kaldır"): karara bağlanacak bir istek akışı yok.
