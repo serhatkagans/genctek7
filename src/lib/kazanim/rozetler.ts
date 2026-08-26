@@ -103,7 +103,9 @@ export const ROZETLER: RozetTanimi[] = [
     aciklama: "Ulusal bir etkinliğe katıldın.",
     hedef: 1,
     ilerleme: (girdi) =>
-      girdi.katilimlar.filter((k) => k.kapsam === "ULUSAL").length,
+      girdi.katilimlar.filter(
+        (k) => k.kapsam === "ULUSAL" || k.kapsam === "ULUSLARARASI",
+      ).length,
   },
   {
     kod: "ILGI_ALANI",
@@ -227,7 +229,12 @@ export interface KatilimOzeti {
 }
 
 export function katilimOzeti(katilimlar: KatilimKaydi[]): KatilimOzeti {
-  const kapsamaGore: Record<Kapsam, number> = { OKUL: 0, IL: 0, ULUSAL: 0 };
+  const kapsamaGore: Record<Kapsam, number> = {
+    OKUL: 0,
+    IL: 0,
+    ULUSAL: 0,
+    ULUSLARARASI: 0,
+  };
   const kategoriyeGore: Record<EtkinlikKategorisi, number> = {
     TEMEL_ETKINLIK: 0,
     CALISMA_GRUBU_ETKINLIGI: 0,

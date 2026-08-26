@@ -539,7 +539,9 @@ export function faaliyetKapsamFiltresi(
   const yayindaOlanlar: Prisma.FaaliyetWhereInput = {
     onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
     OR: [
+      /* Ulusal ve uluslararası çağrılar herkese görünür. */
       { kapsam: "ULUSAL" },
+      { kapsam: "ULUSLARARASI" },
       ...(kullanici.kurumKodu !== null
         ? [{ kapsam: "OKUL" as const, kurumKodu: kullanici.kurumKodu }]
         : []),

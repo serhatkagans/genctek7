@@ -40,6 +40,13 @@ const KAPSAM_SINIFLARI: Record<Kapsam, string> = {
   OKUL: "bg-rol-danisman-zemin text-rol-danisman-metin",
   IL: "bg-rol-koordinator-zemin text-rol-koordinator-metin",
   ULUSAL: "bg-rol-yonetici-zemin text-rol-yonetici-metin",
+  /*
+   * ULUSLARARASI, ULUSAL İLE AYNI RENKTE (26 Ağustos 2026): renk bu
+   * rozette "ne kadar geniş kapsam" diyor ve ikisi de en geniş basamak.
+   * Ayrımı rozetin YAZISI taşıyor; beşinci bir renk, dört rolün rengiyle
+   * kurulmuş sözlüğe karşılığı olmayan bir ton eklerdi.
+   */
+  ULUSLARARASI: "bg-rol-yonetici-zemin text-rol-yonetici-metin",
 };
 
 const ONAY_SINIFLARI: Record<OnayDurumu, string> = {

@@ -1305,6 +1305,18 @@ export default async function PanelSayfasi({
             /* E-posta bir VERİ: koordinatör yoksa ya da adres girilmemişse
                satır basılmıyor — kartın değeri zaten "Atanmadı" diyor. */
             aciklama={ilKoordinatorum?.eposta ?? undefined}
+            /*
+              KART TIKLANABİLİR (26 Ağustos 2026 · istek: "bu kartı tıklanabilir
+              istemiştim, koordinatör resmi ve epostası çıkacaktı yeni sayfada").
+
+              Hedef öğretmen envanteri DEĞİL kendi sayfası: envanter kaydı görev
+              geçmişini ve CV'yi de gösteriyor, üstelik öğrenciye kapalı. Buraya
+              bakan kişinin sorusu tek — "ona nasıl ulaşırım".
+
+              Koordinatör atanmamışken de bağlantı duruyor: sayfa o durumu
+              açıkça söylüyor ve kişiye ne yapacağını yazıyor.
+            */
+            yol="/panel/il-koordinatorum"
           />
         )}
 

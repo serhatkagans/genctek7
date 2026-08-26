@@ -240,18 +240,23 @@ export async function ilKoordinatorluguKaldir(
  * girmemiş olabilir, bu yüzden null dönebilir.
  */
 export async function ilKoordinatoruOzeti(ilKodu: string): Promise<{
+  id: number;
   ad: string;
   soyad: string;
   eposta: string | null;
+  /** Fotoğrafın kendisi rotadan gelir; burada yalnızca VAR MI bilgisi. */
+  fotoVarMi: boolean;
 } | null> {
   const rol = await prisma.kullaniciRol.findFirst({
     where: { rolKodu: "IL_KOORDINATOR", ilKodu, bitisTarihi: null },
     select: {
       kullanici: {
         select: {
+          id: true,
           ad: true,
           soyad: true,
           aktif: true,
+          fotoDepolamaYolu: true,
           ogretmenProfil: { select: { eposta: true } },
         },
       },
@@ -263,8 +268,10 @@ export async function ilKoordinatoruOzeti(ilKodu: string): Promise<{
   if (!rol || !rol.kullanici.aktif) return null;
 
   return {
+    id: rol.kullanici.id,
     ad: rol.kullanici.ad,
     soyad: rol.kullanici.soyad,
     eposta: rol.kullanici.ogretmenProfil?.eposta?.trim() || null,
+    fotoVarMi: rol.kullanici.fotoDepolamaYolu !== null,
   };
 }

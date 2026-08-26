@@ -173,7 +173,9 @@ export default async function OgretmenDetaySayfasi({
   // faaliyetleridir (Zirve, Sınır Ötesi, G2S, EğitiJAM); ayrı bir liste
   // tutulmaz, kapsam alanından türetilir.
   const ulusalKatilim = katildigi.filter(
-    (kayit) => kayit.faaliyet.kapsam === "ULUSAL",
+    (kayit) =>
+      kayit.faaliyet.kapsam === "ULUSAL" ||
+      kayit.faaliyet.kapsam === "ULUSLARARASI",
   );
 
   return (

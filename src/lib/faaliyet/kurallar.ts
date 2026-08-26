@@ -29,12 +29,13 @@ import type { OturumKullanicisi } from "../yetki/tipler";
  */
 
 /** Dar kapsamdan geniş kapsama; ekranlardaki sıralama da budur. */
-export const KAPSAMLAR: Kapsam[] = ["OKUL", "IL", "ULUSAL"];
+export const KAPSAMLAR: Kapsam[] = ["OKUL", "IL", "ULUSAL", "ULUSLARARASI"];
 
 export const KAPSAM_ETIKETLERI: Record<Kapsam, string> = {
   OKUL: "Okul içi",
   IL: "İl geneli",
   ULUSAL: "Ulusal",
+  ULUSLARARASI: "Uluslararası",
 };
 
 export const ONAY_DURUMU_ETIKETLERI: Record<OnayDurumu, string> = {
@@ -209,11 +210,13 @@ export function etkinlikKategorisiDogrula(
  * Onları da onay koruyor: açtıkları hiçbir etkinlik doğrudan yayına girmez.
  */
 export function kapsamSecenekleri(kullanici: OturumKullanicisi): Kapsam[] {
-  if (projeYoneticisiMi(kullanici)) return ["IL", "ULUSAL"];
-  if (ilKoordinatoruMu(kullanici)) return ["IL", "ULUSAL"];
-  if (ogrenciMi(kullanici)) return ["OKUL", "IL", "ULUSAL"];
-  if (disKullaniciMi(kullanici)) return ["IL", "ULUSAL"];
-  if (danismanMi(kullanici)) return ["OKUL", "IL", "ULUSAL"];
+  if (projeYoneticisiMi(kullanici)) return ["IL", "ULUSAL", "ULUSLARARASI"];
+  if (ilKoordinatoruMu(kullanici)) return ["IL", "ULUSAL", "ULUSLARARASI"];
+  if (ogrenciMi(kullanici))
+    return ["OKUL", "IL", "ULUSAL", "ULUSLARARASI"];
+  if (disKullaniciMi(kullanici)) return ["IL", "ULUSAL", "ULUSLARARASI"];
+  if (danismanMi(kullanici))
+    return ["OKUL", "IL", "ULUSAL", "ULUSLARARASI"];
   return [];
 }
 
@@ -283,7 +286,13 @@ export function faaliyetYeriBelirle(
       }
       return { kurumKodu: null, ilKodu };
     }
+    /*
+     * ULUSAL VE ULUSLARARASI AYNI YERDE: ikisi de ne bir okula ne bir
+     * ile bağlıdır (26 Ağustos 2026). Ayrımları yerde değil, kartta ve
+     * raporlamada — bu yüzden ayrı bir kapsam değeri.
+     */
     case "ULUSAL":
+    case "ULUSLARARASI":
       return { kurumKodu: null, ilKodu: null };
   }
 }
@@ -550,7 +559,15 @@ export function danismanaKopyaGerekiyorMu(girdi: {
   /** Faaliyeti düzenleyen birimin ili; merkez düzenlediyse null. */
   duzenleyenIlKodu: string | null;
 }): boolean {
-  if (girdi.kapsam !== "ULUSAL") return false;
+  /*
+   * ULUSLARARASI DA KOPYA ÜRETİR (26 Ağustos 2026): kural "öğrenci kendi
+   * ilinin dışındaki bir çağrıya başvurdu" diyor ve yurt dışı katılımı
+   * olan etkinlik bunun en uç hâli. Kapsam ULUSAL diye sabitlenseydi yeni
+   * değer sessizce kuralın dışında kalırdı.
+   */
+  if (girdi.kapsam !== "ULUSAL" && girdi.kapsam !== "ULUSLARARASI") {
+    return false;
+  }
   if (girdi.duzenleyenIlKodu === null) return false;
   return girdi.ogrenciIlKodu !== girdi.duzenleyenIlKodu;
 }

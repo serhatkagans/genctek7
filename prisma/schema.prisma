@@ -184,6 +184,15 @@ enum Kapsam {
   OKUL
   IL
   ULUSAL
+  /// Yurt dışı katılımı olan ya da yurt dışında yapılan etkinlik
+  /// (26 Ağustos 2026 · istek: "yapılacak tüm etkinliklere uluslararasını da
+  /// ekleyelim").
+  ///
+  /// YER BAKIMINDAN ULUSAL İLE AYNI davranır: ne bir okula ne bir ile bağlıdır
+  /// ve herkese görünür. Ayrı bir değer olması, raporlamada ve etkinlik
+  /// kartında ayırt edilebilmesi içindir — "ulusal" demek yurt dışı katılımı
+  /// gizlerdi.
+  ULUSLARARASI
 }
 
 /// Faaliyetin NİTELİĞİ — Kapsam'dan ayrı ve bağımsız bir alandır.

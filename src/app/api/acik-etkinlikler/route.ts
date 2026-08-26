@@ -90,7 +90,7 @@ export async function GET(istek: Request) {
     where: {
       durum: "AKTIF",
       onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
-      kapsam: { in: ["IL", "ULUSAL"] },
+      kapsam: { in: ["IL", "ULUSAL", "ULUSLARARASI"] },
       ...(gecmis ? bitmis : surenVeYaklasan),
     },
     orderBy: { tarih: gecmis ? "desc" : "asc" },

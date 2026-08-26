@@ -1,0 +1,12 @@
+-- Uluslararası kapsam.
+--
+-- İstek (26 Ağustos 2026): "yapılacak tüm etkinliklere uluslararasını da
+-- ekleyelim, o da lazım olacak."
+--
+-- Yer bakımından ULUSAL ile aynı davranır (okula ve ile bağlı değil, herkese
+-- görünür); ayrı bir değer olması etkinlik kartında ve raporlamada ayırt
+-- edilebilmesi içindir.
+--
+-- PostgreSQL 12+ ADD VALUE'yu işlem içinde kabul ediyor; yeni değer AYNI
+-- işlemde kullanılmadığı sürece sorun çıkmaz — bu göç yalnızca değeri ekliyor.
+ALTER TYPE "Kapsam" ADD VALUE IF NOT EXISTS 'ULUSLARARASI';

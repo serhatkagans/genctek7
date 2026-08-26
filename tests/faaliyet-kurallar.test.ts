@@ -15,6 +15,8 @@ import {
   faaliyetAcmaYetkisiVarMi,
   faaliyetIcerikAlabilirMi,
   faaliyetYeriBelirle,
+  KAPSAMLAR,
+  KAPSAM_ETIKETLERI,
   kapsamSecenekleri,
   kontenjanAltSiniri,
   kontenjanDegisikligiGecerliMi,
@@ -41,6 +43,28 @@ import {
 
 describe("kapsam seçenekleri", () => {
   /*
+   * ULUSLARARASI KAPSAM (26 Ağustos 2026 · istek: "yapılacak tüm etkinliklere
+   * uluslararasını da ekleyelim, o da lazım olacak"). Yer bakımından ulusalla
+   * aynı davranır; ayrımı kartta ve raporlamada.
+   */
+  it("uluslararası etkinlik ne okula ne ile bağlıdır", () => {
+    expect(faaliyetYeriBelirle(projeYoneticisiYap(), "ULUSLARARASI", null)).toEqual({
+      kurumKodu: null,
+      ilKodu: null,
+    });
+  });
+
+  it("koordinatörün uluslararası etkinliği merkez onayına gider", () => {
+    expect(onayDurumuBelirle(koordinatorYap(), "ULUSLARARASI")).toBe("BEKLIYOR");
+  });
+
+  it("her kapsamın bir ekran etiketi vardır", () => {
+    for (const kapsam of KAPSAMLAR) {
+      expect(KAPSAM_ETIKETLERI[kapsam]).toBeTruthy();
+    }
+  });
+
+  /*
    * ÖĞRETMEN ÜÇ KAPSAMDA DA AÇAR (26 Ağustos 2026). Kural katmanı bunu zaten
    * söylüyordu — faaliyetAcabilirMi danışmana her kapsamı açık tutuyor ve okul
    * dışı kapsamlar il koordinatörünün onayına gidiyor; geride kalan tek yer
@@ -49,8 +73,13 @@ describe("kapsam seçenekleri", () => {
    * SIRA DAR KAPSAMDAN GENİŞE: formda ilk seçenek varsayılan oluyor ve
    * öğretmenin olağan işi kendi okulunda.
    */
-  it("danışman öğretmen üç kapsamda da faaliyet açabilir", () => {
-    expect(kapsamSecenekleri(danismanYap())).toEqual(["OKUL", "IL", "ULUSAL"]);
+  it("danışman öğretmen dört kapsamda da faaliyet açabilir", () => {
+    expect(kapsamSecenekleri(danismanYap())).toEqual([
+      "OKUL",
+      "IL",
+      "ULUSAL",
+      "ULUSLARARASI",
+    ]);
   });
 
   it("öğretmenin okul dışı faaliyeti onaya gider, okul içi gitmez", () => {
@@ -61,7 +90,11 @@ describe("kapsam seçenekleri", () => {
   });
 
   it("il koordinatörü il ve ulusal faaliyet açar, okul faaliyeti açmaz", () => {
-    expect(kapsamSecenekleri(koordinatorYap())).toEqual(["IL", "ULUSAL"]);
+    expect(kapsamSecenekleri(koordinatorYap())).toEqual([
+      "IL",
+      "ULUSAL",
+      "ULUSLARARASI",
+    ]);
   });
 
   it("YEĞİTEK'e okul kapsamı teklif edilmez", () => {
@@ -75,7 +108,12 @@ describe("kapsam seçenekleri", () => {
    * girmiyor (bkz. "öğrencinin açtığı her faaliyet onay bekler").
    */
   it("öğrenciye üç kapsam da okuldan başlayarak teklif edilir", () => {
-    expect(kapsamSecenekleri(ogrenciYap())).toEqual(["OKUL", "IL", "ULUSAL"]);
+    expect(kapsamSecenekleri(ogrenciYap())).toEqual([
+      "OKUL",
+      "IL",
+      "ULUSAL",
+      "ULUSLARARASI",
+    ]);
   });
 
   it("görev almamış öğretmen faaliyet açamaz", () => {

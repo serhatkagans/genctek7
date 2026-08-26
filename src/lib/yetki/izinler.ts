@@ -286,7 +286,15 @@ export function faaliyetOnayGerekiyorMu(
    * verilir, veritabanındaki satırlar olduğu gibi kalır.
    */
   if (danismanMi(kullanici)) return kapsam !== "OKUL";
-  return kapsam === "ULUSAL" && ilKoordinatoruMu(kullanici);
+  /*
+   * Koordinatörün açtığı ULUSAL ve ULUSLARARASI çağrı merkez görmeden
+   * yayına girmez; ikisi de ülke sınırlarının ötesine ya da tamamına
+   * hitap ediyor.
+   */
+  return (
+    (kapsam === "ULUSAL" || kapsam === "ULUSLARARASI") &&
+    ilKoordinatoruMu(kullanici)
+  );
 }
 
 /**
@@ -369,6 +377,7 @@ export function faaliyetGorunurMu(
     case "IL":
       return faaliyet.ilKodu !== null && faaliyet.ilKodu === kullanici.ilKodu;
     case "ULUSAL":
+    case "ULUSLARARASI":
       return true;
   }
 }
