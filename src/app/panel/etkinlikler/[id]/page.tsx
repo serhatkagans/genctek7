@@ -38,6 +38,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KatlanabilirKart,
   KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
@@ -60,6 +61,7 @@ import {
   basvuruYapilabilirMi,
   ETKINLIK_KATEGORISI_ETIKETLERI,
   faaliyetIcerikAlabilirMi,
+  BASVURU_DURUMU_ETIKETLERI,
   faaliyetSuresiYaz,
   KATILIMCI_TIPI_ETIKETLERI,
   katilimciTipi,
@@ -397,6 +399,22 @@ export default async function FaaliyetDetaySayfasi({
     mevcut.push(yorum);
     yanitlar.set(yorum.ustYorumId, mevcut);
   }
+  /*
+   * KAPALI KUTULARIN ÖZETLERİ (26 Ağustos 2026 · istek: "başlıkları açılır
+   * yapalım kısa özetle").
+   *
+   * Özet, kutuyu açmadan cevaplanması gereken soruyu cevaplar: etkinlik ne
+   * zaman ve kaç kişilik, kendi başvurum ne durumda. Kutunun içindekini
+   * tekrarlamıyor — açılınca zaten hepsi görünüyor ve iki kopya yan yana
+   * dururken hangisinin güncel olduğu belirsizleşirdi.
+   */
+  const bilgiOzeti = [
+    faaliyetSuresiYaz(faaliyet.tarih, faaliyet.bitisTarihi),
+    faaliyet.kurum?.ad ?? faaliyet.il?.ad ?? null,
+    `${kontenjan.secilen}/${faaliyet.kontenjan} kontenjan`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const kokYorumlar = yorumlar.filter((yorum) => yorum.ustYorumId === null);
 
   // Kişinin kendi başvurusu — başkasının başvurusu bu sorgudan gelmez.
@@ -414,6 +432,20 @@ export default async function FaaliyetDetaySayfasi({
       })
     : null;
 
+  const basvuruOzeti =
+    kendiBasvurum && kendiBasvurum.durum !== "GERI_CEKILDI"
+      ? BASVURU_DURUMU_ETIKETLERI[kendiBasvurum.durum]
+      : null;
+
+  /*
+   * Bölüm, YAPILACAK BİR İŞ ya da OKUNACAK BİR KAYIT varsa basılır: pencere
+   * açıksa başvurulabilir, başvuru varsa durumu görünür. İkisi de yoksa kutu
+   * yalnızca bir olumsuzluk cümlesi taşırdı.
+   */
+  const basvurumGoster =
+    kendiAdinaBasvurabilir &&
+    (pencere === "ACIK" ||
+      (kendiBasvurum !== null && kendiBasvurum.durum !== "GERI_CEKILDI"));
   const basvuruKarari = kendiAdinaBasvurabilir
     ? basvuruYapilabilirMi({
         pencere,
@@ -652,8 +684,25 @@ export default async function FaaliyetDetaySayfasi({
         </div>
       )}
 
-      <Kart>
-        <KartBasligi baslik="Etkinlik bilgileri" Ikon={Info} />
+      {/*
+        ÜÇ BÖLÜM AÇILIR KUTU OLDU (26 Ağustos 2026 · istek: "Etkinlik
+        bilgileri · Etkinliği düzenle · Başvurum başlıkları açılır yapalım,
+        kısa özetle").
+
+        Sayfa yukarıdan aşağıya beş altı uzun kartla açılıyordu; en çok
+        bakılan şey (tarih, kontenjan, kendi başvurusunun durumu) kaydırmayı
+        gerektiriyordu. Kapalı kutunun özeti o bilgiyi başlığın yanında
+        veriyor, ayrıntı bir tıklama uzakta.
+
+        ETKİNLİK BİLGİLERİ AÇIK BAŞLIYOR: sayfanın konusu o ve kapalı
+        gelseydi etkinliğe giren kişi boş bir ekran görürdü.
+      */}
+      <KatlanabilirKart
+        baslik="Etkinlik bilgileri"
+        Ikon={Info}
+        baslangictaAcik
+        ozet={<p>{bilgiOzeti}</p>}
+      >
         <MetinBaglantili
           metin={faaliyet.aciklama}
           className="mb-5 whitespace-pre-line text-metin"
@@ -744,7 +793,7 @@ export default async function FaaliyetDetaySayfasi({
             </div>
           </div>
         )}
-      </Kart>
+      </KatlanabilirKart>
 
       {onayBekliyor && (
         <Kart>
@@ -819,12 +868,13 @@ export default async function FaaliyetDetaySayfasi({
         koordinatörü, ve her durumda proje yöneticisi.
       */}
       {ekYonetebilir && faaliyet.durum === "AKTIF" && (
-        <Kart>
-          <KartBasligi
-            baslik="Etkinliği düzenle"
-            aciklama="Tarih ve kontenjan değiştirilebilir. Kontenjan, seçilmiş öğrenci sayısının altına düşürülemez."
-            Ikon={PencilLine}
-          />
+        <KatlanabilirKart
+          baslik="Etkinliği düzenle"
+          aciklama="Tarih ve kontenjan değiştirilebilir. Kontenjan, seçilmiş öğrenci sayısının altına düşürülemez."
+          Ikon={PencilLine}
+          duzenlenebilir
+          capa="etkinligi-duzenle"
+        >
 
           <form action={faaliyetDuzenleEylemi} className="space-y-4">
             <input type="hidden" name="faaliyetId" value={faaliyet.id} />
@@ -954,12 +1004,25 @@ export default async function FaaliyetDetaySayfasi({
             </form>
           </div>
           )}
-        </Kart>
+        </KatlanabilirKart>
       )}
 
-      {kendiAdinaBasvurabilir && (
-        <Kart>
-          <KartBasligi baslik="Başvurum" Ikon={Send} />
+      {/*
+        KAPALI PENCEREDE BÖLÜM HİÇ BASILMAZ (26 Ağustos 2026 · istek:
+        "Başvurum · Başvuru süresi doldu. bunu sil").
+
+        Başvurusu olmayan kişi, süresi geçmiş bir etkinlikte yalnızca
+        "Başvuru süresi doldu." yazan bir kutu görüyordu: yapacak işi olmayan
+        bir bölüm. Başvurusu OLAN kişide bölüm duruyor — kendi kaydını ve
+        durumunu okuyabilmeli.
+      */}
+      {basvurumGoster && (
+        <KatlanabilirKart
+          baslik="Başvurum"
+          Ikon={Send}
+          baslangictaAcik={kendiBasvurum === null}
+          ozet={basvuruOzeti ? <p>{basvuruOzeti}</p> : undefined}
+        >
 
           {kendiBasvurum && kendiBasvurum.durum !== "GERI_CEKILDI" ? (
             <div className="space-y-4">
@@ -1048,10 +1111,16 @@ export default async function FaaliyetDetaySayfasi({
               {basvuruKarari.neden ?? "Bu etkinliğe başvuramazsınız."}
             </p>
           )}
-        </Kart>
+        </KatlanabilirKart>
       )}
 
-      {vekaletenBasvurabilir && (
+      {/*
+        AYNI KURAL VEKÂLETEN BAŞVURUDA DA (26 Ağustos 2026 · istek: "Öğrenci
+        adına başvuru … Başvuru penceresi kapalı. bunu da sil"). Pencere
+        kapalıyken bölüm bir açıklama paragrafı ve bir olumsuzluk cümlesinden
+        ibaretti.
+      */}
+      {vekaletenBasvurabilir && basvuruPenceresi(faaliyet, simdi) === "ACIK" && (
         <Kart>
           <KartBasligi
             baslik="Öğrenci adına başvuru"
@@ -1472,47 +1541,172 @@ export default async function FaaliyetDetaySayfasi({
 
         Kart artık başvuru kartından bağımsız ve kendi yetkisini soruyor.
       */}
+      {/*
+        İKİ AYRI BÖLÜM (26 Ağustos 2026 · istek: "Rapor ve belgeler bunun
+        adını bilgi notu ve belgeleme diye ayrı ayrı bölüm yap").
+
+        Tek kartta iki düğme yan yana duruyordu ve ikisi farklı işler: biri
+        etkinliğin nasıl geçtiğini YAZMAK, öbürü katılanlara belge ÜRETMEK.
+        İkincisi birincisine bağlı (rapor yazılmadan belge yok) ve bu bağ,
+        iki bölüm ayrı durduğunda sıra olarak okunuyor.
+      */}
       {yurutucuMu && (
         <Kart>
           <KartBasligi
-            baslik="Rapor ve belgeler"
-            aciklama="Sıra: yoklama → etkinlik raporu → belgeler. Belge, kişinin GençTek Yolculuğu'na katılım düşürdüğü için son adımdır."
+            baslik="Bilgi notu"
+            aciklama="Etkinliğin nasıl geçtiğini yazın: değerlendirme, kazanımlar ve görseller."
             Ikon={FileText}
           />
-          <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
+            className={SINIF_IKINCIL_BUTON}
+          >
+            <FileText size={16} aria-hidden />
+            Bilgi notunu aç
+          </Link>
+        </Kart>
+      )}
+
+      {yurutucuMu && (
+        <Kart>
+          <KartBasligi
+            baslik="Belgeleme"
+            aciklama="Sıra: yoklama → bilgi notu → belge. Belge, kişinin GençTek Yolculuğu'na katılım düşürdüğü için son adımdır."
+            Ikon={Award}
+          />
+
+          {/*
+            YOKLAMA BELGELEMENİN İÇİNDE (26 Ağustos 2026 · istek: "Yoklama bu
+            alanı yeni oluşturacağımız belgeleme alanına ekleyelim").
+
+            Yoklama kendi kartındaydı ve belge kartından ayrı duruyordu; oysa
+            ikisi tek bir işin iki adımı — belge yalnızca "geldi"
+            işaretlenenlere üretilebiliyor (bkz. lib/belge/kapi.ts). Ayrı
+            dururken sıra görünmüyordu: öğretmen belgeye gidiyor, kapıyı
+            kapalı buluyor ve yoklamayı aramak için geri dönüyordu.
+
+            KAPI AYNI KALDI: yoklama yalnızca bitmiş etkinlikte açılıyor
+            (yoklamaKapisi), yapılmamış bir etkinliğin yoklaması alınamaz.
+          */}
+          {yoklamaKapisi.olurMu && (
+            <div className="mb-5 border-b border-cizgi pb-5">
+        <KartBasligi
+          baslik="Yoklama"
+          aciklama={
+            yoklamaListesi.length === 0
+              ? "Bu etkinliğe seçilmiş katılımcı yok."
+              : `${yoklamaSayilari.gelen} geldi · ${yoklamaSayilari.gelmeyen} gelmedi · ${yoklamaSayilari.isaretlenmeyen} işaretlenmedi`
+          }
+          Ikon={UserCheck}
+        />
+
+        {yoklamaListesi.length === 0 ? (
+          <p className="text-metin-yumusak">
+            Yoklama, seçilmiş katılımcılar üzerinden alınır. Listede olmayan
+            konuşmacı ve destek verenler için belge, yoklamadan bağımsız
+            üretilir.
+          </p>
+        ) : (
+          <form action={yoklamaKaydetEylemi} className="space-y-4">
+            <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+
+            <ul className="divide-y divide-cizgi">
+              {yoklamaListesi.map((satir) => (
+                <li
+                  key={satir.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-metin">
+                      {satir.katilimci.ad} {satir.katilimci.soyad}
+                    </p>
+                    <p className="text-sm text-metin-yumusak">
+                      {[
+                        satir.katilimci.sinif ?? satir.katilimci.brans,
+                        satir.katilimci.kurum?.ad,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </p>
+                  </div>
+                  {/*
+                    ÜÇ SEÇENEK, İKİ DEĞİL: "işaretlenmedi" geçerli bir cevap
+                    ve varsayılan o. İki seçenek olsaydı formu açan herkes
+                    farkında olmadan bir beyanda bulunmuş olurdu.
+                  */}
+                  <div className="flex shrink-0 flex-wrap gap-3 text-sm">
+                    {(
+                      [
+                        ["evet", "Geldi"],
+                        ["hayir", "Gelmedi"],
+                        ["", "İşaretlenmedi"],
+                      ] as const
+                    ).map(([deger, etiket]) => (
+                      <label
+                        key={etiket}
+                        className="flex items-center gap-1.5 text-metin"
+                      >
+                        <input
+                          type="radio"
+                          name={`yoklama-${satir.id}`}
+                          value={deger}
+                          defaultChecked={
+                            satir.katildiMi === true
+                              ? deger === "evet"
+                              : satir.katildiMi === false
+                                ? deger === "hayir"
+                                : deger === ""
+                          }
+                          className="h-4 w-4 border-cizgi accent-[var(--renk-birincil)]"
+                        />
+                        {etiket}
+                      </label>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                <UserCheck size={16} aria-hidden />
+                Yoklamayı kaydet
+              </button>
+              <p className="text-sm text-metin-yumusak">
+                Yalnızca &quot;geldi&quot; işaretlenenlerin GençTek
+                Yolculuğu&apos;na bu etkinlik düşer ve belge yalnızca onlara
+                üretilebilir.
+              </p>
+            </div>
+          </form>
+        )}
+            </div>
+          )}
+          {/*
+            BELGE DÜĞMESİ BİLGİ NOTUNA BAĞLI (12 Ağustos 2026 · istek:
+            "etkinlik raporu yazılmadan belge oluştur seçeneği olmamalı").
+            Kapı yalnızca burada değil belge üreten yolların hepsinde
+            soruluyor (bkz. lib/belge/kapi.ts) — kapalı düğme bir güvenlik
+            önlemi değil, kullanıcıyı boşuna tıklatmama nezaketi.
+          */}
+          {belgeKapisiKarari.olurMu ? (
             <Link
-              href={`/panel/etkinlikler/${faaliyet.id}/rapor`}
+              href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
               className={SINIF_IKINCIL_BUTON}
             >
-              <FileText size={16} aria-hidden />
-              Etkinlik raporu
+              <Award size={16} aria-hidden />
+              Katılım / teşekkür belgesi
             </Link>
-            {/*
-              BELGE DÜĞMESİ RAPORA BAĞLI (12 Ağustos 2026 · istek: "etkinlik
-              raporu yazılmadan belge oluştur seçeneği olmamalı"). Kapı yalnızca
-              burada değil belge üreten yolların hepsinde soruluyor
-              (bkz. lib/belge/kapi.ts) — kapalı düğme bir güvenlik önlemi değil,
-              yalnızca kullanıcıyı boşuna tıklatmama nezaketi.
-            */}
-            {belgeKapisiKarari.olurMu ? (
-              <Link
-                href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
-                className={SINIF_IKINCIL_BUTON}
-              >
-                <Award size={16} aria-hidden />
-                Katılım / teşekkür belgesi
-              </Link>
-            ) : (
-              <span
-                className={`${SINIF_IKINCIL_BUTON} cursor-not-allowed opacity-50`}
-                aria-disabled
-                title={belgeKapisiKarari.neden ?? undefined}
-              >
-                <Award size={16} aria-hidden />
-                Katılım / teşekkür belgesi
-              </span>
-            )}
-          </div>
+          ) : (
+            <span
+              className={`${SINIF_IKINCIL_BUTON} cursor-not-allowed opacity-50`}
+              aria-disabled
+              title={belgeKapisiKarari.neden ?? undefined}
+            >
+              <Award size={16} aria-hidden />
+              Katılım / teşekkür belgesi
+            </span>
+          )}
           {!belgeKapisiKarari.olurMu && (
             <p className="mt-3 text-sm text-metin-yumusak">
               {belgeKapisiKarari.neden}
@@ -1521,112 +1715,6 @@ export default async function FaaliyetDetaySayfasi({
         </Kart>
       )}
 
-      {/*
-        YOKLAMA (12 Ağustos 2026 · istek: "öğrenci etkinliğe gelmedi ama GençTek
-        Yolculuğum'da katıldı görünüyor, bunun kontrolünü nasıl sağlarız").
-
-        Seçilmiş olmak "katılabilir" demekti, ekranlar ise onu "katıldı" diye
-        okuyordu. Yoklama bu ikisinin arasına etkinliği yürüten kişinin beyanını
-        koyuyor: katılım geçmişi ve belge üretimi artık buradan besleniyor.
-
-        KART YALNIZCA BİTMİŞ ETKİNLİKTE: yapılmamış bir etkinliğin yoklaması
-        alınamaz ve düğmeyi erken göstermek, öğretmeni etkinlikten önce karar
-        vermeye davet ederdi.
-      */}
-      {yurutucuMu && yoklamaKapisi.olurMu && (
-        <Kart>
-          <KartBasligi
-            baslik="Yoklama"
-            aciklama={
-              yoklamaListesi.length === 0
-                ? "Bu etkinliğe seçilmiş katılımcı yok."
-                : `${yoklamaSayilari.gelen} geldi · ${yoklamaSayilari.gelmeyen} gelmedi · ${yoklamaSayilari.isaretlenmeyen} işaretlenmedi`
-            }
-            Ikon={UserCheck}
-          />
-
-          {yoklamaListesi.length === 0 ? (
-            <p className="text-metin-yumusak">
-              Yoklama, seçilmiş katılımcılar üzerinden alınır. Listede olmayan
-              konuşmacı ve destek verenler için belge, yoklamadan bağımsız
-              üretilir.
-            </p>
-          ) : (
-            <form action={yoklamaKaydetEylemi} className="space-y-4">
-              <input type="hidden" name="faaliyetId" value={faaliyet.id} />
-
-              <ul className="divide-y divide-cizgi">
-                {yoklamaListesi.map((satir) => (
-                  <li
-                    key={satir.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-metin">
-                        {satir.katilimci.ad} {satir.katilimci.soyad}
-                      </p>
-                      <p className="text-sm text-metin-yumusak">
-                        {[
-                          satir.katilimci.sinif ?? satir.katilimci.brans,
-                          satir.katilimci.kurum?.ad,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || "—"}
-                      </p>
-                    </div>
-                    {/*
-                      ÜÇ SEÇENEK, İKİ DEĞİL: "işaretlenmedi" geçerli bir cevap
-                      ve varsayılan o. İki seçenek olsaydı formu açan herkes
-                      farkında olmadan bir beyanda bulunmuş olurdu.
-                    */}
-                    <div className="flex shrink-0 flex-wrap gap-3 text-sm">
-                      {(
-                        [
-                          ["evet", "Geldi"],
-                          ["hayir", "Gelmedi"],
-                          ["", "İşaretlenmedi"],
-                        ] as const
-                      ).map(([deger, etiket]) => (
-                        <label
-                          key={etiket}
-                          className="flex items-center gap-1.5 text-metin"
-                        >
-                          <input
-                            type="radio"
-                            name={`yoklama-${satir.id}`}
-                            value={deger}
-                            defaultChecked={
-                              satir.katildiMi === true
-                                ? deger === "evet"
-                                : satir.katildiMi === false
-                                  ? deger === "hayir"
-                                  : deger === ""
-                            }
-                            className="h-4 w-4 border-cizgi accent-[var(--renk-birincil)]"
-                          />
-                          {etiket}
-                        </label>
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                  <UserCheck size={16} aria-hidden />
-                  Yoklamayı kaydet
-                </button>
-                <p className="text-sm text-metin-yumusak">
-                  Yalnızca &quot;geldi&quot; işaretlenenlerin GençTek
-                  Yolculuğu&apos;na bu etkinlik düşer ve belge yalnızca onlara
-                  üretilebilir.
-                </p>
-              </div>
-            </form>
-          )}
-        </Kart>
-      )}
 
       {degerlendirebilir && (
         <Kart>
