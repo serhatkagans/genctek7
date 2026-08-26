@@ -298,6 +298,30 @@ describe("mesajYazilabilirMi", () => {
     ).toBe(true);
   });
 
+  /*
+   * DOĞRUDAN YAZIŞMA (26 Ağustos 2026 · hata kimliği 2929174704): okul içi ve
+   * okul temsilcisi yazışması onaydan geçmez, kaydı `ONAY_GEREKMEZ` açılır.
+   * Kural yalnızca `ONAYLANDI` kabul etseydi, açılan yazışmaya hiç mesaj
+   * yazılamazdı.
+   */
+  it("onay gerektirmeyen yazışmaya yazılabilir", () => {
+    expect(
+      mesajYazilabilirMi({
+        onayDurumu: "ONAY_GEREKMEZ",
+        yazismaKapatildiMi: false,
+      }).olurMu,
+    ).toBe(true);
+  });
+
+  it("onay gerektirmeyen yazışma kapatılmışsa yazılamaz", () => {
+    expect(
+      mesajYazilabilirMi({
+        onayDurumu: "ONAY_GEREKMEZ",
+        yazismaKapatildiMi: true,
+      }).olurMu,
+    ).toBe(false);
+  });
+
   it("onay beklerken yazılamaz", () => {
     expect(
       mesajYazilabilirMi({ onayDurumu: "BEKLIYOR", yazismaKapatildiMi: false })

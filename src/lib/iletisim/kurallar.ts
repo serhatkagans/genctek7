@@ -449,12 +449,20 @@ export const PANO_ILANI_DURUM_ETIKETLERI: Record<OnayDurumu, string | null> = {
   REDDEDILDI: "Reddedildi",
 };
 
-/** Yazışmaya mesaj yazılabilir mi? */
+/**
+ * Yazışmaya mesaj yazılabilir mi?
+ *
+ * İKİ DURUM YAZDIRIR: onaydan geçmiş bağlantı (`ONAYLANDI`) ve onay
+ * gerektirmeyen doğrudan yazışma (`ONAY_GEREKMEZ` — okul içi ve okul
+ * temsilcileri). İkincisi 26 Ağustos 2026'da eklendi; o güne kadar doğrudan
+ * yazışma kaydı "onaylandı" diye açılmaya çalışılıyor ve veritabanı kısıtına
+ * takılıyordu (bkz. baglanti-eylemleri.ts).
+ */
 export function mesajYazilabilirMi(girdi: {
   onayDurumu: OnayDurumu;
   yazismaKapatildiMi: boolean;
 }): { olurMu: boolean; neden?: string } {
-  if (girdi.onayDurumu !== "ONAYLANDI") {
+  if (girdi.onayDurumu !== "ONAYLANDI" && girdi.onayDurumu !== "ONAY_GEREKMEZ") {
     return { olurMu: false, neden: "Bu bağlantı onaylanmadı." };
   }
   if (girdi.yazismaKapatildiMi) {

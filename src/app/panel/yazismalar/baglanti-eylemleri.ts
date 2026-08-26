@@ -55,9 +55,16 @@ function hataylaDon(yol: string, mesaj: string): never {
  * bakarak veriliyor — form girdisinden yalnızca hedefin kimliği okunuyor.
  *
  * KAYIT MODELİ DEĞİŞMEDİ: yazışma yine bir `BaglantiIstegi` satırına bağlı
- * (`Yazisma`nın birincil anahtarı odur). Kayıt `ONAYLANDI` olarak, karar veren
- * boş bırakılarak açılıyor — "onaydan geçti" değil "onay gerekmedi" demek
- * için; kararı kimin verdiği sorulduğunda ortada bir karar yok.
+ * (`Yazisma`nın birincil anahtarı odur). Kayıt `ONAY_GEREKMEZ` olarak açılıyor:
+ * "onaydan geçti" değil "onay gerekmedi" demek için; kararı kimin verdiği
+ * sorulduğunda ortada bir karar yok.
+ *
+ * DURUM ÖNCE `ONAYLANDI` YAZILIYORDU ve mesaj gönderme ilk günden beri hata
+ * veriyordu (26 Ağustos 2026 · hata kimliği 2929174704): veritabanındaki
+ * `ck_baglanti_istegi_karari`, bekleyen olmayan her satırda karar verenin ve
+ * karar tarihinin yazılı olmasını şart koşuyor, doğrudan yazışmada ise karar
+ * veren yok. Kısıt haklıydı — yanlış olan, kararsız bir satıra "onaylandı"
+ * demekti. Enumda bu durumun karşılığı zaten vardı.
  *
  * GÖZETİM AYNEN DURUYOR: bu yazışmayı da danışman, il koordinatörü ve proje
  * yöneticisi okuyabiliyor (yazismaKapsamFiltresi bağlantı isteğinin taraflarına
@@ -114,7 +121,7 @@ export async function dogrudanYazismaAcEylemi(veri: FormData): Promise<void> {
    */
   const mevcut = await prisma.baglantiIstegi.findFirst({
     where: {
-      onayDurumu: { in: ["ONAYLANDI", "BEKLIYOR"] },
+      onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI", "BEKLIYOR"] },
       OR: [
         { isteyenKullaniciId: kullanici.id, hedefKullaniciId: hedef.id },
         { isteyenKullaniciId: hedef.id, hedefKullaniciId: kullanici.id },
@@ -144,8 +151,8 @@ export async function dogrudanYazismaAcEylemi(veri: FormData): Promise<void> {
             isteyenKullaniciId: kullanici.id,
             hedefKullaniciId: hedef.id,
             mesaj: "Okul içi doğrudan yazışma — onay gerekmedi.",
-            onayDurumu: "ONAYLANDI",
-            kararTarihi: new Date(),
+            // Karar veren ve karar tarihi BOŞ KALIR: ortada bir karar yok.
+            onayDurumu: "ONAY_GEREKMEZ",
           },
           select: { id: true },
         });
