@@ -1,3 +1,4 @@
+import { kazanimGrubununTipleri } from "@/lib/kazanim/kurallar";
 import type { Prisma } from "@/generated/prisma/client";
 import type { PaydasTuru } from "@/generated/prisma/enums";
 import {
@@ -133,15 +134,13 @@ export interface OgrenciListeFiltreleri {
    * ARAMA EKSENİ hâline getiren süzgeçti — plandaki "yeni bir deneyim tablosu"
    * fikri uygulamada terk edildi; ikinci bir tablo mevcut modeli ikizlerdi.
    *
-   * `kazanimTipi` kazanımın türünü ("GençTek dışı etkinlik"), `kazanimAra` ise
-   * başlığında geçen metni ("teknofest") daraltır. İkisi birlikte AYNI kazanım
-   * kaydında aranır: tipi eşleşen bir kayıt ile metni eşleşen BAŞKA bir kaydı
-   * olan öğrenci sonuçta çıkmamalı — "TEKNOFEST'e katılmış" ile "bir yarışması
-   * ve ayrıca bir sertifikası var" farklı şeyler.
+   * SÜZGEÇ GRUP BAZINDA (26 Ağustos 2026 · istek: "ürünlere göre,
+   * topluluklara göre, deneyimlerime göre filtrelesin"). Önce tek tek tipler
+   * listeleniyordu ve yanında bir de serbest metin araması vardı; ikisi de
+   * kalktı. Profilde kayıtlar üç başlık altında duruyor (Ürünlerim,
+   * Deneyimlerim, Topluluklarım) ve süzgeç artık aynı üçünü kullanıyor.
    */
-  kazanimTipi?: string | null;
-  /** Kazanım başlığında geçen metin. */
-  kazanimAra?: string | null;
+  kazanimGrubu?: string | null;
 }
 
 /**
@@ -185,27 +184,18 @@ export function ogrenciListeFiltresi(
     });
   }
   /*
-   * DENEYİM: tip ve metin TEK `some` içinde. Ayrı iki `some` yazılsaydı iki
-   * FARKLI kazanım kaydıyla eşleşen öğrenci de listeye girerdi.
+   * PROFİLDE ARAMA: seçilen grubun kapsadığı tiplerden EN AZ BİRİ kişide
+   * varsa satır listede kalır. Tanınmayan kod süzgeci hiç uygulamıyor
+   * (bkz. kazanimGrubununTipleri) — boş dizi ile sorgulamak, filtrenin
+   * çalıştığını sanan kullanıcıya boş liste verirdi.
    */
-  if (filtreler.kazanimTipi || filtreler.kazanimAra?.trim()) {
-    kosullar.push({
-      kazanimlar: {
-        some: {
-          ...(filtreler.kazanimTipi
-            ? { tip: filtreler.kazanimTipi as never }
-            : {}),
-          ...(filtreler.kazanimAra?.trim()
-            ? {
-                baslik: {
-                  contains: filtreler.kazanimAra.trim(),
-                  mode: "insensitive" as const,
-                },
-              }
-            : {}),
-        },
-      },
-    });
+  if (filtreler.kazanimGrubu) {
+    const tipler = kazanimGrubununTipleri(filtreler.kazanimGrubu);
+    if (tipler) {
+      kosullar.push({
+        kazanimlar: { some: { tip: { in: tipler as never[] } } },
+      });
+    }
   }
 
   if (filtreler.calismaGrubuId) {

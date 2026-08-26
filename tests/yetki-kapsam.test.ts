@@ -363,51 +363,58 @@ describe("öğrenci liste filtreleri: okul türü ve eğitim-öğretim yılı", 
   });
 });
 
-describe("ogrenciListeFiltresi · deneyim süzgeci (Aşama 8)", () => {
-  it("tip ve metni TEK kazanım kaydında arar", () => {
-    /*
-     * Ayrı iki `some` yazılsaydı, tipi eşleşen BİR kaydı ve metni eşleşen
-     * BAŞKA bir kaydı olan öğrenci de listeye girerdi. "TEKNOFEST'e katılmış"
-     * ile "bir yarışması ve ayrıca bir sertifikası var" farklı şeyler.
-     */
+describe("ogrenciListeFiltresi · profilde arama süzgeci", () => {
+  /*
+   * SÜZGEÇ GRUP BAZINDA (26 Ağustos 2026 · istek: "ürünlere göre,
+   * topluluklara göre, deneyimlerime göre filtrelesin"). Önce tek tek
+   * kazanım tipleri listeleniyor, yanında da başlıkta metin arayan bir alan
+   * duruyordu; ikisi de kalktı. Profildeki üç başlık esas alınıyor.
+   */
+  it("grubun kapsadığı TÜM tipleri arar", () => {
     const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
-      kazanimTipi: "DIS_ETKINLIK",
-      kazanimAra: "teknofest",
+      kazanimGrubu: "DENEYIMLERIM",
     });
 
     const metin = JSON.stringify(kosul);
-    const someSayisi = (metin.match(/"kazanimlar"/g) ?? []).length;
-
-    expect(someSayisi).toBe(1);
+    expect(metin).toContain("GENCTEK_ETKINLIGI");
+    expect(metin).toContain("YARISMA_DERECESI");
+    expect(metin).toContain("SERTIFIKA");
     expect(metin).toContain("DIS_ETKINLIK");
-    expect(metin).toContain("teknofest");
   });
 
-  it("yalnızca tip verildiğinde metin koşulu koymaz", () => {
+  it("tek tipli grupta yalnızca o tipi arar", () => {
     const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
-      kazanimTipi: "YARISMA_DERECESI",
+      kazanimGrubu: "URUNLERIM",
     });
 
-    expect(JSON.stringify(kosul)).toContain("YARISMA_DERECESI");
-    expect(JSON.stringify(kosul)).not.toContain("baslik");
+    const metin = JSON.stringify(kosul);
+    expect(metin).toContain("URUN");
+    expect(metin).not.toContain("SERTIFIKA");
   });
 
-  it("yalnızca metin verildiğinde tip koşulu koymaz", () => {
+  it("kazanım koşulu TEK `some` içinde kurulur", () => {
     const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
-      kazanimAra: "tübitak",
+      kazanimGrubu: "TOPLULUKLARIM",
     });
 
-    expect(JSON.stringify(kosul)).toContain("tübitak");
-    expect(JSON.stringify(kosul)).not.toContain('"tip"');
+    const metin = JSON.stringify(kosul);
+    expect((metin.match(/"kazanimlar"/g) ?? []).length).toBe(1);
   });
 
-  it("boşluktan ibaret aramayı süzgeç saymaz", () => {
-    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), { kazanimAra: "   " });
+  /*
+   * Tanınmayan kod süzgeci HİÇ UYGULAMAZ. Boş dizi ile sorgulansaydı
+   * (`tip: { in: [] }`) hiçbir öğrenci dönmez, kullanıcı da filtrenin
+   * çalıştığını sanırdı.
+   */
+  it("tanınmayan grup kodu koşul eklemez", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
+      kazanimGrubu: "OLMAYAN_GRUP",
+    });
 
     expect(JSON.stringify(kosul)).not.toContain("kazanimlar");
   });
 
-  it("hiç deneyim süzgeci yokken kazanım koşulu eklemez", () => {
+  it("hiç süzgeç yokken kazanım koşulu eklemez", () => {
     const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {});
 
     expect(JSON.stringify(kosul)).not.toContain("kazanimlar");

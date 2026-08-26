@@ -515,6 +515,26 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
 ];
 
 /**
+ * Bir Bilişim Yolculuğu grubunun kapsadığı kazanım tipleri.
+ *
+ * ÖĞRENCİ ENVANTERİNDEKİ SÜZGEÇ İÇİN (26 Ağustos 2026 · istek: "Deneyim
+ * türü bu filtre ürünlere göre, topluluklara göre, deneyimlerime göre
+ * filtrelesin"). Süzgeç önce tek tek TİPLERİ listeliyordu — sekiz seçenek,
+ * biri "GençTek dışı etkinlikler" gibi kişinin kendi diliyle örtüşmeyen
+ * adlar. Profilde bunlar zaten üç başlık altında duruyor; süzgeç de o üç
+ * başlığı kullanıyor.
+ *
+ * Tanınmayan kod için `null`: süzgeç o zaman hiç uygulanmıyor. Boş dizi
+ * dönseydi `tip: { in: [] }` hiçbir öğrenci döndürmez, kullanıcı da
+ * filtrenin çalıştığını sanırdı.
+ */
+export function kazanimGrubununTipleri(
+  kod: string,
+): readonly KazanimTipi[] | null {
+  const grup = BILISIM_YOLCULUGU_GRUPLARI.find((aday) => aday.kod === kod);
+  return grup ? grup.tipler : null;
+}
+/**
  * Her grubun kayıt ekleme sekmeleri.
  *
  * Arşivlenmiş tipler ELENİR: giriş formunda kapanmış bir tür görünmemeli.

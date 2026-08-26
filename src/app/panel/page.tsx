@@ -1288,7 +1288,42 @@ export default async function PanelSayfasi({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/*
-          YAKLAŞAN ETKİNLİĞİM — IZGARANIN BAŞINDA (13 Ağustos 2026).
+          İL KOORDİNATÖRÜM — IZGARANIN İLK KARTI (26 Ağustos 2026 · istek:
+          "danışman öğretmen profil sayfasında ilk kart İl koordinatörüm
+          olsun").
+
+          Kart daha önce sayım kartlarının ardında, ızgaranın ortasındaydı.
+          Okul personeli için burası bir sayım değil BİR MUHATAP: ile dair
+          her soruda önce onu arıyor. Yalnızca okul personelinde basıldığı
+          için (koordinatorGosterilir) öğrencinin, koordinatörün ve merkezin
+          ızgara sırası değişmiyor.
+        */}
+        {koordinatorGosterilir && (
+          <OlcumKarti
+            baslik="İl koordinatörüm"
+            Ikon={MapPin}
+            deger={
+              ilKoordinatorum
+                ? `${ilKoordinatorum.ad} ${ilKoordinatorum.soyad}`
+                : "Atanmadı"
+            }
+            /*
+             * E-posta kişinin kendi girdiği alandır, boş olabilir. Boşken
+             * "—" yazmak yerine ne yapılacağı söyleniyor: öğretmen
+             * koordinatöre ulaşmak istediğinde çıkmaz sokakta kalmasın.
+             */
+            /* E-posta bir VERİ: koordinatör yoksa ya da adres girilmemişse
+               satır basılmıyor — kartın değeri zaten "Atanmadı" diyor. */
+            aciklama={ilKoordinatorum?.eposta ?? undefined}
+          />
+        )}
+
+        {/*
+          YAKLAŞAN ETKİNLİĞİM — HERKESTE BASILAN İLK KART (13 Ağustos 2026).
+
+          26 Ağustos'ta önüne "İl koordinatörüm" geçti ama YALNIZCA okul
+          personelinde; öğrencide, koordinatörde ve merkezde ızgaranın ilk
+          kartı hâlâ bu.
 
           Kartların geri kalanı ayar ve sayım: danışman seçimi, grup seçimi,
           başvuru adedi. Bunlarda acele yoktur. Buradaki tek tarihli taahhüt
@@ -1480,25 +1515,6 @@ export default async function PanelSayfasi({
         )}
 
 
-        {koordinatorGosterilir && (
-          <OlcumKarti
-            baslik="İl koordinatörüm"
-            Ikon={MapPin}
-            deger={
-              ilKoordinatorum
-                ? `${ilKoordinatorum.ad} ${ilKoordinatorum.soyad}`
-                : "Atanmadı"
-            }
-            /*
-             * E-posta kişinin kendi girdiği alandır, boş olabilir. Boşken
-             * "—" yazmak yerine ne yapılacağı söyleniyor: öğretmen
-             * koordinatöre ulaşmak istediğinde çıkmaz sokakta kalmasın.
-             */
-            /* E-posta bir VERİ: koordinatör yoksa ya da adres girilmemişse
-               satır basılmıyor — kartın değeri zaten "Atanmadı" diyor. */
-            aciklama={ilKoordinatorum?.eposta ?? undefined}
-          />
-        )}
 
         {ilKoordinatoruMu(kullanici) && (
           <>

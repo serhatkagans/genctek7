@@ -5,8 +5,6 @@ import {
   ChevronRight,
   Filter,
   Hourglass,
-  ShieldCheck,
-  UserCheck,
   UserPlus,
   X,
 } from "lucide-react";
@@ -23,10 +21,7 @@ import {
 import { YolIzi } from "@/components/YonetimKartlari";
 import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import {
-  BILISIM_YOLCULUGU_TIPLERI,
-  KAZANIM_TIPLERI,
-} from "@/lib/kazanim/kurallar";
+import { BILISIM_YOLCULUGU_GRUPLARI } from "@/lib/kazanim/kurallar";
 import {
   gorevRoluAtaEylemi,
   gorevRoluKaldirEylemi,
@@ -41,10 +36,7 @@ import { bekleyenTalepleriGetir } from "@/lib/danisman/talep";
 import { tarihSaatYaz } from "@/lib/tarih";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import { prisma } from "@/lib/db";
-import {
-  egitimOgretimYillariGetir,
-  okulTurleriGetir,
-} from "@/lib/rapor/secenekler";
+import { egitimOgretimYillariGetir } from "@/lib/rapor/secenekler";
 import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciListeFiltresi as ogrenciListesiFiltresi } from "@/lib/yetki/kapsam";
 import {
@@ -54,6 +46,7 @@ import {
   ogrenciEnvanteriGorebilirMi,
   okulTemsilcisiAtayabilirMi,
   projeYoneticisiMi,
+  yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import {
@@ -158,6 +151,71 @@ function OkulTemsilcisiHucresi({
   );
 }
 
+/**
+ * Satır başına "Danışmanlığı bırak" hücresi.
+ *
+ * LİSTENİN İÇİNDE (26 Ağustos 2026 · istek: "Danışmanlığımdaki öğrenciler …
+ * komple kalksın … bu listeye ekleyelim butonları, yani danışmanlığı bırak
+ * butonları").
+ *
+ * Aynı öğrenciler ekranda iki kez duruyordu: üstte "Danışmanlığımdaki
+ * öğrenciler" kartı, altta envanter tablosu. Kart kalktı, düğme satırına
+ * indi — öğretmen zaten baktığı listeden bırakabiliyor.
+ *
+ * GEREKÇE KATLI DURUYOR: kutu her satırda açık olsaydı tablo okunamazdı ve
+ * düğmeye doğrudan basılamaması yanlışlıkla bırakmayı da zorlaştırıyor.
+ * Gerekçe zorunlu (bkz. birakmaGerekcesiniCoz) çünkü il koordinatörüne
+ * bildirim olarak gidiyor.
+ */
+function DanismanlikHucresi({
+  ogrenciId,
+  kendiOgrencisi,
+}: {
+  ogrenciId: number;
+  kendiOgrencisi: boolean;
+}) {
+  if (!kendiOgrencisi) {
+    return <span className="text-metin-yumusak">—</span>;
+  }
+
+  return (
+    <details>
+      <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
+        Danışmanlığı bırak
+      </summary>
+      {/*
+        Uyarı GEREKÇENİN YANINDA: bırakmanın sonucu, kararın verildiği
+        yerde okunmalı. Listenin tepesinde tek satır olarak durduğunda
+        düğmeye basan kişi onu çoktan geçmiş oluyordu.
+      */}
+      <p className="mt-2 text-sm text-metin-yumusak">
+        Öğrenci danışmansız kalır ve okulundaki bir öğretmeni kendisi
+        seçebilir; gerekçe il koordinatörünüze iletilir.
+      </p>
+      <form
+        action={danismanligiBirakEylemi}
+        className="mt-2 flex flex-wrap items-end gap-2"
+      >
+        <input type="hidden" name="ogrenciId" value={ogrenciId} />
+        <label className="block grow">
+          <span className="text-sm font-medium text-metin">Gerekçe</span>
+          <input
+            type="text"
+            name="gerekce"
+            required
+            minLength={10}
+            maxLength={500}
+            placeholder="Öğrencinin ilgi alanı başka bir öğretmenin branşına daha yakın."
+            className={SINIF_SECIM}
+          />
+        </label>
+        <button type="submit" className={SINIF_IKINCIL_BUTON}>
+          Bırak
+        </button>
+      </form>
+    </details>
+  );
+}
 /** Sayfa bağlantısı üretirken mevcut filtreler korunur. */
 function sayfaBaglantisi(
   parametreler: SorguParametreleri,
@@ -209,6 +267,15 @@ export default async function OgrencilerSayfasi({
    */
   const okulTemsilcisiYonetebilir =
     danismanMi(kullanici) || projeYoneticisiMi(kullanici);
+
+  /*
+   * Danışmanlık sütunu YALNIZCA DANIŞMANA basılır: bırakma, danışmanın
+   * kendi görevini sonlandırması. Koordinatör ve merkez de bir öğrencinin
+   * danışmanlığını sonlandırabiliyor ama onların yolu öğrencinin kendi
+   * kaydı — ilin tamamını gören listeye satır satır bırakma düğmesi koymak,
+   * yanlışlıkla basılması en kolay yeri seçmek olurdu.
+   */
+  const danismanlikYonetebilir = danismanMi(kullanici);
 
   /*
    * Atama sonrası bu ekrana, FİLTRELER KORUNARAK dönülür: 400 kişilik bir
@@ -270,28 +337,6 @@ export default async function OgrencilerSayfasi({
         })
       : [];
 
-  /*
-   * DANIŞMANLIĞIMDAKİ ÖĞRENCİLER (10 Ağustos 2026 · istek: "öğretmenin
-   * öğrenci seçip bırakabildiği alanı göremiyorum").
-   *
-   * Bırakma yalnızca öğrenci kaydının içindeydi; öğretmen tek tek profillere
-   * girmeden hangi öğrencisini bırakabileceğini göremiyordu. Liste artık
-   * ekranın başında: kimin danışmanı olduğunu görüyor ve seçtiğini oradan
-   * bırakıyor.
-   *
-   * "Okulumdaki danışmansız öğrenciler" kartının SİMETRİĞİ: biri alma, öbürü
-   * bırakma. İkisi yan yana durunca ekranın anlamı "danışmanlığımı yönetirim"
-   * hâline geliyor.
-   */
-  const danismanligimdakiler = danismanMi(kullanici)
-    ? await prisma.danismanAtama.findMany({
-        where: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
-        orderBy: { baslangicTarihi: "desc" },
-        select: {
-          ogrenci: { select: { id: true, ad: true, soyad: true, sinif: true } },
-        },
-      })
-    : [];
 
   // Filtre seçenekleri de kapsamla sınırlıdır: proje yöneticisi tüm illeri,
   // il koordinatörü yalnızca kendi ilinin okullarını, danışman öğretmen ise
@@ -299,7 +344,7 @@ export default async function OgrencilerSayfasi({
   const koordinatorIli = koordinatorIlKodu(kullanici);
   const seciliIl = filtreler.ilKodu ?? koordinatorIli;
 
-  const [iller, ilceler, okullar, gruplar, okulTurleri, yilSecenekleri] =
+  const [iller, ilceler, okullar, gruplar, yilSecenekleri] =
     await Promise.all([
       projeYoneticisiMi(kullanici)
         ? prisma.il.findMany({ orderBy: { ad: "asc" } })
@@ -324,7 +369,6 @@ export default async function OgrencilerSayfasi({
         orderBy: { siraNo: "asc" },
         select: { id: true, ad: true },
       }),
-      okulTurleriGetir(seciliIl ?? null),
       egitimOgretimYillariGetir(),
     ]);
 
@@ -465,16 +509,33 @@ export default async function OgrencilerSayfasi({
       {yolIziAdimlari && <YolIzi adimlar={yolIziAdimlari} />}
 
       <SayfaBasligi
-        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
-           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
-           zaten sol menüde duruyor. */
-        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
-        baslik="Öğrenciler"
-        aciklama={
-          toplam > SAYFA_BOYUTU
-            ? `Görüntüleme kapsamı: ${kapsamAciklamasi} · ${toplam} kayıt · sayfa ${sayfa}/${sonSayfa}`
-            : `Görüntüleme kapsamı: ${kapsamAciklamasi} · ${toplam} kayıt`
+        /*
+          GERİ BAĞLANTISI ROLE GÖRE (26 Ağustos 2026 · istek: "en üstte Yönetim
+          Paneli linki var, basınca boş sayfa geliyor, profil sayfasına
+          dönsün").
+
+          Bağlantı herkese "Yönetim Paneli" diyordu; oysa danışman öğretmen o
+          panoyu AÇAMIYOR (bkz. yonetimPanosuGorebilirMi — pano ona ilinin
+          tamamını gösterirdi) ve tıklayınca "erişim yetkiniz yok" kartından
+          başka bir şey görmüyordu. Bu ekrana onun geldiği yer Panel'deki
+          "Öğrencilerim" kartı, dolayısıyla dönüşü de Panel.
+
+          Koordinatör ve merkez için değişen bir şey yok: onlar buraya gerçekten
+          Yönetim Paneli'nden geliyor.
+        */
+        geri={
+          yonetimPanosuGorebilirMi(kullanici)
+            ? { yol: "/panel/yonetim", etiket: "Yönetim Paneli" }
+            : { yol: "/panel", etiket: "Panel" }
         }
+        baslik="Öğrenciler"
+        /*
+          KAPSAM SATIRI KALKTI (26 Ağustos 2026 · istek: "Görüntüleme kapsamı:
+          Danışmanlığınızdaki öğrenciler · 2 kayıt silelim"). Kapsamı liste
+          zaten gösteriyor ve kaç kayıt olduğu da listenin kendisinden
+          görülüyor; sayfa bilgisi listenin altındaki sayfalama şeridinde
+          duruyor (bkz. "Sayfa X / Y").
+        */
       />
 
       {gorevDurumu === "atandi" && (
@@ -607,130 +668,7 @@ export default async function OgrencilerSayfasi({
         </div>
       )}
 
-      {/*
-        GENÇTEK DANIŞMAN ÖĞRETMENLİĞİ (7 Ağustos 2026 · istek: "GençTek
-        Danışman Öğretmenliği Öğrencilerim sekmesine geçsin").
 
-        Panel'den BURAYA taşındı: görev ile bu ekran aynı işin parçası —
-        işareti kaldıran kişi öğrenci listesini de kaybediyor, ikisini ayrı
-        ekranlarda tutmak bu bağı görünmez kılıyordu.
-
-        Yalnızca okulunda görev alabilecek öğretmene basılır; il koordinatörü
-        ve YEĞİTEK personeli danışman olamaz.
-      */}
-      {danismanlikIsaretiGosterilir && (
-        <Kart>
-          <KartBasligi
-            baslik="GençTek danışman öğretmenliği"
-            aciklama="Bu görevi işaretlediğinizde okulunuzdaki öğrencilerin danışman seçim listesinde görünürsünüz. Onay süreci yoktur."
-            Ikon={ShieldCheck}
-          />
-          {/*
-            "GÖREVİ BIRAK" KALKTI (10 Ağustos 2026 · istek: "Görevi bırak
-            kalkacak · öğretmen öğrenciyi bırakabilsin, gerekirse koordinatör
-            de bırakabilsin").
-
-            Tek düğmeyle görevin TAMAMINI bırakmak, öğretmenin bütün
-            öğrencilerini aynı anda devir akışına sokuyordu — gerekçesiz ve
-            öğrenci başına karar verilmeden. Yerine geçen yol öğrenci bazında:
-            her öğrencinin kaydında "danışmanlığını bırak" var, gerekçe zorunlu
-            ve il koordinatörüne bildirim gidiyor.
-
-            Görev ALMA formu duruyor; bırakma yönü kalktığı için form yalnızca
-            görevi olmayana basılıyor. Rol kaydını kapatan kural katmanı da
-            duruyor (`danismanlikDurumunuDegistir`): öğretmen okuldan
-            ayrıldığında ve rol envanterinden kaldırıldığında hâlâ o yol
-            yürüyor. Kalkan şey, öğretmenin tek tıkla kendi görevini
-            bırakmasıydı.
-          */}
-          {/*
-            GÖREV ALMA FORMU BURADAN KALKTI, PANELİM'E DÖNDÜ (12 Ağustos 2026).
-            11 Ağustos'ta bu ekranın kapısı daraldı (bkz.
-            ogrenciEnvanteriGorebilirMi): görev almamış öğretmen artık burayı
-            açamıyor, yani formun basılabileceği tek durum kalmamıştı —
-            buraya gelen herkes zaten danışman. Kart, o kişiye görevinin
-            durduğunu söylemek için duruyor; işaretin kendisi Panelim'deki
-            sarı şeritte.
-          */}
-          <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
-            <BadgeCheck size={15} aria-hidden />
-            Danışman öğretmen olarak görev alıyorsunuz.
-          </p>
-          <p className="mt-3 text-sm text-metin-yumusak">
-            Öğrencilerinizi aşağıdaki &quot;Danışmanlığımdaki öğrenciler&quot;
-            bölümünden tek tek bırakabilirsiniz.
-          </p>
-        </Kart>
-      )}
-
-      {/*
-        DANIŞMANLIĞIMDAKİ ÖĞRENCİLER (10 Ağustos 2026 · istek: "öğretmenin
-        öğrenci seçip bırakabildiği alanı göremiyorum").
-
-        Her satırda katlı bir bırakma formu var. KATLI, çünkü bu ekranın asıl
-        işi değil ve gerekçe kutusunu her satırda açık tutmak listeyi
-        okunamaz hâle getirirdi; düğmenin doğrudan basılamaması da yanlışlıkla
-        bırakmayı zorlaştırıyor.
-
-        Aynı eylem öğrenci kaydının içinde de duruyor (ogrenciler/[id]);
-        ikisi de tek sunucu eylemine gidiyor, yani kural tek yerde.
-      */}
-      {danismanligimdakiler.length > 0 && (
-        <Kart>
-          <KartBasligi
-            baslik="Danışmanlığımdaki öğrenciler"
-            aciklama={`${danismanligimdakiler.length} öğrencinin danışmanısınız. Bırakırsanız öğrenci danışmansız kalır ve okulundaki bir öğretmeni kendisi seçebilir; gerekçe il koordinatörünüze iletilir.`}
-            Ikon={UserCheck}
-          />
-          <ul className="divide-y divide-cizgi">
-            {danismanligimdakiler.map(({ ogrenci }) => (
-              <li key={ogrenci.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/panel/ogrenciler/${ogrenci.id}`}
-                      className="font-medium text-metin transition hover:text-vurgu-metin hover:underline"
-                    >
-                      {ogrenci.ad} {ogrenci.soyad}
-                    </Link>
-                    <p className="text-sm text-metin-yumusak">
-                      {ogrenci.sinif ? `${ogrenci.sinif}. sınıf` : "—"}
-                    </p>
-                  </div>
-                </div>
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
-                    Danışmanlığı bırak
-                  </summary>
-                  <form
-                    action={danismanligiBirakEylemi}
-                    className="mt-2 flex flex-wrap items-end gap-2"
-                  >
-                    <input type="hidden" name="ogrenciId" value={ogrenci.id} />
-                    <label className="block grow">
-                      <span className="text-sm font-medium text-metin">
-                        Gerekçe
-                      </span>
-                      <input
-                        type="text"
-                        name="gerekce"
-                        required
-                        minLength={10}
-                        maxLength={500}
-                        placeholder="Öğrencinin ilgi alanı başka bir öğretmenin branşına daha yakın."
-                        className={SINIF_SECIM}
-                      />
-                    </label>
-                    <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                      Bırak
-                    </button>
-                  </form>
-                </details>
-              </li>
-            ))}
-          </ul>
-        </Kart>
-      )}
 
       {/*
         DANIŞMANSIZ ÖĞRENCİLER (7 Ağustos 2026 · istek: "Öğrenci ekleme /
@@ -800,6 +738,26 @@ export default async function OgrencilerSayfasi({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/*
+            AD ARAMASI FİLTRELERİN BAŞINDA (26 Ağustos 2026 · istek: "Ad
+            veya soyad bunu başa alalım aramada").
+
+            Kutu il, ilçe, okul ve çalışma grubu seçimlerinin ardında,
+            ızgaranın ortasındaydı. Oysa en sık yapılan iş bir kişiyi adıyla
+            bulmak; ötekiler listeyi daraltan seçimler ve daha seyrek
+            kullanılıyor.
+          */}
+          <label className="block">
+            <span className={SINIF_ETIKET}>Ad veya soyad</span>
+            <input
+              type="text"
+              name="ara"
+              placeholder="Ara"
+              defaultValue={filtreler.ara ?? ""}
+              className={SINIF_SECIM}
+            />
+          </label>
+
           {yerFiltresiVar && (
             <>
               <label className="block">
@@ -863,21 +821,6 @@ export default async function OgrencilerSayfasi({
             </>
           )}
 
-          <label className="block">
-            <span className={SINIF_ETIKET}>Okul türü</span>
-            <select
-              name="okulTuru"
-              defaultValue={filtreler.okulTuru ?? ""}
-              className={SINIF_SECIM}
-            >
-              <option value="">Tüm okul türleri</option>
-              {okulTurleri.map((tur) => (
-                <option key={tur} value={tur}>
-                  {tur}
-                </option>
-              ))}
-            </select>
-          </label>
 
           {/*
             SINIF ARTIK LİSTE (10 Ağustos 2026 · istek: "Sınıf alanı
@@ -954,59 +897,34 @@ export default async function OgrencilerSayfasi({
             </select>
           </label>
 
-          <label className="block">
-            <span className={SINIF_ETIKET}>Ad veya soyad</span>
-            <input
-              type="text"
-              name="ara"
-              placeholder="Ara"
-              defaultValue={filtreler.ara ?? ""}
-              className={SINIF_SECIM}
-            />
-          </label>
 
           {/*
-            DENEYİM SÜZGECİ (15 Ağustos 2026 · Aşama 8).
+            PROFİLDE ARAMA (26 Ağustos 2026 · istekler: "Deneyim türü bu
+            filtre ürünlere göre, topluluklara göre, deneyimlerime göre
+            filtrelesin" · "bunu da profilde ara olarak değiştir" · "Deneyim
+            adında ara bunu silelim").
 
-            Manisa panelinde "Deneyimler" adında çok seçimli bir kutu var
-            ("TEKNOFEST Yarışmaları", "Bilim fuarları"). Bizde bu veri
-            `KullaniciKazanim` tablosunda zaten duruyor — yeni bir tablo
-            açılmadı, var olan kayıt ARAMA EKSENİ hâline getirildi.
-
-            İKİ ALAN AYRI: tip sabit listeden ("GençTek dışı etkinlikler"),
-            metin ise serbest ("teknofest"). Manisa'da ikisi tek listede ve
-            sonucu ekran görüntüsünde görünüyor — "Diğer: Bilişim hukuku ve
-            güvenli internet" gibi elle yazılmış girdiler süzgeç listesini
-            dolduruyor, aynı şeyin üç yazımı üç ayrı seçenek oluyor. Sabit
-            liste + serbest arama ayrımı bunu engelliyor.
+            Burada iki süzgeç vardı: tek tek kazanım TİPLERİNİ listeleyen bir
+            açılır kutu ve başlıkta metin arayan bir yazı alanı. Tip listesi
+            kişinin profilde gördüğü başlıklarla örtüşmüyordu (profilde üç
+            grup, süzgeçte sekiz tip) ve serbest arama, aynı şeyin üç ayrı
+            yazımını üç ayrı sonuç yapıyordu. Geriye profildeki üç başlık
+            kaldı: Ürünlerim · Deneyimlerim · Topluluklarım.
           */}
           <label className="block">
-            <span className={SINIF_ETIKET}>Deneyim türü</span>
+            <span className={SINIF_ETIKET}>Profilde ara</span>
             <select
               name="kazanim"
-              defaultValue={filtreler.kazanimTipi ?? ""}
+              defaultValue={filtreler.kazanimGrubu ?? ""}
               className={SINIF_SECIM}
             >
-              <option value="">Tüm deneyimler</option>
-              {KAZANIM_TIPLERI.filter((tanim) =>
-                BILISIM_YOLCULUGU_TIPLERI.includes(tanim.tip),
-              ).map((tanim) => (
-                <option key={tanim.tip} value={tanim.tip}>
-                  {tanim.baslik}
+              <option value="">Tüm kayıtlar</option>
+              {BILISIM_YOLCULUGU_GRUPLARI.map((grup) => (
+                <option key={grup.kod} value={grup.kod}>
+                  {grup.baslik}
                 </option>
               ))}
             </select>
-          </label>
-
-          <label className="block">
-            <span className={SINIF_ETIKET}>Deneyim adında ara</span>
-            <input
-              type="text"
-              name="kazanimAra"
-              placeholder="Örn. TEKNOFEST"
-              defaultValue={filtreler.kazanimAra ?? ""}
-              className={SINIF_SECIM}
-            />
           </label>
         </div>
 
@@ -1116,9 +1034,11 @@ export default async function OgrencilerSayfasi({
                 <th className="px-4 py-3 font-medium">Sınıf</th>
                 <th className="px-4 py-3 font-medium">Okul</th>
                 <th className="px-4 py-3 font-medium">İl / İlçe</th>
-                <th className="px-4 py-3 font-medium">Danışman</th>
-                <th className="px-4 py-3 font-medium">Temsilcilik</th>
+                <th className="px-4 py-3 font-medium">Roller</th>
                 <th className="px-4 py-3 font-medium">Çalışma grupları</th>
+                {danismanlikYonetebilir && (
+                  <th className="px-4 py-3 font-medium">Danışmanlık</th>
+                )}
                 {okulTemsilcisiYonetebilir && (
                   <th className="px-4 py-3 font-medium">Okul Temsilcisi</th>
                 )}
@@ -1126,7 +1046,6 @@ export default async function OgrencilerSayfasi({
             </thead>
             <tbody>
               {ogrenciler.map((ogrenci) => {
-                const danisman = ogrenci.ogrenciAtamalari[0]?.danisman;
                 // İçinde bulunulan dönemin görevleri; geçmiş dönem görevleri
                 // profilin katkı kartında duruyor.
                 const gorevler = ogrenci.gorevRolleri.filter(
@@ -1163,15 +1082,6 @@ export default async function OgrencilerSayfasi({
                       {ogrenci.ilce?.ad ? ` / ${ogrenci.ilce.ad}` : ""}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {danisman ? (
-                        `${danisman.ad} ${danisman.soyad}`
-                      ) : (
-                        <span className="rounded-full bg-uyari-zemin px-2 py-0.5 text-xs text-uyari-metin">
-                          Atanmadı
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-metin-yumusak">
                       {gorevler.length === 0 ? (
                         "—"
                       ) : (
@@ -1205,6 +1115,17 @@ export default async function OgrencilerSayfasi({
                       Yetki iki kez sorulur: burada (düğmeyi hiç basmamak için)
                       ve eylemin içinde (form kurcalanabilir).
                     */}
+                    {danismanlikYonetebilir && (
+                      <td className="px-4 py-3">
+                        <DanismanlikHucresi
+                          ogrenciId={ogrenci.id}
+                          kendiOgrencisi={
+                            ogrenci.ogrenciAtamalari[0]?.danismanKullaniciId ===
+                            kullanici.id
+                          }
+                        />
+                      </td>
+                    )}
                     {okulTemsilcisiYonetebilir && (
                       <td className="px-4 py-3">
                         {/*
@@ -1275,6 +1196,23 @@ export default async function OgrencilerSayfasi({
             )}
           </div>
         </nav>
+      )}
+      {/*
+        DANIŞMANLIK ROZETİ SAYFANIN ALTINDA (26 Ağustos 2026 · istek:
+        "GençTek danışman öğretmenliği … bunu kaldıralım ama bunu alta
+        alalım: Danışman öğretmen olarak görev alıyorsunuz").
+
+        Kart ekranın tepesinde iki paragraf açıklamayla duruyordu: görevin
+        nasıl alındığı ve öğrencinin nasıl bırakılacağı. İkisi de buraya
+        gelen kişinin bildiği şeyler — görevi var (yoksa bu ekranı açamıyor)
+        ve bırakma artık listenin kendi satırında. Geriye durumu söyleyen
+        tek satır kaldı; bir başlık değil, bir dipnot.
+      */}
+      {danismanlikIsaretiGosterilir && (
+        <p className="inline-flex items-center gap-2 rounded-full bg-olumlu-zemin px-3 py-1 text-sm font-medium text-olumlu-metin">
+          <BadgeCheck size={15} aria-hidden />
+          Danışman öğretmen olarak görev alıyorsunuz.
+        </p>
       )}
     </div>
   );
