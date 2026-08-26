@@ -345,11 +345,19 @@ export default async function YonetimSayfasi({
           */}
           {panoIlaniOnaylayabilirMi(kullanici) && (
             <KisayolKarti
-              baslik="Pano ilanları"
-              aciklama="Onay bekleyen öğrenci ilanları, ilan düzenleme ve silme"
+              baslik="Onay kuyruğu"
+              aciklama="Onay bekleyen öğrenci ilanları ve GençTek görev başvuruları"
               Ikon={Megaphone}
               yol="/panel/talepler/onaylar"
-              bekleyen={bekleyenIlan}
+              /*
+                SAYI İKİ KUYRUĞUN TOPLAMI (26 Ağustos 2026): ekran ikisini
+                birden gösteriyor, rozet de öyle saymalı. Görev başvuruları
+                GençTek Görevleri kartında da sayılıyor — aynı iş iki
+                kapıdan görünüyor ve bu bilerek: merkez onayları tek
+                ekranda toplamak istedi, görev ekranı ise ilan yönetimini
+                de taşıyor.
+              */
+              bekleyen={bekleyenIlan + bekleyenGorevBasvurusu}
               ton="uyari"
             />
           )}

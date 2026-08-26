@@ -32,11 +32,20 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
 
 const PANO = "/panel/talepler/genctek-gorevleri";
 const YONETIM = "/panel/genctek-gorevleri";
+const ONAYLAR = "/panel/talepler/onaylar";
 
 function panoyaDon(sorgu: string): never {
   revalidatePath(PANO);
   revalidatePath(YONETIM);
   redirect(`${PANO}?${sorgu}`);
+}
+
+/** Karar Onay kuyruğu ekranından verildiğinde oraya dönülür. */
+function onaylarDonusu(sorgu: string): never {
+  revalidatePath(ONAYLAR);
+  revalidatePath(YONETIM);
+  revalidatePath(PANO);
+  redirect(`${ONAYLAR}?${sorgu}`);
 }
 
 function yonetimeDon(sorgu: string): never {
@@ -128,12 +137,36 @@ export async function gorevBasvurEylemi(veri: FormData): Promise<void> {
   panoyaDon("durum=basvuruldu");
 }
 
-/** Yönetim ekranındaki onay / ret formu. */
+/**
+ * Onay / ret formu — İKİ EKRANDAN çağrılıyor (26 Ağustos 2026 · istek:
+ * "/panel/talepler/onaylar buraya da gitmesi gerekiyordu").
+ *
+ * Kuyruk hem Yönetim Paneli'ndeki GençTek Görevleri ekranında hem de
+ * merkezin onay işlerini topladığı Onay kuyruğu ekranında basılıyor.
+ * `donus` alanı yalnızca SONUCUN OKUNACAĞI YERİ seçer — kişi işi hangi
+ * ekranda yaptıysa oraya dönmeli. Yetkiyi değiştirmez: kapı aşağıda,
+ * form girdisinden bağımsız soruluyor.
+ */
 export async function gorevKararEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
   if (!gencTekGoreviYonetebilirMi(kullanici)) {
     throw new YetkiHatasi("Görev başvurularını karara bağlayamazsınız.");
   }
+
+  /*
+   * Dönüş adresi FORMDAN geliyor ama serbest metin değil: tanınmayan her
+   * değer yönetim ekranına düşüyor. Adres olarak alınsaydı, form girdisi
+   * kullanıcıyı istediği yere yönlendiren bir kapı olurdu.
+   */
+  const onaylaraDon = veri.get("donus") === "onaylar";
+  /*
+   * TÜR AÇIKÇA YAZILIYOR: TypeScript, `never` dönen bir çağrının akışı
+   * kestiğini yalnızca değişkenin türü açıkça bildirilmişse anlıyor. Yazılmadan
+   * bırakılırsa `karar` daralmıyor ve aşağıdaki alanlar erişilemez görünüyor.
+   */
+  const don: (sorgu: string) => never = onaylaraDon
+    ? onaylarDonusu
+    : yonetimeDon;
 
   const basvuruId = Number.parseInt(String(veri.get("basvuruId") ?? ""), 10);
   if (!Number.isFinite(basvuruId)) throw new BulunamadiHatasi();
@@ -156,7 +189,7 @@ export async function gorevKararEylemi(veri: FormData): Promise<void> {
     kendiBasvurusuMu: basvuru.kullaniciId === kullanici.id,
   });
   if (!karar.olurMu) {
-    yonetimeDon(`hata=${encodeURIComponent(karar.neden)}`);
+    don(`hata=${encodeURIComponent(karar.neden)}`);
   }
 
   await prisma.gencTekGorevBasvurusu.update({
@@ -189,7 +222,7 @@ export async function gorevKararEylemi(veri: FormData): Promise<void> {
     }: ${basvuru.gorev.ad}`,
   });
 
-  yonetimeDon("durum=karar-verildi");
+  don("durum=karar-verildi");
 }
 
 /** Yeni görev ilanı açar (Yönetim Paneli). */

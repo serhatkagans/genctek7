@@ -1,6 +1,7 @@
 import { ArrowLeft, ClipboardCheck, Megaphone, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GorevBasvuruKuyrugu } from "@/components/GorevBasvuruKuyrugu";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   BilgiKutusu,
@@ -21,7 +22,10 @@ import {
 } from "@/lib/iletisim/kurallar";
 import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
-import { panoIlaniOnaylayabilirMi } from "@/lib/yetki/izinler";
+import {
+  gencTekGoreviYonetebilirMi,
+  panoIlaniOnaylayabilirMi,
+} from "@/lib/yetki/izinler";
 import { IlanDuzenlemeFormu } from "../formlar";
 import { talepKararEylemi, talepSilEylemi } from "../eylemler";
 
@@ -52,6 +56,12 @@ const DURUM_MESAJLARI: Record<string, string> = {
   reddedildi: "İlan reddedildi ve gerekçe ilan sahibine iletildi.",
   duzenlendi: "İlan güncellendi.",
   silindi: "İlan silindi.",
+  /*
+   * GençTek görev kararı da bu ekrandan verilebiliyor (26 Ağustos 2026);
+   * sonucu okunacak yer de burası olmalı.
+   */
+  "karar-verildi":
+    "Görev başvurusu karara bağlandı; başvurana bildirim gönderildi.",
 };
 
 function acanRolleri(roller: { rolKodu: RolKodu }[]): RolKodu[] {
@@ -182,39 +192,93 @@ export default async function PanoIlanOnaylariSayfasi({
   const { durum, hata } = await searchParams;
   const simdi = new Date();
 
-  const [bekleyenler, yayindakiler] = await Promise.all([
-    prisma.talep.findMany({
-      where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
-      // En eski üstte: kuyruğun işi en çok bekleyeni çözmek.
-      orderBy: { olusturmaTarihi: "asc" },
-      select: ILAN_SECIMI,
-    }),
-    /*
-     * YAYIMDAKİ İLANLAR: süresi dolmamış, kapatılmamış ve panoda görünen her
-     * ilan. Reddedilenler bu listede YOK — panoda da yoklar ve sahibi
-     * gerekçesini kendi ekranında görüyor; merkezin yeniden karar vereceği bir
-     * şey kalmıyor.
-     */
-    prisma.talep.findMany({
-      where: {
-        kapatildiMi: false,
-        sonGecerlilik: { gte: simdi },
-        onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
-      },
-      orderBy: { olusturmaTarihi: "desc" },
-      take: 100,
-      select: ILAN_SECIMI,
-    }),
-  ]);
+  const [bekleyenler, yayindakiler, bekleyenGorevBasvurulari] =
+    await Promise.all([
+      prisma.talep.findMany({
+        where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
+        // En eski üstte: kuyruğun işi en çok bekleyeni çözmek.
+        orderBy: { olusturmaTarihi: "asc" },
+        select: ILAN_SECIMI,
+      }),
+      /*
+       * YAYIMDAKİ İLANLAR: süresi dolmamış, kapatılmamış ve panoda görünen her
+       * ilan. Reddedilenler bu listede YOK — panoda da yoklar ve sahibi
+       * gerekçesini kendi ekranında görüyor; merkezin yeniden karar vereceği bir
+       * şey kalmıyor.
+       */
+      prisma.talep.findMany({
+        where: {
+          kapatildiMi: false,
+          sonGecerlilik: { gte: simdi },
+          onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
+        },
+        orderBy: { olusturmaTarihi: "desc" },
+        take: 100,
+        select: ILAN_SECIMI,
+      }),
+      /*
+       * GENÇTEK GÖREV BAŞVURULARI (26 Ağustos 2026 · istek: "genctek
+       * görevleri hâlâ proje yöneticisi onayına gitmiyor" →
+       * "/panel/talepler/onaylar buraya da gitmesi gerekiyordu").
+       *
+       * Kuyruk Yönetim Paneli'ndeki GençTek Görevleri ekranında da duruyor;
+       * buradaki kopya, merkezin onay işlerinin tek ekranda toplanması
+       * içindir. Liste ve karar formu ORTAK BİLEŞEN, ikinci bir kopya değil.
+       *
+       * Yalnızca BEKLEYENLER: karara bağlananların geçmişi görev ekranında,
+       * kendi ilanlarının yanında okunur. Onay kuyruğunun işi yapılacak işi
+       * göstermek.
+       */
+      gencTekGoreviYonetebilirMi(kullanici)
+        ? prisma.gencTekGorevBasvurusu.findMany({
+            where: { onayDurumu: "BEKLIYOR" },
+            orderBy: { olusturmaTarihi: "asc" },
+            select: {
+              id: true,
+              mesaj: true,
+              olusturmaTarihi: true,
+              gorev: { select: { ad: true } },
+              kullanici: {
+                select: {
+                  ad: true,
+                  soyad: true,
+                  sinif: true,
+                  brans: true,
+                  kurum: { select: { ad: true } },
+                  il: { select: { ad: true } },
+                },
+              },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+  const bekleyenToplam =
+    bekleyenler.length + bekleyenGorevBasvurulari.length;
 
   return (
     <div className="space-y-6">
+      {/*
+        BAŞLIK İKİ KUYRUĞU BİRDEN SAYAR (26 Ağustos 2026): ekran artık
+        yalnızca pano ilanlarının değil, merkezin karar verdiği işlerin
+        kuyruğu. Yalnızca ilan sayısı yazsaydı, bekleyen görev başvurusu
+        varken başlık "Bekleyen ilan yok" derdi.
+      */}
       <SayfaBasligi
-        baslik="Pano ilanları"
+        baslik="Onay kuyruğu"
         aciklama={
-          bekleyenler.length > 0
-            ? `${bekleyenler.length} ilan kararınızı bekliyor`
-            : "Bekleyen ilan yok"
+          bekleyenToplam > 0
+            ? [
+                bekleyenler.length > 0
+                  ? `${bekleyenler.length} pano ilanı`
+                  : null,
+                bekleyenGorevBasvurulari.length > 0
+                  ? `${bekleyenGorevBasvurulari.length} görev başvurusu`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") + " kararınızı bekliyor"
+            : "Kararınızı bekleyen iş yok"
         }
         /*
           Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
@@ -243,8 +307,21 @@ export default async function PanoIlanOnaylariSayfasi({
         onaylayabilirsiniz; ret gerekçesi ilan sahibine bildirimle iletilir.
       </BilgiKutusu>
 
+      {/*
+        GÖREV BAŞVURULARI ÖNCE: pano ilanı düzenlenip onaylanabiliyor, yani
+        üzerinde çalışılan bir metin; görev başvurusu ise tek hamlede biten
+        bir karar. Kısa iş üstte duruyor.
+      */}
+      {gencTekGoreviYonetebilirMi(kullanici) && (
+        <GorevBasvuruKuyrugu
+          basvurular={bekleyenGorevBasvurulari}
+          donus="onaylar"
+          aciklama="Panodaki GençTek görevlerine yapılan başvurular. Karar, Yönetim Paneli'ndeki GençTek Görevleri ekranından da verilebilir."
+        />
+      )}
+
       <Kart>
-        <KartBasligi baslik="Kararınızı bekleyenler" Ikon={ClipboardCheck} />
+        <KartBasligi baslik="Kararınızı bekleyen ilanlar" Ikon={ClipboardCheck} />
         {bekleyenler.length === 0 ? (
           <p className="text-metin-yumusak">Bekleyen ilan yok.</p>
         ) : (

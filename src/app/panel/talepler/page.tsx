@@ -38,6 +38,7 @@ import {
 import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
 import { tarihYaz } from "@/lib/tarih";
 import {
+  gencTekGoreviYonetebilirMi,
   mentorlukBasvurabilirMi,
   panodaIlanAcabilirMi,
   panoIlaniOnaylayabilirMi,
@@ -141,7 +142,13 @@ export default async function TaleplerSayfasi({
   const seciliTur = talepTuruGecerliMi(tur ?? "") ? (tur as TalepTuru) : null;
   const tursuzIstendi = tur === "belirtilmemis";
 
-  const [gruplar, talepler, kendiTalepleri, bekleyenSayisi] = await Promise.all([
+  const [
+    gruplar,
+    talepler,
+    kendiTalepleri,
+    bekleyenIlanSayisi,
+    bekleyenGorevSayisi,
+  ] = await Promise.all([
     prisma.calismaGrubu.findMany({
       where: { aktif: true },
       orderBy: { siraNo: "asc" },
@@ -250,7 +257,18 @@ export default async function TaleplerSayfasi({
           where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
         })
       : 0,
+    /*
+     * GÖREV BAŞVURULARI DA AYNI KUYRUKTA (26 Ağustos 2026): kart artık
+     * "Onay kuyruğu" ve açtığı ekran ikisini birden gösteriyor. Yalnızca
+     * ilan sayılsaydı, bekleyen görev başvurusu varken kart sessiz kalırdı.
+     */
+    gencTekGoreviYonetebilirMi(kullanici)
+      ? prisma.gencTekGorevBasvurusu.count({ where: { onayDurumu: "BEKLIYOR" } })
+      : 0,
   ]);
+
+  /* Kart iki kuyruğu birden açıyor; sayı da ikisinin toplamı. */
+  const bekleyenSayisi = bekleyenIlanSayisi + bekleyenGorevSayisi;
 
   const filtreVar =
     Boolean(aramaMetni) || Number.isFinite(grupId) || Boolean(tur);
@@ -344,7 +362,7 @@ export default async function TaleplerSayfasi({
         */}
         {onaylayabilir && (
           <KisayolKarti
-            baslik="Pano ilanları (onay)"
+            baslik="Onay kuyruğu"
             /*
               Açıklama yerine yalnızca SAYI kalıyor (21 Ağustos 2026 · istek:
               panodaki açıklamalar kalksın): "kaç ilan kararımı bekliyor"
@@ -353,7 +371,7 @@ export default async function TaleplerSayfasi({
             */
             aciklama={
               bekleyenSayisi > 0
-                ? `${bekleyenSayisi} ilan kararınızı bekliyor`
+                ? `${bekleyenSayisi} iş kararınızı bekliyor`
                 : undefined
             }
             Ikon={ClipboardCheck}
