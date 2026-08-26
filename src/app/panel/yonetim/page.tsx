@@ -128,6 +128,34 @@ export default async function YonetimSayfasi({
         })
       : null;
 
+  /*
+   * ONAY KUYRUKLARININ BEKLEYEN SAYILARI (26 Ağustos 2026 · istek:
+   * kartlarda bekleyen sayısı görünsün).
+   *
+   * Üç kuyruk üç ayrı tabloda: görev başvurusu, mentörlük ve pano ilanı.
+   * Her sayı YALNIZCA kartı basılan yetkide sorgulanıyor — yetkisi olmayan
+   * için sayılan bir kuyruk, hiç görülmeyecek bir gidiş dönüş olurdu.
+   *
+   * Sayı `count`, liste değil: kart yalnızca kaç iş beklediğini söylüyor,
+   * kimin beklediğini kuyruğun kendi ekranı gösteriyor.
+   */
+  const [bekleyenGorevBasvurusu, bekleyenMentorluk, bekleyenIlan] =
+    await Promise.all([
+      gencTekGoreviYonetebilirMi(kullanici)
+        ? prisma.gencTekGorevBasvurusu.count({
+            where: { onayDurumu: "BEKLIYOR" },
+          })
+        : Promise.resolve(0),
+      mentorlukOnaylayabilirMi(kullanici)
+        // Mentörlükte alan adı `durum` (bkz. model Mentorluk · MentorlukDurumu).
+        ? prisma.mentorluk.count({ where: { durum: "BEKLIYOR" } })
+        : Promise.resolve(0),
+      panoIlaniOnaylayabilirMi(kullanici)
+        ? prisma.talep.count({
+            where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
+          })
+        : Promise.resolve(0),
+    ]);
   const siralama = ilSiralamasiCoz(sirala);
   const aranan = ara?.trim() ?? "";
   const iller = illeriSuz(tumIller, { ara: aranan, sirala: siralama });
@@ -292,6 +320,7 @@ export default async function YonetimSayfasi({
               aciklama="Görev ilanları, gelen başvurular ve kararları"
               Ikon={BadgeCheck}
               yol="/panel/genctek-gorevleri"
+              bekleyen={bekleyenGorevBasvurusu}
               ton="uyari"
             />
           )}
@@ -301,6 +330,8 @@ export default async function YonetimSayfasi({
               aciklama="Mentör başvuruları ve karara bağlanan mentörler"
               Ikon={Compass}
               yol="/panel/mentorluk"
+              bekleyen={bekleyenMentorluk}
+              ton="uyari"
             />
           )}
           {/*
@@ -318,6 +349,7 @@ export default async function YonetimSayfasi({
               aciklama="Onay bekleyen öğrenci ilanları, ilan düzenleme ve silme"
               Ikon={Megaphone}
               yol="/panel/talepler/onaylar"
+              bekleyen={bekleyenIlan}
               ton="uyari"
             />
           )}

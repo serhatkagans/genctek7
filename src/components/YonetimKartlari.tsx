@@ -267,6 +267,7 @@ export function KisayolKarti({
   aciklama,
   Ikon,
   yol,
+  bekleyen,
   ton = "vurgu",
 }: {
   baslik: string;
@@ -278,6 +279,19 @@ export function KisayolKarti({
   aciklama?: string;
   Ikon: React.ComponentType<{ size?: number; className?: string }>;
   yol: string;
+  /**
+   * KARAR BEKLEYEN İŞ SAYISI (26 Ağustos 2026 · istek: onay kartlarında
+   * bekleyen sayısı görünsün).
+   *
+   * Onay kuyrukları kısayol kartıydı: kuyrukta iş olup olmadığı ancak karta
+   * tıklayınca görülüyordu. Bildirim gidiyor ama bildirimi kaçıran yönetici
+   * için ekranda hiçbir iz kalmıyordu.
+   *
+   * SIFIR ROZET BASMAZ: "0 bekliyor" rozeti, boş kuyruğu da yapılacak iş
+   * gibi gösterirdi. `undefined` ise kartın sayacı yok demektir — çoğu
+   * kısayol bir envanter, kuyruk değil.
+   */
+  bekleyen?: number;
   /**
    * Poster bandının rengi. RENK BİLGİ TAŞIR, süs değil — panelin ölçüm
    * kartlarındaki aileyle aynı sözlük:
@@ -312,6 +326,18 @@ export function KisayolKarti({
         className={`poster poster-${ton} relative grid h-16 place-items-center`}
       >
         <Ikon size={26} className="text-white/50" aria-hidden />
+        {/*
+          Rozet POSTERİN İÇİNDE, başlığın yanında değil: kart listesi göz
+          gezdirilerek okunuyor ve bant, satırdaki en yüksek kontrastlı yer.
+          Sayı posterin kendi zeminini taşıyor (bkz. globals.css · .poster) —
+          üstüne çıplak metin basılmıyor.
+        */}
+        {bekleyen !== undefined && bekleyen > 0 && (
+          <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-0.5 text-xs font-bold text-hata-metin">
+            <span className="tabular-nums">{bekleyen}</span>
+            bekliyor
+          </span>
+        )}
       </div>
       <div className="flex flex-1 items-start gap-3 p-5">
         <div className="min-w-0 flex-1">
