@@ -10,7 +10,10 @@ import {
   kilitKalanDakika,
   kilitliMi,
   retGerekcesiniCoz,
+  SIFIRLAMA_BEKLEME_DAKIKA,
+  SIFIRLAMA_GECERLILIK_DAKIKA,
   sifirlamaGecerliMi,
+  sifirlamaYenidenIstenebilirMi,
   sifreKarariniVer,
   turunRolu,
 } from "@/lib/dis-kimlik/kurallar";
@@ -240,6 +243,36 @@ describe("sıfırlama jetonu geçerliliği", () => {
     expect(sifirlamaGecerliMi(new Date(SIMDI.getTime() + 60_000), SIMDI)).toBe(
       true,
     );
+  });
+});
+
+describe("sıfırlama isteğinde bekleme süresi", () => {
+  /** `dakikaOnce` dakika önce verilmiş bir jetonun son geçerlilik tarihi. */
+  function verilmis(dakikaOnce: number): Date {
+    const kalan = SIFIRLAMA_GECERLILIK_DAKIKA - dakikaOnce;
+    return new Date(SIMDI.getTime() + kalan * 60_000);
+  }
+
+  test("hiç jetonu olmayan kayıt beklemez", () => {
+    expect(sifirlamaYenidenIstenebilirMi(null, SIMDI)).toBe(true);
+  });
+
+  test("az önce verilmiş bağlantı yenisini engeller", () => {
+    expect(sifirlamaYenidenIstenebilirMi(verilmis(0), SIMDI)).toBe(false);
+  });
+
+  test("bekleme süresi dolunca yeniden istenebilir", () => {
+    expect(
+      sifirlamaYenidenIstenebilirMi(verilmis(SIFIRLAMA_BEKLEME_DAKIKA), SIMDI),
+    ).toBe(true);
+  });
+
+  // Bağlantısı elinde ama süresi geçmiş kişi kapıda kalmamalı: geçersiz jeton
+  // beklemeyi de sıfırlar.
+  test("süresi dolmuş jeton beklemeye yol açmaz", () => {
+    expect(
+      sifirlamaYenidenIstenebilirMi(new Date(SIMDI.getTime() - 1), SIMDI),
+    ).toBe(true);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   epostaNormalle,
   SIFIRLAMA_GECERLILIK_DAKIKA,
   sifirlamaGecerliMi,
+  sifirlamaYenidenIstenebilirMi,
   sifreKarariniVer,
 } from "./kurallar";
 import {
@@ -47,11 +48,27 @@ export async function sifirlamaIste(
     where: { eposta },
     select: {
       kullaniciId: true,
+      sifirlamaSonGecerlilik: true,
       kullanici: { select: { ad: true, soyad: true, aktif: true } },
     },
   });
 
   if (!kimlik || !kimlik.kullanici.aktif) return;
+
+  /*
+   * BEKLEME SÜRESİ. Elde hâlâ geçerli ve az önce verilmiş bir bağlantı varsa
+   * yenisi ÜRETİLMEZ: ne posta gider ne scrypt çalışır. Kontrol jeton
+   * üretiminden ÖNCE durmalı — pahalı olan iş tam olarak o (bkz. kurallar.ts ·
+   * SIFIRLAMA_BEKLEME_DAKIKA).
+   *
+   * Dışarıya görünen davranış değişmez: çağıran yine sessizce döner ve ekran
+   * yine "gönderildi" der. Burada "biraz bekleyin" demek, e-postanın kayıtlı
+   * olduğunu doğrulayan bir sinyal olurdu — akışın tamamı bunu söylememek
+   * üzerine kurulu.
+   */
+  if (!sifirlamaYenidenIstenebilirMi(kimlik.sifirlamaSonGecerlilik, simdi)) {
+    return;
+  }
 
   const { jeton, ozet } = await sifirlamaJetonuUret();
 

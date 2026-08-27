@@ -230,6 +230,43 @@ export function sifirlamaGecerliMi(
   return sonGecerlilik !== null && sonGecerlilik > simdi;
 }
 
+/**
+ * Aynı adrese iki sıfırlama bağlantısı arasında beklenmesi gereken süre.
+ *
+ * NİYE VAR: sıfırlama ucu oturum ARAMAZ ve her istek bir jeton özeti üretir;
+ * özetleme scrypt'tir (N=16384, 64 MB, ~100 ms · bkz. dis-kimlik/sifre.ts).
+ * Sınırsız bırakıldığında kimliği doğrulanmamış tek bir POST akışı hem
+ * kurbanın posta kutusunu doldurur hem de sunucunun çekirdeğini ve belleğini
+ * yer — giriş ekranındaki kilit sayaçları bu yola hiç uğramıyor.
+ *
+ * KISA TUTULDU: bağlantısı spam klasörüne düşen kişi birkaç dakika içinde
+ * yeniden isteyebilmeli. Amaç kişiyi yavaşlatmak değil, saniyede yüzlerce
+ * isteği anlamsız kılmak.
+ */
+export const SIFIRLAMA_BEKLEME_DAKIKA = 2;
+
+/**
+ * Yeni bir sıfırlama bağlantısı üretilsin mi?
+ *
+ * Elde hâlâ geçerli ve YENİ verilmiş bir jeton varsa hayır. Jetonun verilme
+ * anı ayrı bir sütunda tutulmuyor; son geçerlilik tarihinden ömrü çıkarılarak
+ * bulunur, böylece şemaya kolon eklemeye gerek kalmıyor.
+ *
+ * `SIFIRLAMA_GECERLILIK_DAKIKA` ileride KISALTILIRSA eski kayıtlar için
+ * hesaplanan verilme anı geleceğe düşer; o durumda fonksiyon "az önce
+ * verilmiş" sayıp bekletir — jeton kendi süresi dolunca çözülür, yanlış
+ * tarafa düşmüş olmaz.
+ */
+export function sifirlamaYenidenIstenebilirMi(
+  sonGecerlilik: Date | null,
+  simdi: Date,
+): boolean {
+  if (!sifirlamaGecerliMi(sonGecerlilik, simdi)) return true;
+  const verilme =
+    (sonGecerlilik as Date).getTime() - SIFIRLAMA_GECERLILIK_DAKIKA * 60000;
+  return simdi.getTime() - verilme >= SIFIRLAMA_BEKLEME_DAKIKA * 60000;
+}
+
 // ---------------------------------------------------------------------------
 // Başvuru girdisi
 // ---------------------------------------------------------------------------
