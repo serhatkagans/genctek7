@@ -15,6 +15,7 @@ import {
   ayarSayi,
   VARSAYILAN_DISA_AKTARMA_UST_SINIRI,
 } from "@/lib/ayar";
+import { okulTuruSecenekleri } from "@/lib/okul/turler";
 import { prisma } from "@/lib/db";
 import {
   KIRILIM_ACIKLAMALARI,
@@ -209,11 +210,19 @@ export default async function OkulEksikleriSayfasi({
               className={SINIF_GIRDI}
             >
               <option value="">Tüm türler</option>
-              {turler.map((tur) => (
-                <option key={tur.okulTuru} value={tur.okulTuru}>
-                  {tur.okulTuru}
-                </option>
-              ))}
+              {/*
+                Seçenekler Okullar ekranıyla AYNI KAYNAKTAN (26 Ağustos 2026):
+                iki ekran aynı süzgeci basıyor ve birinde görünen bir türün
+                diğerinde görünmemesi, listenin veriye değil bakılan ekrana
+                bağlı olduğunu düşündürürdü (bkz. lib/okul/turler.ts).
+              */}
+              {okulTuruSecenekleri(turler.map((tur) => tur.okulTuru)).map(
+                (tur) => (
+                  <option key={tur} value={tur}>
+                    {tur}
+                  </option>
+                ),
+              )}
             </select>
           </label>
 

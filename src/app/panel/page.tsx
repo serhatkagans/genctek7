@@ -5,7 +5,6 @@ import {
   BadgeCheck,
   BarChart3,
   Camera,
-  CircleAlert,
   CalendarClock,
   CalendarDays,
   CheckSquare,
@@ -35,6 +34,7 @@ import {
   Kart,
   KartBasligi,
   KatlanabilirKart,
+  OlcumKarti,
   Rozet,
   RozetSeridi,
   SINIF_BIRINCIL_BUTON,
@@ -127,9 +127,7 @@ import {
 } from "@/lib/yetki/izinler";
 import {
   faaliyetKapsamFiltresi,
-  ilDisiBasvuruFiltresi,
   ogrenciKapsamFiltresi,
-  ogretmenKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
 import {
   yegitekSorumlusuIsaretiEylemi,
@@ -137,92 +135,6 @@ import {
 import { danismanlikIsaretiEylemi } from "./ogrenciler/eylemler";
 
 export const dynamic = "force-dynamic";
-
-/**
- * PANELİN ÖLÇÜM KARTI — ETKİNLİK KARTIYLA AYNI DİL (20 Ağustos 2026 · istek:
- * "kartları, etkinlikler gibi görsel ve güzel görünümlü hale getir").
- *
- * Kart eskiden düz beyaz bir kutuydu: sol üstte etiket, sağ üstte küçük bir
- * ikon kutusu, altında sayı. Etkinlikler ekranındaki kart ise gradyanlı bir
- * POSTER bandıyla açılıyor, ikon o bandın içinde filigran duruyor ve kart
- * imleç üstüne gelince bir tık yükseliyor (bkz. components/ui.tsx ·
- * PosterKart). Aynı sistemin iki ekranı iki ayrı kart dili konuşuyordu.
- *
- * Buradaki kart PosterKart'ı KULLANMIYOR, dilini ödünç alıyor. Sebebi
- * içeriğin farkı: PosterKart bir KAYDI tanıtır — başlık, rozetler, alt bilgi
- * ve düğmeler taşır. Burada tanıtılacak kayıt yok, tek bir SAYI var ve o
- * sayının kartın en iri öğesi olması gerekiyor. PosterKart'a "sayı kipi"
- * eklemek, iki ekranın kartını da bulanıklaştırırdı.
- *
- * TON BİLGİ TAŞIR, süs değil: `uyari` bekleyen bir iş olduğunu, `olumlu`
- * tamamlanmış bir şeyi, `vurgu` kişinin kendi tarihli taahhüdünü söyler.
- * Çağıran vermezse nötr kalır — rastgele renk dağıtmak, rengin anlamını
- * silerdi.
- */
-function OlcumKarti({
-  baslik,
-  deger,
-  aciklama,
-  Ikon,
-  yol,
-  ton = "notr",
-}: {
-  baslik: string;
-  deger: string;
-  aciklama?: string;
-  Ikon: React.ComponentType<{ size?: number; className?: string }>;
-  /** Verilirse kart, ilgili ekrana giden bir bağlantı olur. */
-  yol?: string;
-  /** Poster bandının rengi; bilgi taşır (bkz. başlıktaki not). */
-  ton?: "vurgu" | "olumlu" | "uyari" | "notr";
-}) {
-  const icerik = (
-    <>
-      {/*
-        POSTER BANDI. Etkinlik kartındakinden ALÇAK (h-28 değil h-16): orada
-        bandın işi afişi taşımak, burada yalnızca kartı renkle açmak — 112
-        piksellik bir bant, üç satırlık bir sayımın üstünde başlı başına bir
-        blok olurdu.
-      */}
-      <div className={`poster poster-${ton} relative grid h-16 place-items-center`}>
-        <Ikon size={26} className="text-white/50" />
-      </div>
-
-      <div className="flex flex-1 flex-col p-5">
-        <p className="text-sm font-medium text-metin-yumusak">{baslik}</p>
-        {/*
-          Sayı başlık yazısıyla ve büyük basılıyor: bir sayımın işlevi uzaktan
-          okunabilmesidir, gövde puntosunda etiketinden ayrışmıyordu.
-        */}
-        <p className="mt-1 font-baslik text-3xl leading-tight font-extrabold text-baslik">
-          {deger}
-        </p>
-        {aciklama && (
-          <p className="mt-1.5 text-sm text-metin-yumusak">{aciklama}</p>
-        )}
-      </div>
-    </>
-  );
-
-  /*
-   * `overflow-hidden`: poster bandının köşeleri kartın yuvarlatmasını taşmasın.
-   * `hover:-translate-y-1` yalnızca bağlantı olan kartta — gidilecek yeri
-   * olmayan bir kartın imlece tepki vermesi, tıklanabilir olduğunu söylerdi.
-   */
-  const sinif =
-    "flex h-full flex-col overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart";
-
-  return yol ? (
-    <Link
-      href={yol}
-      className={`${sinif} transition hover:-translate-y-1 hover:border-vurgu hover:shadow-yuksek focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vurgu`}
-    >
-      {icerik}
-    </Link>
-  ) : (
-    <div className={sinif}>{icerik}</div>
-  );
-}
 
 /**
  * SAYIM KARTI — "Dikkat gerektirenler" ve "Ekosistem sayıları" ızgaraları.
@@ -450,6 +362,7 @@ export default async function PanelSayfasi({
             githubUrl: true,
             kisiselSiteUrl: true,
             linkedinUrl: true,
+            instagramUrl: true,
             kurumAdi: true,
             gorevUnvani: true,
             aciklama: true,
@@ -622,35 +535,11 @@ export default async function PanelSayfasi({
     : null;
 
   /*
-   * KOORDİNATÖRÜN KARŞILIĞI: öğretmende "Öğrencilerim" danışmanlığındakileri
-   * listeliyor; koordinatör danışman değildir. Onun karşılığı sorumlu olduğu
-   * ildeki SAYIMDIR. "Danışmansız" ayrı sayılıyor: ilinde eyleme geçmesi
-   * gereken tek sayı odur (SKILL.md · Değişmezler 2).
+   * KOORDİNATÖRÜN İL SAYIMI BURADAN KALKTI (26 Ağustos 2026): saydığı
+   * "İlimdeki kişiler" kartı Yönetim Paneli'ne devredildi (yukarıdaki nota
+   * bakın). Sorgular kopyalanmadı — oradaki il kartı aynı sayıları kendi
+   * özetinden okuyor (bkz. lib/rapor/yonetim-ozeti.ts).
    */
-  const koordinatorOzeti =
-    !ogrenci && sorumluIlKodu
-      ? await (async () => {
-          const [ogrenciSayisi, ogretmenSayisi, danismansiz] = await Promise.all([
-            prisma.kullanici.count({
-              where: {
-                ilKodu: sorumluIlKodu,
-                roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
-              },
-            }),
-            prisma.kullanici.count({
-              where: { AND: [ogretmenKapsamFiltresi(kullanici)] },
-            }),
-            prisma.kullanici.count({
-              where: {
-                ilKodu: sorumluIlKodu,
-                roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
-                ogrenciAtamalari: { none: { bitisTarihi: null } },
-              },
-            }),
-          ]);
-          return { ogrenciSayisi, ogretmenSayisi, danismansiz };
-        })()
-      : null;
 
   const disKullanici = disKullaniciMi(kullanici);
   const disProfil = profilKaydi.ogretmenProfil;
@@ -714,6 +603,7 @@ export default async function PanelSayfasi({
     gorevUnvani,
     adresiKisalt(kendiProfilim?.githubUrl),
     adresiKisalt(kendiProfilim?.linkedinUrl),
+    adresiKisalt(kendiProfilim?.instagramUrl),
     adresiKisalt(kendiProfilim?.kisiselSiteUrl),
   ].filter(Boolean) as string[];
   const cvOzeti = kendiProfilim?.cvDosyaAdi ?? null;
@@ -863,48 +753,11 @@ export default async function PanelSayfasi({
     : 0;
 
   /*
-   * İL KOORDİNATÖRÜNÜN İKİ ONAY KUYRUĞU (11 Ağustos 2026).
-   *
-   * Koordinatörün panelinde tek bir sayı bile yoktu; menüdeki "İl Dışı
-   * Başvurular" satırı, içinde iş olup olmadığını söylemediği için hiç
-   * tıklanmıyordu. Sonuç: Ağrı'daki öğrenci İstanbul'daki bir etkinliğe
-   * başvuruyor, kararı bekleyen tek kişi koordinatör oluyor ve başvuru
-   * kimsenin haberi olmadan BEKLIYOR'da kalıyordu.
-   *
-   * İkisi AYRI sayı olarak duruyor çünkü ayrı işler: biri "ilimde açılan
-   * etkinliği yayına alayım mı", öbürü "öğrencimi başka ile göndereyim mi".
-   * Tek sayıda toplasaydık tıklanan yer hangi işe gittiğini söylemezdi.
+   * KOORDİNATÖRÜN ONAY KUYRUĞU SAYIMI BURADAN KALKTI (26 Ağustos 2026).
+   * Saydığı iki kart da başka ekranlara taşındı (yukarıdaki nota bakın);
+   * etkinlik onayı artık Yönetim Paneli'nde, il dışı başvuru ise Etkinlikler
+   * ekranındaki bölümün kendi başlığında sayılıyor.
    */
-  const koordinatorOnayKuyrugu = ilKoordinatoruMu(kullanici)
-    ? {
-        etkinlik: await prisma.faaliyet.count({
-          where: {
-            AND: [
-              faaliyetKapsamFiltresi(kullanici),
-              { onayDurumu: "BEKLIYOR" },
-              /*
-               * KENDİ AÇTIĞI ELENİR. Kapsam filtresi kişinin kendi
-               * etkinliklerini onay durumundan bağımsız gösteriyor, dolayısıyla
-               * koordinatörün merkez onayını bekleyen ULUSAL etkinliği de bu
-               * sayıya giriyordu. Kimse kendi işini onaylamaz
-               * (bkz. ilKoordinatoruOnaylayabilirMi); sayı "sizi bekleyen iş"
-               * demek olduğuna göre orada görünmemeli.
-               */
-              { duzenleyenKullaniciId: { not: kullanici.id } },
-            ],
-          },
-        }),
-        ilDisi: await prisma.basvuru.count({
-          where: {
-            AND: [
-              ilDisiBasvuruFiltresi(kullanici),
-              { kaynakIlOnayDurumu: "BEKLIYOR" },
-              { durum: "BEKLIYOR" },
-            ],
-          },
-        }),
-      }
-    : null;
 
   /*
    * BAŞVURUYA AÇIK FAALİYET SORGUSU KALKTI (13 Ağustos 2026). Panelin altındaki
@@ -1526,35 +1379,25 @@ export default async function PanelSayfasi({
 
 
 
-        {ilKoordinatoruMu(kullanici) && (
-          <>
-            <OlcumKarti
-              baslik="İlimdeki öğrenciler"
-              Ikon={MapPin}
-              deger={String(kapsamdakiOgrenciSayisi)}
-              aciklama={`İl kodu: ${koordinatorIlKodu(kullanici) ?? "—"}`}
-              yol="/panel/ogrenciler"
-            />
-            {koordinatorOnayKuyrugu && (
-              <>
-                <OlcumKarti
-                  baslik="Onay bekleyen etkinlik"
-                  ton="uyari"
-                  Ikon={ClipboardCheck}
-                  deger={String(koordinatorOnayKuyrugu.etkinlik)}
-                  yol="/panel/etkinlikler?onay=bekleyen"
-                />
-                <OlcumKarti
-                  baslik="İl dışına giden başvuru"
-                  ton="uyari"
-                  Ikon={ArrowRightLeft}
-                  deger={String(koordinatorOnayKuyrugu.ilDisi)}
-                  yol="/panel/etkinlikler#il-disi"
-                />
-              </>
-            )}
-          </>
-        )}
+        {/*
+          İL KOORDİNATÖRÜNÜN ÜÇ ÖLÇÜM KARTI BURADAN KALKTI (26 Ağustos 2026 ·
+          istekler: "İlimdeki öğrenciler … Onay bekleyen etkinlik bu iki kartı
+          yönetim paneline alalım" · "İl dışına giden başvuru bu kartı da
+          etkinliklerim menüsüne alıyoruz").
+
+          Üçü de SAYFANIN ÜSTÜNDEN, İŞİN YANINA taşındı — sayı bir listenin
+          uzunluğuydu ve o listeler başka ekranlarda duruyor:
+
+            · "İlimdeki öğrenciler" ve "Onay bekleyen etkinlik" → Yönetim
+              Paneli (bkz. panel/yonetim/page.tsx · koordinatör ölçüm şeridi),
+            · "İl dışına giden başvuru" → Etkinlikler ekranı; oradaki
+              "İl dışına giden başvurular" bölümü bekleyen sayısını zaten
+              başlığında yazıyor (bkz. etkinlikler/page.tsx · IlDisiBasvurular),
+              yani taşınacak yeni bir kart gerekmedi, buradaki kopya kalktı.
+
+          Koordinatörün profil sayfası böylece kendi kaydına ait bir sayfa
+          kalıyor; ilin işleri ilin panosunda.
+        */}
 
         {projeYoneticisiMi(kullanici) && (
           <>
@@ -1774,20 +1617,31 @@ export default async function PanelSayfasi({
         kaydını düzenlediği yer ve hiçbirinde bekleyen bir iş yok.
       */}
       {bosluklar && (
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
-            <CircleAlert size={18} className="text-uyari-metin" aria-hidden />
-            Dikkat gerektirenler
-          </h2>
+        /*
+          BAŞLIK KALKTI (26 Ağustos 2026 · istek: "profil sayfasında bu yazıyı
+          kaldır Dikkat gerektirenler"). Kartların kendisi kalıyor: her biri
+          zaten neyin beklediğini ("Danışmansız öğrenci") ve kaç tane olduğunu
+          söylüyor; üstlerindeki uyarı başlığı bunu ikinci kez söylüyordu.
+
+          `aria-label` başlığın yerini tutuyor — bölüm ekran okuyucuda adsız
+          bir yığın hâline gelmesin.
+        */
+        <section aria-label="Dikkat gerektirenler">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              {
-                etiket: "Danışmansız öğrenci",
-                deger: bosluklar.danismansizOgrenci,
-                alt: "Aktif danışman ataması yok",
-                yol: "/panel/ogrenciler",
-                Ikon: UserCheck,
-              },
+              /*
+                "Danışmansız öğrenci" KARTI KALKTI (26 Ağustos 2026 · istek:
+                "Dikkat gerektirenler · Danışmansız öğrenci · 0 · Aktif danışman
+                ataması yok bunu kaldır").
+
+                Sayının karşılığı olan liste zaten yerinde ve kendi ekranında
+                süzülebiliyor: "Okulumdaki danışmansız öğrenciler" bölümü
+                Öğrencilerim ekranının başında duruyor (bkz.
+                ogrenciler/page.tsx). Danışmansız kalan öğrenci ayrıca sessiz
+                de değil — atama sona erdiğinde ilgili öğretmene ve
+                koordinatöre bildirim düşüyor (bkz. lib/danisman/atama.ts).
+                Kalkan yalnızca panodaki sayaç.
+              */
               /*
                 "Raporsuz biten etkinlik" ETKİNLİKLER EKRANINA TAŞINDI
                 (26 Ağustos 2026 · istek: "bu kartı etkinlikler sayfasına
@@ -2576,56 +2430,20 @@ export default async function PanelSayfasi({
       */}
 
       {/*
-        İLİMDEKİ KİŞİLER — koordinatörün "Öğrencilerim" karşılığı. Sayım,
-        liste değil: üç yüz kişilik bir listeyi buraya basmanın faydası yok, o
-        iş kendi ekranında.
+        "İLİMDEKİ KİŞİLER" KARTI KALKTI (26 Ağustos 2026 · istek: "İlimdeki
+        kişiler · Öğrenci 3 · Öğretmen 4 · Danışmansız öğrenci 0 · Öğrenciler
+        ekranına git → Öğretmenler ekranına git → panelden bunu da silelim").
+
+        Kart üç sayı ve iki bağlantıdan ibaretti; üçünün de karşılığı, aynı
+        gün buraya taşınan diğer kartlarla birlikte Yönetim Paneli'nde: il
+        kartı ilin öğrenci ve öğretmen sayısını zaten yazıyor, koordinatörün
+        ölçüm şeridi de öğrenci sayısını başa alıyor (bkz.
+        panel/yonetim/page.tsx). "Ekrana git" bağlantılarının işini oradaki
+        Öğrenciler ve Öğretmenler kısayol kartları görüyor.
+
+        Koordinatörün profil sayfası, aynı gün kalkan üç ölçüm kartıyla
+        birlikte artık yalnızca kendi kaydını gösteriyor.
       */}
-      {koordinatorOzeti && (
-        <Kart>
-          <KartBasligi
-            baslik="İlimdeki kişiler"
-            Ikon={Users}
-          />
-          <dl className="grid gap-5 sm:grid-cols-3">
-            <SaltOkunurAlan
-              etiket="Öğrenci"
-              deger={String(koordinatorOzeti.ogrenciSayisi)}
-            />
-            <SaltOkunurAlan
-              etiket="Öğretmen"
-              deger={String(koordinatorOzeti.ogretmenSayisi)}
-            />
-            <div>
-              <dt className="text-sm font-medium text-metin-yumusak">
-                Danışmansız öğrenci
-              </dt>
-              <dd
-                className={`mt-0.5 font-medium ${
-                  koordinatorOzeti.danismansiz > 0
-                    ? "text-uyari-metin"
-                    : "text-metin"
-                }`}
-              >
-                {koordinatorOzeti.danismansiz}
-              </dd>
-            </div>
-          </dl>
-          <div className="mt-4 flex flex-wrap gap-4">
-            <Link
-              href="/panel/ogrenciler"
-              className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-            >
-              Öğrenciler ekranına git →
-            </Link>
-            <Link
-              href="/panel/ogretmenler"
-              className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-            >
-              Öğretmenler ekranına git →
-            </Link>
-          </div>
-        </Kart>
-      )}
 
       {/*
         "GENÇTEK YOLCULUĞUM" VE "KATKI NİŞANLARIM" KENDİ SAYFALARINA TAŞINDI

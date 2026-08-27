@@ -13,9 +13,11 @@ import {
   ozetToplami,
 } from "@/lib/rapor/yonetim-kurallari";
 import {
+  buYilinFaaliyetleri,
   ilceOzetleriniGetir,
   ilOzetleriniGetir,
 } from "@/lib/rapor/yonetim-ozeti";
+import { egitimOgretimYili } from "@/lib/ogretmen/gorev-yillari";
 import {
   koordinatorIlKodu,
   projeYoneticisiMi,
@@ -171,6 +173,69 @@ export async function GET(istek: Request) {
   ]);
 
   /*
+   * İL ÖZETİ BLOĞU (26 Ağustos 2026 · istek: "oradaki excel raporunu da
+   * güncelle").
+   *
+   * Ekrandaki "İl özeti" şeridine aynı gün beş ölçü eklendi (mentör, ekip,
+   * ürün, okul temsilcisi, paydaş) ve dosya geride kalmıştı: indirilen tablo,
+   * indirildiği anda ekranda duran şeyin aynısı olmalı.
+   *
+   * NİYE SÜTUN DEĞİL, ALTA BLOK: bu beş ölçü İL SEVİYESİNDE. İlçe başına
+   * kırılamıyorlar — paydaş kaydının ilçesi yok (bkz. model Paydas · yalnızca
+   * ilKodu), mentörlük ve ürün kişiye bağlı, ekip ile. Sütun olarak
+   * eklenselerdi her ilçe satırında AYNI il toplamı tekrar eder ve tabloyu
+   * okuyan kişi bunları ilçenin sayısı sanardı.
+   *
+   * SAYIMLAR EKRANLA AYNI KOŞULLARDAN: onaylı mentörlük, aktif ekip, bu yılın
+   * etkinlikleri ve bu yılın okul temsilcileri. Koşullar kopyalanmadı; "bu yıl"
+   * tanımı ekranla ortak yardımcıdan (`buYilinFaaliyetleri`) geliyor.
+   */
+  const buYil = egitimOgretimYili(new Date());
+  const [
+    mentorSayisi,
+    paydasSayisi,
+    okulTemsilcisiSayisi,
+    ekipSayisi,
+    urunSayisi,
+    etkinlikSayisi,
+  ] = await Promise.all([
+    prisma.mentorluk.count({
+      where: { durum: "ONAYLANDI", kullanici: { ilKodu } },
+    }),
+    prisma.paydas.count({ where: { ilKodu } }),
+    prisma.ogrenciGorevRolu.count({
+      where: {
+        rolKodu: "OKUL_TEMSILCISI",
+        egitimOgretimYili: buYil,
+        kurum: { ilKodu },
+      },
+    }),
+    prisma.ekip.count({ where: { aktif: true, ilKodu } }),
+    prisma.kullaniciKazanim.count({
+      where: { tip: "URUN", kullanici: { ilKodu } },
+    }),
+    prisma.faaliyet.count({ where: { AND: [buYilinFaaliyetleri(), { ilKodu }] } }),
+  ]);
+
+  /*
+   * Boş satır ayırıyor: tablo bitti, aşağısı başka bir şey. İki değerli satırlar
+   * (etiket + sayı) ilçe tablosunun sütun düzenine girmiyor ve girmemeli —
+   * okuyan kişi de bunu ilk bakışta görüyor.
+   */
+  satirlar.push([]);
+  satirlar.push(["", `${il?.ad ?? ""} İL ÖZETİ`]);
+  for (const [etiket, deger] of [
+    ["Bu yılın etkinlikleri", etkinlikSayisi],
+    ["Ürün", urunSayisi],
+    ["Mentör (onaylı)", mentorSayisi],
+    ["Ekip (açık)", ekipSayisi],
+    [`Okul temsilcisi (${buYil})`, okulTemsilcisiSayisi],
+    ["Paydaş", paydasSayisi],
+  ] as const) {
+    satirlar.push(["", etiket, deger]);
+  }
+
+  /*
    * Dosya adına ilin ADI yazılıyor, kodu değil: dosya e-posta ekinde dolaşıyor
    * ve "34" ile "06" arasındaki farkı indirmeyi açan herkes bilmiyor.
    */
@@ -178,7 +243,12 @@ export async function GET(istek: Request) {
     bicim: bicimCoz(adres),
     dosyaAdi: `genctek-${adParcasi(il?.ad ?? "", ilKodu)}-ilce-kirilimi`,
     baslik: "GençTek Ekosistemi",
-    altBaslik: altBaslikYaz(`${il?.ad ?? ""} · İlçe kırılımı`, satirlar.length - 1),
+    /*
+      KAYIT SAYISI İLÇE SAYISI: `satirlar` artık TOPLAM satırını ve il özeti
+      bloğunu da taşıyor, uzunluğu kayıt sayısı değil. Doğrudan `ilceler`
+      sayılıyor ki başlıktaki sayı ile tablodaki satırlar tutsun.
+    */
+    altBaslik: altBaslikYaz(`${il?.ad ?? ""} · İlçe kırılımı`, ilceler.length),
     sutunlar: ILCE_SUTUNLARI,
     satirlar,
   });

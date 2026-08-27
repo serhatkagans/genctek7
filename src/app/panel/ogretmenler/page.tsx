@@ -18,6 +18,7 @@ import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { gorevYillari, gorevYillariYaz } from "@/lib/ogretmen/gorev-yillari";
+import { okulTuruSecenekleri } from "@/lib/okul/turler";
 import {
   gorevYillariSecenekleri,
   okulTurleriGetir,
@@ -303,7 +304,8 @@ export default async function OgretmenlerSayfasi({
               className={SINIF_SECIM}
             >
               <option value="">Tüm okul türleri</option>
-              {okulTurleri.map((tur) => (
+              {/* Seçenekler Okullar ekranıyla aynı kaynaktan — bkz. lib/okul/turler.ts. */}
+              {okulTuruSecenekleri(okulTurleri).map((tur) => (
                 <option key={tur} value={tur}>
                   {tur}
                 </option>

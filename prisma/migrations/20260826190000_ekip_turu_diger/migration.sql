@@ -1,0 +1,18 @@
+-- Ekip türlerine DIGER eklendi.
+--
+-- İstek (26 Ağustos 2026): "Ekip türü alanına diğer ekleyelim."
+--
+-- NİYE GEREKLİ: üç tür de bir KAPSAM anlatıyor — okul takımı bir okula, il
+-- GençTek ekibi ilin tamamına, çalışma grubu il içinde bir konuya bağlı.
+-- Bunların hiçbirine girmeyen bir ekip kurulmak istendiğinde, kuran kişi
+-- mecburen yanlış bir tür seçiyordu; en kolay yanlış "Çalışma Grubu" (varsayılan
+-- tür) ve o seçim envanterdeki tür süzgecini sessizce kirletiyordu.
+--
+-- KAPSAM SÜTUNU İSTEMEZ: `kurumKodu` yalnızca OKUL_TAKIMI türünde zorunlu
+-- (ck_ekip_okul_takimi_kurum) ve o kısıt DEĞİŞMİYOR — DIGER, kısıtın "diğer
+-- türlerde NULL kalır" dalına düşüyor, ek bir göç gerekmiyor.
+--
+-- PostgreSQL 12+ ADD VALUE'yu işlem içinde kabul ediyor; yeni değer AYNI
+-- işlemde kullanılmadığı sürece sorun çıkmaz — bu göç yalnızca değeri ekliyor
+-- (emsali: 20260826170000_uluslararasi_kapsam).
+ALTER TYPE "EkipTuru" ADD VALUE IF NOT EXISTS 'DIGER';

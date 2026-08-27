@@ -159,12 +159,20 @@ export const EKIP_TURU_ETIKETLERI: Record<EkipTuru, string> = {
   OKUL_TAKIMI: "Okul Takımı",
   CALISMA_GRUBU: "Çalışma Grubu",
   IL_GENCTEK_EKIBI: "İl GençTek Ekibi",
+  DIGER: "Diğer",
 };
 
+/*
+ * SIRA EKRANDAKİ SIRA: "Diğer" EN SONDA (26 Ağustos 2026 · istek: "Ekip türü
+ * alanına diğer ekleyelim"). Üç kapsam türü önce, geri kalanlar kutusu sonra —
+ * arada dursaydı bir kapsam adı gibi okunurdu (emsali: okul türü süzgecindeki
+ * "Diğer", bkz. lib/okul/turler.ts).
+ */
 export const EKIP_TURLERI: readonly EkipTuru[] = [
   "OKUL_TAKIMI",
   "CALISMA_GRUBU",
   "IL_GENCTEK_EKIBI",
+  "DIGER",
 ];
 
 export function ekipTuruGecerliMi(deger: string): deger is EkipTuru {

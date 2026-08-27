@@ -34,6 +34,9 @@ const IZINLI_ALANLAR = [
   "githubUrl",
   "kisiselSiteUrl",
   "linkedinUrl",
+  // Instagram 26 Ağustos 2026'da eklendi ve aynı gün bağlantı kutuları
+  // öğretmene/koordinatöre de açıldı (bkz. ProfilDuzenleme · baglantiSorulsun).
+  "instagramUrl",
   // Dış kullanıcının kendi yazdığı kurum, görev ve katkı açıklaması
   // (7 Ağustos 2026). İl, ad ve soyad BU LİSTEDE DEĞİL: onlar başvurudan gelen
   // kimlik bilgileridir ve kişi değiştiremez.
@@ -80,6 +83,7 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
     githubUrl: string;
     kisiselSiteUrl: string;
     linkedinUrl: string;
+    instagramUrl: string;
     kurumAdi: string;
     gorevUnvani: string;
     aciklama: string;
@@ -112,6 +116,7 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
       githubUrl: temizVeri.githubUrl,
       kisiselSiteUrl: temizVeri.kisiselSiteUrl,
       linkedinUrl: temizVeri.linkedinUrl,
+      instagramUrl: temizVeri.instagramUrl,
     });
     if (!karar.olurMu) {
       panele(
@@ -140,6 +145,7 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
       githubUrl: temizVeri.githubUrl,
       kisiselSiteUrl: temizVeri.kisiselSiteUrl,
       linkedinUrl: temizVeri.linkedinUrl,
+      instagramUrl: temizVeri.instagramUrl,
     });
     if (!karar.olurMu) {
       panele("iletisim-bilgilerim", `hata=${encodeURIComponent(karar.neden)}`);
@@ -168,10 +174,32 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
       create: { kullaniciId: kullanici.id, ...disVeri },
     });
   } else {
+    /*
+     * ÖĞRETMEN VE KOORDİNATÖR ARTIK BAĞLANTI DA YAZIYOR (26 Ağustos 2026 ·
+     * istek: "öğrenci ve öğretmenlerin iletişim bilgileri alanına da ekleyelim
+     * instagram linkedin"). Sütunlar `ogretmen_profil`de zaten vardı, yalnızca
+     * bu dal onları yok sayıyordu.
+     *
+     * DIŞ KULLANICI DALIYLA BİRLEŞTİRİLMEDİ: oradaki fark bağlantılar değil,
+     * kurum/görev/açıklama alanları — o form bu role hiç basılmıyor ve tek
+     * dalda toplansaydı öğretmenin her kaydında o üç sütun null'lanırdı
+     * (dalın kendi notuna bakın).
+     */
+    const karar = baglantilariDogrula({
+      githubUrl: temizVeri.githubUrl,
+      kisiselSiteUrl: temizVeri.kisiselSiteUrl,
+      linkedinUrl: temizVeri.linkedinUrl,
+      instagramUrl: temizVeri.instagramUrl,
+    });
+    if (!karar.olurMu) {
+      panele("iletisim-bilgilerim", `hata=${encodeURIComponent(karar.neden)}`);
+    }
+
+    const personelVerisi = { ...iletisim, ...karar.baglantilar };
     await prisma.ogretmenProfil.upsert({
       where: { kullaniciId: kullanici.id },
-      update: iletisim,
-      create: { kullaniciId: kullanici.id, ...iletisim },
+      update: personelVerisi,
+      create: { kullaniciId: kullanici.id, ...personelVerisi },
     });
   }
 

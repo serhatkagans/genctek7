@@ -119,9 +119,16 @@ export default async function IlKoordinatorumSayfasi() {
                   {koordinator.eposta}
                 </a>
               ) : (
+                /*
+                  YÖNLENDİRME CÜMLESİ KALKTI (26 Ağustos 2026 · istek: "Okul
+                  idareniz aracılığıyla ulaşabilirsiniz. bu yazıyı
+                  kaldıralım"). Sayfa okul idaresi adına söz veremez: kimin
+                  hangi yoldan ulaşacağı burada bilinmiyordu ve öğrenciye de
+                  açıldıktan sonra cümle herkese doğru değil. Geriye durumu
+                  bildiren tek cümle kalıyor.
+                */
                 <p className="mt-3 text-sm text-metin-yumusak">
-                  Koordinatörünüz iletişim bilgisi girmemiş. Okul idareniz
-                  aracılığıyla ulaşabilirsiniz.
+                  Koordinatörünüz iletişim bilgisi girmemiş.
                 </p>
               )}
             </div>

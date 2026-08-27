@@ -1,13 +1,18 @@
 import {
+  BadgeCheck,
   CalendarDays,
   ChevronRight,
   CircleAlert,
+  Compass,
   GraduationCap,
+  Handshake,
   Map as Harita,
   MapPin,
+  Package,
   School,
   UserCog,
   Users,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -380,6 +385,11 @@ export function ToplamSeridi({
   danismansizOgrenci = 0,
   raporsuzFaaliyet = 0,
   okulEtiketi = "okul",
+  mentor,
+  paydas,
+  okulTemsilcisi,
+  ekip,
+  urun,
 }: {
   /** Yalnızca merkezin il kırılımında. */
   il?: number;
@@ -396,13 +406,27 @@ export function ToplamSeridi({
   danismansizOgrenci?: number;
   raporsuzFaaliyet?: number;
   okulEtiketi?: string;
+  /*
+   * EKOSİSTEM ÖLÇÜLERİ (26 Ağustos 2026 · istek: "o özete mentör sayıları
+   * paydaş sayıları etkinlik sayıları okul temsilcisi sayıları, ekip sayısı
+   * ekle, topluluk ekip kulüp, kaç ürün var").
+   *
+   * HEPSİ İSTEĞE BAĞLI ve verilmeyen basılmıyor: şerit üç ayrı kırılımda
+   * kullanılıyor (il, ilçe, okul) ve bu sayıların hepsi her basamakta anlamlı
+   * değil — okul kırılımında "kaç paydaş" diye bir soru yok.
+   */
+  mentor?: number;
+  paydas?: number;
+  okulTemsilcisi?: number;
+  ekip?: number;
+  urun?: number;
 }) {
   return (
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {il !== undefined && (
         <Olcum
           deger={il}
-          etiket="Toplam il"
+          etiket="İl"
           Ikon={MapPin}
           /*
            * Merkezin bu ekranda aradığı ilk boşluk: koordinatörü olmayan il.
@@ -418,12 +442,16 @@ export function ToplamSeridi({
           uyari={koordinatorsuzIl > 0}
         />
       )}
-      {ilce !== undefined && (
-        <Olcum deger={ilce} etiket="Toplam ilçe" Ikon={Harita} />
-      )}
+      {/*
+        ETİKETLERDEN "TOPLAM" ÖN EKİ KALKTI (26 Ağustos 2026 · istek: "toplam
+        yazıları kalksın ilçe okul vs yazsın sadece").
+        Şeridin tamamı zaten bir toplam; her satırda tekrarlanması, sayıya bir
+        şey katmadan altı etiketin de ilk kelimesini aynı yapıyordu.
+      */}
+      {ilce !== undefined && <Olcum deger={ilce} etiket="İlçe" Ikon={Harita} />}
       <Olcum
         deger={okul}
-        etiket={`Toplam ${okulEtiketi}`}
+        etiket={okulEtiketi}
         Ikon={School}
         // Okulu olmayan birimde "her okulda danışman öğretmen var" demek boş bir
         // övgü olurdu; alt satır yalnızca sayılacak okul varken çıkar.
@@ -436,15 +464,24 @@ export function ToplamSeridi({
         }
         uyari={danismansizOkul > 0}
       />
-      <Olcum deger={ogretmen} etiket="Toplam öğretmen" Ikon={Users} />
-      <Olcum
-        deger={danismanOgretmen}
-        etiket="Toplam danışman öğretmen"
-        Ikon={UserCog}
-      />
+      <Olcum deger={ogretmen} etiket="Öğretmen" Ikon={Users} />
+      {/*
+        "DANIŞMAN ÖĞRETMEN" ÖLÇÜSÜ KALDIRILDI (26 Ağustos 2026 · istek: "Toplam
+        danışman öğretmen 2 bunu sil").
+
+        Sayı, "Öğretmen" ölçüsünün bir alt kümesiydi ve yan yana durunca iki
+        bağımsız büyüklük gibi okunuyordu. Aradaki fark zaten okunabiliyor:
+        okul ölçüsünün altındaki "N okulda danışman öğretmen yok" satırı,
+        danışmanlığın eksik olduğu YERİ söylüyor — sayının kendisinden daha
+        işe yarar bir bilgi.
+
+        `danismanOgretmen` PROP'U DURUYOR: çağıranlar (il, ilçe ve okul
+        kırılımları) onu hesaplayıp geçiyor ve kaldırılması üç dosyada zincirleme
+        değişiklik demekti; ölçü yeniden istendiğinde tek satırla geri gelir.
+      */}
       <Olcum
         deger={ogrenci}
-        etiket="Toplam öğrenci"
+        etiket="Öğrenci"
         Ikon={GraduationCap}
         /*
          * Danışmansız öğrenci ÖĞRENCİ SAYISININ ALTINDA duruyor, ayrı bir kutu
@@ -472,6 +509,50 @@ export function ToplamSeridi({
           altYol={raporsuzFaaliyet > 0 ? "/panel/raporlar" : undefined}
           uyari={raporsuzFaaliyet > 0}
         />
+      )}
+      {/*
+        EKOSİSTEM ÖLÇÜLERİ — kişi ve yer sayılarının ardından geliyor. Sıra
+        rastgele değil: önce "kim var" (öğretmen, öğrenci), sonra "ne
+        yapılıyor" (etkinlik, ürün), sonra "nasıl örgütlenmiş" (mentör, ekip,
+        temsilci, paydaş).
+      */}
+      {urun !== undefined && (
+        <Olcum deger={urun} etiket="Ürün" Ikon={Package} />
+      )}
+      {mentor !== undefined && (
+        <Olcum
+          deger={mentor}
+          etiket="Mentör"
+          Ikon={Compass}
+          /* ONAYLI olanlar sayılıyor: bekleyen başvuru henüz bir mentör değil. */
+          alt="Onaylanmış mentörlükler"
+        />
+      )}
+      {ekip !== undefined && (
+        <Olcum
+          deger={ekip}
+          etiket="Ekip"
+          Ikon={UsersRound}
+          /*
+            "topluluk ekip kulüp" (istek) TEK SAYIDA: üçü de sistemde tek bir
+            kayıt türü — okul takımı, çalışma grubu ve il GençTek ekibi aynı
+            `Ekip` tablosunda duruyor (bkz. şemadaki EkipTuru). Ayrı ayrı
+            sayılsalardı şeride üç kutu daha girer ve toplamları yine bu sayı
+            olurdu; türe göre kırılım Ekiplerim ekranındaki süzgeçte.
+          */
+          alt="Okul takımı, çalışma grubu ve il ekipleri"
+        />
+      )}
+      {okulTemsilcisi !== undefined && (
+        <Olcum
+          deger={okulTemsilcisi}
+          etiket="Okul temsilcisi"
+          Ikon={BadgeCheck}
+          alt="Bu eğitim-öğretim yılı"
+        />
+      )}
+      {paydas !== undefined && (
+        <Olcum deger={paydas} etiket="Paydaş" Ikon={Handshake} />
       )}
     </dl>
   );

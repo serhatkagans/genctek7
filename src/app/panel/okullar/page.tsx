@@ -18,6 +18,7 @@ import {
   yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 import type { SorguParametreleri } from "../ogrenciler/filtreler";
+import { okulTuruSecenekleri } from "@/lib/okul/turler";
 import { listeBasilsinMi, okulSorgusu, okulSuzgeciniCoz } from "./filtreler";
 
 export const dynamic = "force-dynamic";
@@ -148,7 +149,8 @@ export default async function OkullarSayfasi({
       </BilgiKutusu>
 
       <Kart>
-        <KartBasligi baslik="Süzgeçler" Ikon={Search} />
+        {/* "Süzgeçler" → "Filtreler" (26 Ağustos 2026 · istek). */}
+        <KartBasligi baslik="Filtreler" Ikon={Search} />
         <form method="get" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block">
             <span className="text-sm font-medium text-metin">
@@ -206,11 +208,23 @@ export default async function OkullarSayfasi({
               className={SINIF_GIRDI}
             >
               <option value="">Tüm türler</option>
-              {turler.map((tur) => (
-                <option key={tur.okulTuru} value={tur.okulTuru}>
-                  {tur.okulTuru}
-                </option>
-              ))}
+              {/*
+                LİSTE STANDART TÜRLERLE BİRLEŞTİRİLİYOR (26 Ağustos 2026 ·
+                istek: "Okul türü alanına diğer okul türlerini ekleyelim meslek
+                lisesi imamhatip lisesi falan en son da diğer olsun").
+
+                Aşağıdaki sorgu yalnızca ildeki KAYITLI okulların türlerini
+                döndürüyor; ilinde henüz sisteme girmemiş bir meslek lisesi
+                varsa o tür süzgeçte hiç görünmüyordu. Birleştirme, veriden
+                gelen türleri de koruyor — gerekçesi lib/okul/turler.ts'te.
+              */}
+              {okulTuruSecenekleri(turler.map((tur) => tur.okulTuru)).map(
+                (tur) => (
+                  <option key={tur} value={tur}>
+                    {tur}
+                  </option>
+                ),
+              )}
             </select>
           </label>
 

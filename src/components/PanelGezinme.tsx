@@ -98,19 +98,31 @@ export function PanelGezinme({
   return (
     <nav aria-label="Panel gezinmesi">
       {/* --- Geniş ekran: gruplu dikey liste --- */}
-      <ul className="hidden lg:block">
+      <ul className="hidden space-y-0.5 lg:block">
         {gruplar.map((grup) => (
-          <li key={grup.ad} className="mb-5">
+          <li key={grup.ad}>
             {/*
               GRUP BAŞLIKLARI BASILMIYOR (21 Ağustos 2026 · istek: "sol
               menüdeki başlıklar kalksın Genel Çalışma Ekosistem bunlar
               yani").
 
-              Gruplama DURUYOR: bağlantılar aynı sırada ve gruplar arasında
-              boşluk var — kaybolan yalnızca üstteki küçük etiket. Ekran
-              okuyucu grubun adını yine duyuyor (`aria-label`); onu da
-              kaldırmak, görünürde boşlukla ayrılmış bir yığını okuyucu için
-              tek bir uzun listeye çevirirdi.
+              Gruplama DURUYOR: bağlantılar aynı sırada. Ekran okuyucu grubun
+              adını yine duyuyor (`aria-label`).
+
+              GRUPLAR ARASINDAKİ BOŞLUK DA KALKTI (26 Ağustos 2026 · istek:
+              "sol menüde bazı satır boşlukları var, profil ile yönetim paneli
+              arasında, etkinlikler ile bağlantılarım arasında ve pano ile
+              market arasında, onları kaldır").
+
+              Başlıklar kalkınca boşluk TEK BAŞINA KALMIŞTI ve adı olmayan bir
+              ayrımı gösteriyordu: menüye bakan kişi iki satır arasında niye
+              boşluk olduğunu bilmiyor, yalnızca listenin düzensiz olduğunu
+              görüyordu. Satır aralığı artık her yerde aynı (`space-y-0.5`) —
+              grup `li`si duruyor ama görsel bir iz bırakmıyor.
+
+              GRUP YAPISI SİLİNMEDİ: `aria-label` ekran okuyucuya sırayı hâlâ
+              anlatıyor ve gruplar ileride yeniden görünür kılınmak istenirse
+              (başlık ya da ince çizgi) tek satırlık bir değişiklik yeter.
             */}
             <ul className="space-y-0.5" aria-label={grup.ad}>
               {grup.ogeler.map((baglanti) => {

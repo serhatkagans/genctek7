@@ -2,10 +2,8 @@ import {
   BadgeCheck,
   Bug,
   Compass,
-  FileText,
   GraduationCap,
   Handshake,
-  LifeBuoy,
   Map as Harita,
   MapPin,
   Megaphone,
@@ -13,7 +11,6 @@ import {
   Settings,
   School,
   ShieldCheck,
-  TriangleAlert,
   UserCog,
   Users,
   UsersRound,
@@ -36,6 +33,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { ekipYonetebilirMi } from "@/lib/ekip/kurallar";
+import { egitimOgretimYili } from "@/lib/ogretmen/gorev-yillari";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import {
   birimUyarilari,
@@ -44,6 +42,7 @@ import {
   ozetToplami,
 } from "@/lib/rapor/yonetim-kurallari";
 import {
+  buYilinFaaliyetleri,
   ilceOzetleriniGetir,
   ilOzetleriniGetir,
 } from "@/lib/rapor/yonetim-ozeti";
@@ -52,11 +51,9 @@ import {
   hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
-  mentorlukBasvurabilirMi,
   mentorlukOnaylayabilirMi,
   ogrenciEnvanteriGorebilirMi,
   ogretmenEnvanteriGorebilirMi,
-  panodaIlanAcabilirMi,
   panoIlaniOnaylayabilirMi,
   urunMarketOnayiVerebilirMi,
   paydasGorebilirMi,
@@ -168,6 +165,65 @@ export default async function YonetimSayfasi({
           })
         : Promise.resolve(0),
     ]);
+  /*
+   * EKOSİSTEM SAYILARI (26 Ağustos 2026 · istek: "o özete mentör sayıları
+   * paydaş sayıları etkinlik sayıları okul temsilcisi sayıları, ekip sayısı
+   * ekle, topluluk ekip kulüp, kaç ürün var").
+   *
+   * KAPSAM `ilSuzgeci`: koordinatörde kendi ili, merkezde ülke geneli (boş
+   * nesne, hiçbir satırı elemiyor). Kırılım kartlarındaki sayılarla aynı
+   * kapsamı paylaşıyorlar — şerit "aşağıdaki kartların toplamı" olmalı.
+   *
+   * SAYILAR ÖZET TABLOSUNDAN DEĞİL, DOĞRUDAN SAYILIYOR: `ilOzetleriniGetir`
+   * il başına okul/öğretmen/öğrenci taşıyor ve beşini de eklemek o sorgunun
+   * dönüşünü her ekranda büyütürdü — buradaki beş `count`, ilçe kartlarının
+   * hiçbirinde kullanılmıyor.
+   *
+   * DÖNEMLİ OLAN TEK SAYI OKUL TEMSİLCİSİ: görev kaydı eğitim-öğretim yılına
+   * bağlı (bkz. OgrenciGorevRolu) ve geçen yılın temsilcisini bu yılın
+   * özetinde saymak, boşalan bir görevi dolu göstermek olurdu. Mentörlük,
+   * paydaş, ekip ve ürün dönemli değil.
+   */
+  const ilSuzgeci = ilKodu ? { ilKodu } : {};
+  const buYil = egitimOgretimYili(new Date());
+
+  const [
+    mentorSayisi,
+    paydasSayisi,
+    okulTemsilcisiSayisi,
+    ekipSayisi,
+    urunSayisi,
+    etkinlikSayisi,
+  ] = await Promise.all([
+      prisma.mentorluk.count({
+        /* Yalnızca ONAYLI: bekleyen başvuru henüz bir mentör değil. */
+        where: { durum: "ONAYLANDI", kullanici: ilSuzgeci },
+      }),
+      prisma.paydas.count({ where: ilSuzgeci }),
+      prisma.ogrenciGorevRolu.count({
+        where: {
+          rolKodu: "OKUL_TEMSILCISI",
+          egitimOgretimYili: buYil,
+          /* Görevin kapsamı okul; ili o okulun kaydından geliyor. */
+          ...(ilKodu ? { kurum: { ilKodu } } : {}),
+        },
+      }),
+      /* Kapatılan ekip bir arşiv, sayıma girmiyor. */
+      prisma.ekip.count({ where: { aktif: true, ...ilSuzgeci } }),
+      prisma.kullaniciKazanim.count({
+        where: { tip: "URUN", kullanici: ilSuzgeci },
+      }),
+      /*
+       * ETKİNLİK SAYISI DOĞRUDAN SAYILIYOR, ilçe kartlarından toplanmıyor:
+       * faaliyetin ilçesi boş olabilir (il ve ulusal kapsamlı etkinlikler bir
+       * ilçeye bağlı değil) ve ilçe özetleri faaliyet taşımıyor. Toplansaydı
+       * koordinatörün özetinde sıfır yazardı.
+       */
+      prisma.faaliyet.count({
+        where: { AND: [buYilinFaaliyetleri(), ilSuzgeci] },
+      }),
+    ]);
+
   const siralama = ilSiralamasiCoz(sirala);
   const aranan = ara?.trim() ?? "";
   const iller = illeriSuz(tumIller, { ara: aranan, sirala: siralama });
@@ -179,6 +235,7 @@ export default async function YonetimSayfasi({
    */
   const toplam = ozetToplami(merkezMi ? iller : ilceler);
   const suzgecVar = aranan !== "" || siralama !== "ad";
+
 
   return (
     <div className="space-y-6">
@@ -205,6 +262,18 @@ export default async function YonetimSayfasi({
       />
 
       {/*
+        KOORDİNATÖRÜN İKİ ÖLÇÜM KARTI KALDIRILDI (26 Ağustos 2026 · istek:
+        "yönetim panelinden İlimdeki öğrenciler … Onay bekleyen etkinlik bu
+        kartları kaldır").
+
+        Kartlar aynı gün profil sayfasından buraya taşınmıştı; iki tur sonra
+        ikisi de kalktı. Sayıların karşılığı duruyor ve bir tık ötede: öğrenci
+        sayısı aşağıdaki Öğrenciler kartının açtığı listede, bekleyen etkinlik
+        ise Etkinlikler ekranındaki onay süzgecinde. Pano artık tek bir dil
+        konuşuyor — hepsi kısayol kartı, aralarında sayı gösteren iki kart yok.
+      */}
+
+      {/*
         ALT MENÜ KARTLARI. Sırası üst menüdeki eski sırayı korur: kullanıcı
         sekmeleri soldan sağa nasıl okuyorduysa kartları da öyle okuyor.
 
@@ -217,6 +286,47 @@ export default async function YonetimSayfasi({
           aciklama="Üst menüden kaldırılan yönetim sekmeleri burada."
         />
         <div className="grid gap-3 sm:grid-cols-2">
+          {/*
+            İLK DÖRT KART: OKULLAR · ÖĞRETMENLER · ÖĞRENCİLER · PAYDAŞLAR
+            (26 Ağustos 2026 · istekler: "il koordinatörünün yönetim panelinde
+            ilk kart okullar olsun" · "kartlarda 2. sırada öğretmenler kartı
+            olsun" · "3. sırada öğrenciler olsun" · "4. kart paydaşlar olsun").
+
+            Paydaşlar kartı zaten dördüncüydü ve yerinde bırakıldı; sıra burada
+            yazılı olsun diye anılıyor.
+
+            SIRA ROLE BAĞLI DEĞİL: ilk turda yalnızca koordinatörde
+            değiştirilmişti, merkezinki eski sırasında bırakılmıştı — aynı pano
+            iki rolde iki farklı sırayla açılıyordu ve ekran görüntüsü
+            paylaşıldığında "bende öyle değil" cevabı doğuyordu. Tek sıra
+            herkeste.
+
+            ESKİ SIRA üst menüdeki sekme sırasıydı (Öğrenciler önce). Yeni sıra
+            KAPSAMIN GENİŞLİĞİNE göre daralıyor: okul bir yerdir ve içinde
+            öğretmen, öğretmenin altında öğrenci vardır — ilinde bir işi olan
+            kişi önce "hangi okul" diye soruyor.
+
+            OKULLAR KARTININ KENDİ YETKİ SORUSU YOK ve bu eskiden de böyleydi:
+            pano kapısını geçen herkes (merkez ve koordinatör) okul arayabilir.
+          */}
+          <KisayolKarti
+            baslik="Okullar"
+            aciklama={
+              merkezMi
+                ? "Ülke genelinde okul arama — ad, ilçe ya da kurum kodu"
+                : "İlinizdeki okullar ve kişi sayıları"
+            }
+            Ikon={School}
+            yol="/panel/okullar"
+          />
+          {ogretmenEnvanteriGorebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Öğretmenler"
+              aciklama="Danışman öğretmenler ve görev almamış öğretmenler"
+              Ikon={Users}
+              yol="/panel/ogretmenler"
+            />
+          )}
           {ogrenciEnvanteriGorebilirMi(kullanici) && (
             <KisayolKarti
               baslik="Öğrenciler"
@@ -229,14 +339,6 @@ export default async function YonetimSayfasi({
               yol="/panel/ogrenciler"
             />
           )}
-          {ogretmenEnvanteriGorebilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="Öğretmenler"
-              aciklama="Danışman öğretmenler ve görev almamış öğretmenler"
-              Ikon={Users}
-              yol="/panel/ogretmenler"
-            />
-          )}
           {paydasGorebilirMi(kullanici) && (
             <KisayolKarti
               baslik="Paydaşlar"
@@ -246,64 +348,40 @@ export default async function YonetimSayfasi({
             />
           )}
           {/*
-            OKUL EKSİK DURUMLARI (15 Ağustos 2026 · Aşama 3).
+            "EKİP YÖNETİMİ" KARTI EKİPLERİM'İN İÇİNE ALINDI (26 Ağustos 2026 ·
+            istek: "bunu ekiplerimin içine al: Ekip Yönetimi").
 
-            Kart bu panonun sayılarının DEVAMI: burada "kaç danışmansız okul
-            var" yazıyor, orada "hangileri" ve "ne yapılmalı". Sayının yanına
-            konması bilinçli — sayıyı gören kişinin bir sonraki sorusu bu.
-
-            Menüye ayrı sekme AÇILMADI: bu panonun dosya başındaki notu diğer
-            yönetim ekranlarının burada kart olarak durduğunu söylüyor.
+            İki ekran 15 Ağustos'ta ayrılmıştı ve ayrımın kendisi duruyor:
+            `panel/ekipler` "benim ekiplerim", `panel/ekip-yonetimi` ilin bütün
+            ekiplerinin envanteri — koordinatör kendi ekibini yüzlerce kaydın
+            içinde aramamalı. Değişen yalnızca ENVANTERE GİDEN KAPI: panoda
+            ayrı bir kart olmaktansa, ENVANTER LİSTESİNİN KENDİSİ Ekiplerim
+            ekranına indi (istek: "ekip yönetimindeki liste ekiplerime
+            gelecek"). Ekip işine bakan kişi zaten oradan başlıyor.
           */}
           {/*
-            EKİP YÖNETİMİ (15 Ağustos 2026 · Aşama 5). `panel/ekipler` "benim
-            ekiplerim"; bu kart tüm ekiplerin envanterine gidiyor. İkisi ayrı
-            tutuldu çünkü koordinatör kendi ekibini yüzlerce kaydın içinde
-            aramamalı (gerekçe ekranın başında).
+            "OKUL EKSİK DURUMLARI" KARTI KALDIRILDI (26 Ağustos 2026 · istek:
+            "bu kartları sil").
+
+            EKRAN DURUYOR (/panel/okul-eksikleri) ve yetkisi değişmedi; kalkan
+            yalnızca buradaki kapı. Kaldırılabilmesinin sebebi aynı gün yapılan
+            taşıma: pano artık Okullar kartıyla açılıyor ve o ekran aynı
+            listeyi süzgeçleriyle veriyor.
           */}
-          {ekipYonetebilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="Ekip Yönetimi"
-              aciklama="Tüm ekipler: tür, danışman ve üye sayısı — danışmansız ekipler dahil"
-              Ikon={UsersRound}
-              yol="/panel/ekip-yonetimi"
-            />
-          )}
           {/*
-            OKULLAR (15 Ağustos 2026 · Aşama 4). Kırılımın son basamağının düz
-            ve aranabilir ikizi: aynı sayıları aynı sorgudan alıyor ama okul
-            adı, ilçe ya da KURUM KODU ile aranabiliyor. Kırılım "burada ne
-            var" diye gezdiriyor, bu ekran "şu okulu bul" diyene cevap veriyor.
+            "GÖREV ROLLERİ" KARTI KALDIRILDI (26 Ağustos 2026 · istek: "bu kartı
+            kaldır: Görev rolleri").
+
+            Kartın işi aynı gün ÖĞRENCİLER LİSTESİNE indi: İl / İlçe / Okul
+            temsilcisi görevleri artık öğrencinin kendi satırında veriliyor
+            (bkz. ogrenciler/page.tsx · TemsilcilikHucresi). Görev vermek için
+            önce buraya, sonra ayrı bir ekranda öğrenciyi yeniden aramak
+            gerekmiyor.
+
+            EKRAN SİLİNMEDİ (/panel/gorev-rolleri): ilin bütün görevlilerini tek
+            listede görmek ve CSV almak ayrı bir sorudur. Yalnızca panodaki
+            kapısı kalktı.
           */}
-          <KisayolKarti
-            baslik="Okullar"
-            aciklama={
-              merkezMi
-                ? "Ülke genelinde okul arama — ad, ilçe ya da kurum kodu"
-                : "İlinizdeki okullar ve kişi sayıları"
-            }
-            Ikon={School}
-            yol="/panel/okullar"
-          />
-          <KisayolKarti
-            baslik="Okul Eksik Durumları"
-            aciklama={
-              merkezMi
-                ? "Ülke genelinde danışman, öğrenci ya da temsilci eksiği olan okullar"
-                : "İlinizde danışman, öğrenci ya da temsilci eksiği olan okullar"
-            }
-            Ikon={TriangleAlert}
-            yol="/panel/okul-eksikleri"
-            ton="uyari"
-          />
-          {(merkezMi || ilKoordinatoruMu(kullanici)) && (
-            <KisayolKarti
-              baslik="Görev Rolleri"
-              aciklama="İl ve ilçe temsilcisi görevlerinin verilmesi"
-              Ikon={BadgeCheck}
-              yol="/panel/gorev-rolleri"
-            />
-          )}
           {/*
             KOORDİNATÖRLER = eski "Rol/Atama Envanteri" (11 Ağustos 2026 ·
             istek: "yönetim paneline bir de koordinatörler sayfası gelecek, rol
@@ -374,48 +452,21 @@ export default async function YonetimSayfasi({
             />
           )}
           {/*
-            PANODA İLAN AÇMA VE MENTÖRLÜK BAŞVURUSU (14 Ağustos 2026 · istek:
-            "yönetici içinde destek talebi ve mentör talebi aç olsun, kart
-            olarak gelsin, mentör olarak başvurda görünsün").
+            ÜÇ "KENDİM YAPAYIM" KARTI KALDIRILDI (26 Ağustos 2026 · istek: "bu
+            kartları sil"): "Destek / duyuru talebi aç", "Mentör talebi aç" ve
+            "Mentör olarak başvur".
 
-            Kartların ikizi panoda duruyor; buradaki kopyalar, merkezin günlük
-            işini tek ekrandan yürütmesi içindir — onay kuyruğunun yanında
-            "kendim de ilan açayım" kapısı olmayınca panoya gidip geri dönmek
-            gerekiyordu.
+            Üçü de 14 Ağustos'ta buraya PANODAN KOPYALANMIŞTI ve gerekçesi
+            "merkez günlük işini tek ekrandan yürütsün" idi. Kopya oldukları
+            için kaldırılmaları hiçbir kapıyı kapatmıyor: üçünün de aslı
+            panoda (/panel/talepler) duruyor, adresleri ve yetkileri
+            değişmedi.
 
-            YETKİ KARTIN KENDİSİNDE SORULUYOR, yönetim panosunu görebilmekte
-            değil: ilan açma 14 Ağustos'ta merkeze açıldı
-            (`panodaIlanAcabilirMi`) ve mentörlük başvurusu öğrenci dışında
-            herkese açık (`mentorlukBasvurabilirMi`). İkisi de panoya
-            ileride girecek başka bir rol için sessizce açılmasın.
+            Kalkmalarının sebebi panonun kimliği: bu ekran İLİN İŞLERİNİ
+            yönetiyor — okullar, öğretmenler, öğrenciler, onay kuyrukları.
+            "Kendim mentör olarak başvurayım" ise kişinin kendi işi ve
+            yönetim kartlarının arasında yabancı duruyordu.
           */}
-          {panodaIlanAcabilirMi(kullanici) && (
-            <>
-              <KisayolKarti
-                baslik="Destek / duyuru talebi aç"
-                aciklama="Teknik destek, duyuru, ekip arkadaşı arama ya da genel ilan"
-                Ikon={LifeBuoy}
-                yol="/panel/talepler/yeni"
-                ton="olumlu"
-              />
-              <KisayolKarti
-                baslik="Mentör talebi aç"
-                aciklama="Yol gösterecek bir mentöre sorun; havuzdaki mentörler görür"
-                Ikon={GraduationCap}
-                yol="/panel/talepler/mentor-talebi"
-                ton="olumlu"
-              />
-            </>
-          )}
-          {mentorlukBasvurabilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="Mentör olarak başvur"
-              aciklama="Bildiğiniz konularda öğrencilere yol gösterin; başvurunuz onaydan geçer"
-              Ikon={Handshake}
-              yol="/panel/talepler/mentor-basvuru"
-              ton="olumlu"
-            />
-          )}
           {/*
             MENTÖRLÜĞÜM (15 Ağustos 2026 · istek: "koordinatör sayfasında
             mentörlüğüm isminde bir menü var, onu yönetim paneline kart olarak
@@ -485,28 +536,18 @@ export default async function YonetimSayfasi({
             />
           )}
           {/*
-            ETKİNLİK RAPORLARI ekranının HİÇ KAPISI YOKTU: menüde sekmesi yok,
-            panoda kartı yoktu; tek girişi Panelim'deki "Raporsuz biten etkinlik"
-            ölçüm kartıydı. Yani sayı sıfırken — raporların hepsi yazılmışken —
-            ekrana gidecek bir yol kalmıyordu ve yazılmış raporlara bakmak
-            isteyen kişi adresi ezbere bilmek zorundaydı.
+            "ETKİNLİK RAPORLARI" KARTI ETKİNLİKLER EKRANINA TAŞINDI (26 Ağustos
+            2026 · istek: "bu kartı etkinliklere taşı").
 
-            Kart pano kapısını geçen herkese açık: ekranın kendi yetkisi zaten
-            koordinatör, merkez ve danışman öğretmen; ilk ikisi burada.
+            15 Ağustos'ta buraya konmuştu çünkü ekranın HİÇ KAPISI YOKTU: menüde
+            sekmesi yok, tek girişi Panelim'deki "Raporsuz biten etkinlik" ölçüm
+            kartıydı ve sayı sıfırlanınca yol da kapanıyordu. Kapı sorunu
+            çözüldü; şimdi kapı doğru yere taşındı — rapor bir ETKİNLİĞİN
+            raporu ve onu arayan kişi etkinlikler ekranında.
+
+            Yetki değişmedi: ekran koordinatör, merkez ve rapor yazabilen
+            danışman öğretmene açık; düğme de rapor yazabilenlere basılıyor.
           */}
-          <KisayolKarti
-            baslik="Etkinlik Raporları"
-            /*
-              CSV çıktısı açıklamaya YAZILDI (14 Ağustos 2026): program ve
-              çalışma grubu istatistiği o ekranın içinde bir form ve merkezin
-              onu araması için kartta bir iz olmalı — "raporlar" adı tek başına
-              istatistik çıktısını akla getirmiyor.
-            */
-            aciklama="Biten etkinliklerin raporları, raporu eksik olanlar ve program / çalışma grubu istatistiği (CSV)"
-            Ikon={FileText}
-            yol="/panel/raporlar"
-            ton="notr"
-          />
           {/*
             MERKEZİN ÜÇ EKRANI (11 Ağustos 2026). Panonun kuruluş gerekçesi
             "yönetim ekranlarının girişi burada olsun"du ama merkeze özel bu üç
@@ -572,11 +613,22 @@ export default async function YonetimSayfasi({
       <Kart>
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <KartBasligi
-            baslik={merkezMi ? "İller" : "İlçeler"}
+            /*
+              KOORDİNATÖRDE BAŞLIK "İL ÖZETİ" (26 Ağustos 2026 · istek:
+              "yönetim panelindeki İlçeler başlığı il özeti olsun … en alttaki
+              ilçe listesinden bahsediyorum").
+
+              Kartın içeriği iki parçadan oluşuyor: üstte İLİN toplamları
+              (ekosistem şeridi), altta ilçe kartları. "İlçeler" adı yalnızca
+              alt yarısını anlatıyordu ve şerit büyüdükçe (mentör, ekip, ürün…)
+              başlıkla içerik daha da ayrıştı. Merkezde "İller" kalıyor: orada
+              şerit ülke geneli, kartlar da illerin kendisi.
+            */
+            baslik={merkezMi ? "İller" : "İl özeti"}
             aciklama={
               merkezMi
-                ? "Her kartta ildeki okul, öğretmen, danışman öğretmen, öğrenci ve etkinlik sayısı"
-                : "Her kartta ilçedeki okul, öğretmen, danışman öğretmen ve öğrenci sayısı"
+                ? "Her kartta ildeki okul, öğretmen, öğrenci ve etkinlik sayısı"
+                : "İlinizin toplamları ve ilçe kırılımı"
             }
             Ikon={MapPin}
           />
@@ -660,7 +712,19 @@ export default async function YonetimSayfasi({
             ogretmen={toplam.ogretmen}
             danismanOgretmen={toplam.danismanOgretmen}
             ogrenci={toplam.ogrenci}
-            faaliyet={merkezMi ? toplam.faaliyet : undefined}
+            /*
+              ETKİNLİK SAYISI ARTIK KOORDİNATÖRDE DE (26 Ağustos 2026 · istek:
+              "etkinlik sayıları … ekle"). Daha önce yalnızca merkezde
+              basılıyordu çünkü ilçe özetleri faaliyet taşımıyor — faaliyetin
+              ilçesi boş olabilir. Koordinatörün sayısı ilçe kartlarından
+              TOPLANMIYOR, ilin kendi toplamı olarak `ilOzeti`den geliyor.
+            */
+            faaliyet={merkezMi ? toplam.faaliyet : etkinlikSayisi}
+            mentor={mentorSayisi}
+            paydas={paydasSayisi}
+            okulTemsilcisi={okulTemsilcisiSayisi}
+            ekip={ekipSayisi}
+            urun={urunSayisi}
             koordinatorsuzIl={toplam.koordinatorsuzIl}
             danismansizOkul={toplam.danismansizOkul}
             danismansizOgrenci={toplam.danismansizOgrenci}

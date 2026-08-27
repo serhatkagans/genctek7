@@ -21,12 +21,23 @@ function kabulEdilen(
 }
 
 describe("bağlantı tanımları", () => {
-  it("üç alanı da kapsar", () => {
+  it("dört alanı da kapsar", () => {
+    // Instagram 26 Ağustos 2026'da eklendi; sıra ekrandaki kutu sırasıdır.
     expect(BAGLANTI_TANIMLARI.map((tanim) => tanim.alan)).toEqual([
       "githubUrl",
       "kisiselSiteUrl",
       "linkedinUrl",
+      "instagramUrl",
     ]);
+  });
+
+  it("instagram kutusuna alan adı şartı koyar", () => {
+    // Yanlış kutuya yazılan bir LinkedIn adresi sessizce Instagram diye
+    // kaydedilmesin.
+    const instagram = BAGLANTI_TANIMLARI.find(
+      (tanim) => tanim.alan === "instagramUrl",
+    );
+    expect(instagram?.beklenenAlanAdi).toBe("instagram.com");
   });
 
   it("kişisel siteye alan adı şartı koymaz", () => {
@@ -40,12 +51,23 @@ describe("bağlantı tanımları", () => {
 });
 
 describe("adres kabulü", () => {
-  it("boş girdide üçünü de null bırakır", () => {
+  it("boş girdide dördünü de null bırakır", () => {
     expect(kabulEdilen({})).toEqual({
       githubUrl: null,
       kisiselSiteUrl: null,
       linkedinUrl: null,
+      instagramUrl: null,
     });
+  });
+
+  it("instagram adresini kabul eder, başka alan adını reddeder", () => {
+    expect(
+      kabulEdilen({ instagramUrl: "instagram.com/kullaniciadi" }).instagramUrl,
+    ).toBe("https://instagram.com/kullaniciadi");
+    expect(
+      baglantilariDogrula({ instagramUrl: "https://linkedin.com/in/ali" })
+        .olurMu,
+    ).toBe(false);
   });
 
   it("yalnızca boşluk içeren değeri null sayar", () => {

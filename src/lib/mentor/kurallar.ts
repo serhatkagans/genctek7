@@ -253,3 +253,90 @@ export function mentorKapsamiYaz(
   if (serbest) parcalar.push(serbest);
   return parcalar.join(" · ");
 }
+
+export const DANISMAN_KALDIRMA_GEREKCESI_ASGARI = 10;
+
+export type DanismanKararGirdisi = {
+  /** Öğrencinin bugünkü mentörlük kaydı; kayıt yoksa `null`. */
+  mevcutDurum: MentorlukDurumu | null;
+  yeniDurum: "ONAYLANDI" | "REDDEDILDI";
+  /** Yalnızca kaldırmada okunur. */
+  gerekce: string;
+};
+
+export type DanismanKararSonucu =
+  | { olurMu: true; retGerekcesi: string | null }
+  | { olurMu: false; neden: string };
+
+/**
+ * DANIŞMAN ÖĞRETMENİN KENDİ ÖĞRENCİSİ İÇİN MENTÖRLÜK KARARI (26 Ağustos 2026 ·
+ * istek: "danışman öğretmen kendi öğrencilerinden mentör ise o da görünsün …
+ * eğer öğrenci başvurduysa buradan onaylasın, mentör yap / mentörlüğü kaldır
+ * butonu olsun").
+ *
+ * ---------------------------------------------------------------------------
+ * NİYE `mentorlukKarariGecerliMi` YETMEDİ
+ * ---------------------------------------------------------------------------
+ * O kural MERKEZİN KUYRUĞUNUN kuralı ve iki yerinden bu ekrana uymuyor:
+ *
+ *   · yalnızca `BEKLIYOR` kaydı karara bağlıyor — buradaki "Mentör yap"
+ *     düğmesi ise daha önce reddedilmiş ya da bırakılmış bir öğrenciyi de
+ *     yeniden mentör yapabilmeli; yoksa bir kez reddedilen öğrenci için ekran
+ *     kalıcı bir çıkmaz olurdu,
+ *   · "mentörlüğü kaldır" diye bir işlem tanımıyor: merkezin kuyruğunda karar
+ *     BEKLEYEN bir başvuruya veriliyor, burada ise ZATEN ONAYLI bir
+ *     mentörlüğün geri alınması söz konusu.
+ *
+ * İkisi ayrı kural olarak duruyor ki merkezin kuyruğunu gevşetmek pahasına tek
+ * bir kural yazılmasın: orada "onaylanmış kayıt ikinci kez onaylanamaz" kısıtı
+ * karar tarihinin doğruluğunu koruyor ve yerinde kalmalı.
+ *
+ * ---------------------------------------------------------------------------
+ * BAŞVURUSU OLMAYAN ÖĞRENCİ MENTÖR YAPILAMAZ
+ * ---------------------------------------------------------------------------
+ * `mevcutDurum === null` reddediliyor. Mentörlük kaydı yalnızca sayı değil,
+ * ÇALIŞMA GRUBU ve konu taşır (bkz. mentorlukKabulEdilirMi: en az bir grup
+ * zorunlu) ve panodaki ilan eşleştirmesi o gruplar üzerinden yürüyor. Boş bir
+ * kayıtla açılan mentörlük, havuzda uzmanlık satırı boş bir kart ve hiçbir
+ * ilana düşmeyen bir mentör demekti.
+ *
+ * KALDIRMADA GEREKÇE ZORUNLU ve en az on karakter — aynı ekrandaki
+ * "Danışmanlığı bırak" formuyla bilerek aynı ölçü. Gerekçe öğrenciye bildirim
+ * metninde gidiyor; gerekçesiz kaldırma, öğrenciye neyi düzeltip yeniden
+ * başvuracağını söylemez (emsali: mentorlukKarariGecerliMi · ret gerekçesi).
+ */
+export function danismanMentorlukKarariGecerliMi(
+  girdi: DanismanKararGirdisi,
+): DanismanKararSonucu {
+  if (girdi.mevcutDurum === null) {
+    return {
+      olurMu: false,
+      neden:
+        "Öğrenci mentörlük başvurusu yapmamış. Mentörlük, çalışma grubu ve konu seçimiyle başvurulan bir kayıttır; öğrenci Talepler ekranından başvurduğunda buradan onaylayabilirsiniz.",
+    };
+  }
+
+  if (girdi.yeniDurum === "ONAYLANDI") {
+    if (girdi.mevcutDurum === "ONAYLANDI") {
+      return { olurMu: false, neden: "Öğrenci zaten onaylı mentör." };
+    }
+    return { olurMu: true, retGerekcesi: null };
+  }
+
+  if (girdi.mevcutDurum !== "ONAYLANDI") {
+    return {
+      olurMu: false,
+      neden: `Kaldırılacak bir mentörlük yok (${MENTORLUK_DURUM_ETIKETLERI[girdi.mevcutDurum].toLowerCase()}).`,
+    };
+  }
+
+  const gerekce = girdi.gerekce.trim();
+  if (gerekce.length < DANISMAN_KALDIRMA_GEREKCESI_ASGARI) {
+    return {
+      olurMu: false,
+      neden: `Mentörlüğü kaldırma gerekçesi en az ${DANISMAN_KALDIRMA_GEREKCESI_ASGARI} karakter olmalıdır.`,
+    };
+  }
+
+  return { olurMu: true, retGerekcesi: gerekce };
+}

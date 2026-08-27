@@ -43,6 +43,9 @@ const IFADE_EDILEMEYENLER = new Set([
   "ux_il_temsilcisi",
   "ux_ilce_temsilcisi",
   "ux_okul_temsilcisi",
+  // Dönem başına GRUP başına tek temsilci (26 Ağustos 2026). Diğer üç görev
+  // tekilliğiyle aynı desen; kısmi index olduğu için şemada ifade edilemiyor.
+  "ux_calisma_grubu_yoneticisi",
   // Ad tekillikleri — yalnızca aktif kayıtlar arasında.
   "ux_paydas_il_ad_aktif",
   "ux_ekip_il_ad_aktif",

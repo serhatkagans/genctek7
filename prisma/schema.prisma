@@ -909,6 +909,11 @@ model OgretmenProfil {
   githubUrl      String? @map("github_url") @db.VarChar(200)
   kisiselSiteUrl String? @map("kisisel_site_url") @db.VarChar(200)
   linkedinUrl    String? @map("linkedin_url") @db.VarChar(200)
+  /// INSTAGRAM (26 Ağustos 2026 · istek: "öğrenci ve öğretmenlerin iletişim
+  /// bilgileri alanına da ekleyelim instagram linkedin"). Diğer üçüyle aynı
+  /// sütun tipi ve aynı doğrulamadan geçiyor; ayrı bir sütun çünkü ekran her
+  /// adresi kendi adıyla gösteriyor.
+  instagramUrl   String? @map("instagram_url") @db.VarChar(200)
 
   /// "Açıklamalar / katkı sağlayabileceğim şeyler" (7 Ağustos 2026 · istek).
   ///
@@ -1118,6 +1123,11 @@ model OgrenciProfil {
   githubUrl      String? @map("github_url") @db.VarChar(200)
   kisiselSiteUrl String? @map("kisisel_site_url") @db.VarChar(200)
   linkedinUrl    String? @map("linkedin_url") @db.VarChar(200)
+  /// INSTAGRAM (26 Ağustos 2026 · istek: "öğrenci ve öğretmenlerin iletişim
+  /// bilgileri alanına da ekleyelim instagram linkedin"). Diğer üçüyle aynı
+  /// sütun tipi ve aynı doğrulamadan geçiyor; ayrı bir sütun çünkü ekran her
+  /// adresi kendi adıyla gösteriyor.
+  instagramUrl   String? @map("instagram_url") @db.VarChar(200)
 
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
@@ -1986,6 +1996,11 @@ enum EkipTuru {
   /// İlin GençTek ekibi; ilde tek olması beklenir ama kısıtla ZORLANMAZ
   /// (dönem geçişlerinde iki ekibin bir süre birlikte durması olağan).
   IL_GENCTEK_EKIBI
+  /// Üçünün kapsamına da girmeyen ekip (26 Ağustos 2026 · istek: "Ekip türü
+  /// alanına diğer ekleyelim"). Kapsam sütunu istemez; `kurumKodu` NULL kalır.
+  /// LİSTENİN SONUNDA duruyor ve ekranlarda da öyle basılıyor — arada dursaydı
+  /// bir kapsam adı gibi okunurdu.
+  DIGER
 }
 
 model Ekip {

@@ -9,7 +9,11 @@
 /** Veritabanı sütunuyla birebir aynı (ogrenci_profil VARCHAR(200)). */
 const BAGLANTI_SINIRI = 200;
 
-export type BaglantiAlani = "githubUrl" | "kisiselSiteUrl" | "linkedinUrl";
+export type BaglantiAlani =
+  | "githubUrl"
+  | "kisiselSiteUrl"
+  | "linkedinUrl"
+  | "instagramUrl";
 
 export interface BaglantiTanimi {
   alan: BaglantiAlani;
@@ -41,6 +45,24 @@ export const BAGLANTI_TANIMLARI: BaglantiTanimi[] = [
     etiket: "LinkedIn",
     ornek: "https://www.linkedin.com/in/kullaniciadi",
     beklenenAlanAdi: "linkedin.com",
+  },
+  /*
+   * INSTAGRAM (26 Ağustos 2026 · istek: "öğrenci ve öğretmenlerin iletişim
+   * bilgileri alanına da ekleyelim instagram linkedin").
+   *
+   * ADRES İSTENİYOR, KULLANICI ADI DEĞİL: "@kullaniciadi" yazan biri için
+   * `protokolTamamla` "https://@kullaniciadi" üretir ve adres çözümlenemez —
+   * hata metni örnekle birlikte döner. Kullanıcı adını adrese çevirmek
+   * denenmedi çünkü diğer üç kutuyla farklı davranan tek kutu olurdu.
+   *
+   * Beklenen alan adı `instagram.com`: yanlış kutuya yazılan bir LinkedIn
+   * adresi sessizce Instagram diye kaydedilmesin.
+   */
+  {
+    alan: "instagramUrl",
+    etiket: "Instagram",
+    ornek: "https://www.instagram.com/kullaniciadi",
+    beklenenAlanAdi: "instagram.com",
   },
 ];
 
@@ -87,6 +109,7 @@ export function baglantilariDogrula(
     githubUrl: null,
     kisiselSiteUrl: null,
     linkedinUrl: null,
+    instagramUrl: null,
   };
 
   for (const tanim of BAGLANTI_TANIMLARI) {

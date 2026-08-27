@@ -133,9 +133,15 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
    * (bkz. calismaGrubuYoneticisiAtayabilirMi).
    */
   if (rolKodu === "CALISMA_GRUBU_YONETICISI") {
-    if (!calismaGrubuYoneticisiAtayabilirMi(kullanici)) {
+    /*
+      ÖĞRENCİNİN İLİ DE SORULUYOR (26 Ağustos 2026): il koordinatörü kendi
+      ilindeki öğrenciye bu görevi verebiliyor (bkz.
+      calismaGrubuYoneticisiAtayabilirMi). Değer geçilmezse kapı yalnızca
+      merkeze açık kalır.
+    */
+    if (!calismaGrubuYoneticisiAtayabilirMi(kullanici, ogrenci.ilKodu)) {
       throw new YetkiHatasi(
-        "Çalışma Grubu Yöneticisi görevini yalnızca proje yöneticisi atayabilir. Öğrenciyi çalışma grubuna üye olarak ekleyebilirsiniz.",
+        "Bu öğrenciye Çalışma Grubu Temsilcisi görevi verme yetkiniz yok: görev merkeze ve öğrencinin ilinin koordinatörüne açıktır.",
       );
     }
     const grupId = Number.parseInt(String(veri.get("calismaGrubuId") ?? ""), 10);
@@ -168,10 +174,20 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
     kapsam.ilceKodu = ogrenci.ilceKodu;
   } else if (
     !ogrenci.kurumKodu ||
-    !okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu, kendiOgrencisi)
+    /*
+     * OKULUN İLİ DE SORULUYOR (26 Ağustos 2026): il koordinatörü kendi
+     * ilindeki okula temsilci atayabiliyor (bkz. okulTemsilcisiAtayabilirMi).
+     * Dördüncü değer geçilmezse o kapı hiç açılmaz.
+     */
+    !okulTemsilcisiAtayabilirMi(
+      kullanici,
+      ogrenci.kurumKodu,
+      kendiOgrencisi,
+      ogrenci.ilKodu,
+    )
   ) {
     throw new YetkiHatasi(
-      "Bu öğrenciye Okul Temsilcisi görevi verme yetkiniz yok: yalnızca danışmanlığınızdaki öğrencilere verilebilir.",
+      "Bu öğrenciye Okul Temsilcisi görevi verme yetkiniz yok: danışmanlığınızdaki öğrencilere ya da kendi ilinizdeki okullara verilebilir.",
     );
   } else {
     kapsam.kurumKodu = ogrenci.kurumKodu;
@@ -240,11 +256,20 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
       rolKodu: true,
       ilKodu: true,
       kurumKodu: true,
+      /*
+       * OKUL TEMSİLCİLİĞİNİN KALDIRILMASI DA OKULUN İLİNİ SORAR: görevi
+       * verebilen kişi kaldırabilmeli ve koordinatörün kapısı ile açılıyor.
+       * İl, görevin KENDİ kurum kaydından okunuyor — öğrenci dönem içinde
+       * başka ile taşınmış olabilir, görev ise verildiği yerde durur.
+       */
+      kurum: { select: { ilKodu: true } },
       ogrenci: {
         select: {
           id: true,
           ad: true,
           soyad: true,
+          /* Çalışma grubu temsilciliğinin kaldırılması öğrencinin iline bakar. */
+          ilKodu: true,
           // Kaldırma yetkisi de "kendi öğrencisi mi" sorusuna bağlı: görevi
           // veremeyen kişi kaldıramaz da.
           ogrenciAtamalari: {
@@ -281,12 +306,18 @@ export async function gorevRoluKaldirEylemi(veri: FormData): Promise<void> {
         ? gorev.ilce !== null &&
           ilceTemsilcisiAtayabilirMi(kullanici, gorev.ilce.ilKodu)
         : gorev.rolKodu === "CALISMA_GRUBU_YONETICISI"
-          ? calismaGrubuYoneticisiAtayabilirMi(kullanici)
+          ? /*
+              Kaldırma da aynı kapıdan: görevi veremeyen kişi kaldıramaz da.
+              İl, GÖREVİN SAHİBİ öğrencinin kaydından okunuyor — grubun bir ili
+              yok, görevi taşıyan kişinin var.
+            */
+            calismaGrubuYoneticisiAtayabilirMi(kullanici, gorev.ogrenci.ilKodu)
           : gorev.kurumKodu !== null &&
             okulTemsilcisiAtayabilirMi(
               kullanici,
               gorev.kurumKodu,
               gorev.ogrenci.ogrenciAtamalari.length > 0,
+              gorev.kurum?.ilKodu ?? null,
             );
 
   if (!yetkili) {

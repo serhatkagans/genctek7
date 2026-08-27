@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { okulTuruKosulu } from "../okul/turler";
 /**
  * Yönetim panosunun saf kuralları.
  *
@@ -310,7 +311,12 @@ export function okulKosulu(suzgec: OkulSuzgeci): Prisma.KurumWhereInput {
     aktif: true,
     ...(suzgec.ilKodu ? { ilKodu: suzgec.ilKodu } : {}),
     ...(suzgec.ilceKodu ? { ilceKodu: suzgec.ilceKodu } : {}),
-    ...(suzgec.okulTuru ? { okulTuru: suzgec.okulTuru } : {}),
+    /*
+      TÜR KOŞULU AYRI YARDIMCIDAN (26 Ağustos 2026): süzgeçteki "Diğer"
+      seçeneği bir tür adı değil, "standart listede olmayan türler" koşuludur
+      (bkz. lib/okul/turler.ts · okulTuruKosulu).
+    */
+    ...okulTuruKosulu(suzgec.okulTuru),
     ...(suzgec.ekipDurumu === "ekipli"
       ? { ekipler: { some: { aktif: true } } }
       : suzgec.ekipDurumu === "ekipsiz"

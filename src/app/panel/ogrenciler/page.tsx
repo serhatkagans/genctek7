@@ -27,7 +27,14 @@ import {
   gorevRoluKaldirEylemi,
 } from "@/app/panel/gorev-rolleri/eylemler";
 import { danismanligiBirakEylemi } from "./[id]/eylemler";
+import type { MentorlukDurumu } from "@/generated/prisma/enums";
+import {
+  DANISMAN_KALDIRMA_GEREKCESI_ASGARI,
+  MENTORLUK_DURUM_ETIKETLERI,
+  MENTORLUK_DURUM_SINIFLARI,
+} from "@/lib/mentor/kurallar";
 import { ogrenciyiDanismanligaAlEylemi } from "./eylemler";
+import { ogrenciMentorluguKararEylemi } from "./mentorluk-eylemleri";
 import {
   danismanTalebiniOnaylaEylemi,
   danismanTalebiniReddetEylemi,
@@ -44,7 +51,9 @@ import {
   ilKoordinatoruMu,
   koordinatorIlKodu,
   ogrenciEnvanteriGorebilirMi,
-  okulTemsilcisiAtayabilirMi,
+  calismaGrubuYoneticisiAtayabilirMi,
+  ogrenciTemsilciligiAtayabilirMi,
+  type TemsilcilikRolu,
   projeYoneticisiMi,
   yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
@@ -83,21 +92,56 @@ const SINIF_SAYFA_BUTON =
   "inline-flex items-center gap-1 rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
 
 /**
- * Satır başına Okul Temsilcisi düğmesi.
+ * TEMSİLCİLİK SÜTUNLARI (26 Ağustos 2026 · istek: "bu listeye yeni sütunlar
+ * ekleyelim: il temsilcisi yap/kaldır, ilçe temsilcisi yap/kaldır, okul
+ * temsilcisi yap/kaldır butonları olsun; il koordinatörleri bunların atamasını
+ * yapabilsin").
  *
- * Yalnızca ÖĞRENCİNİN KENDİ OKULUNDA yetkisi olan kişiye basılır: koordinatör
- * ilin tamamını görüyor ama her okulun temsilcisini o atamıyor. Yetki kontrolü
- * eylemin içinde bir kez daha yapılıyor — buradaki kontrol yalnızca
- * gösterilmeyecek bir düğmeyi göstermemek için.
+ * ÖNCEDEN YALNIZCA OKUL TEMSİLCİSİ VARDI ve dosyada "İl ve ilçe temsilciliği
+ * BURADA YOK — onları il koordinatörü kendi ekranından atıyor" diye yazılıydı.
+ * O ayrım koordinatörü iki ekran arasında gezdiriyordu: öğrenciyi burada
+ * buluyor, görevi Görev Rolleri ekranında yeniden arıyordu. Görev Rolleri
+ * ekranı KALKMADI — ilin bütün görevlilerini tek listede görmek ayrı bir
+ * sorudur; burada cevaplanan "şu öğrenciye görev vereyim mi".
+ *
+ * ---------------------------------------------------------------------------
+ * GENİŞLİK: ÜÇ SÜTUN, KISA DÜĞME (aynı gün, iki turda bulundu)
+ * ---------------------------------------------------------------------------
+ * İlk hâlde üç sütun vardı ve düğmeler rolün tam adını yazıyordu ("Okul
+ * Temsilcisi yap"); tablo ona sütuna çıkınca yatay kaydırma doğdu (istek: "bu
+ * halde sığmadı, altta scroll çıktı"). İkinci turda üçü tek sütunda rozete
+ * indirildi — kaydırma bitti ama okunurluk gitti (istek: "tekrar 3 sütun
+ * yapalım çok sıkışık oldu").
+ *
+ * Kalan çözüm ikisinin ortası ve asıl israfı hedefliyor: DÜĞME ROL ADINI
+ * TEKRARLAMIYOR. "Okul temsilcisi" sütununun altında "Okul Temsilcisi yap"
+ * yazmak aynı iki kelimeyi her satırda ikinci kez basmaktı; başlık zaten hangi
+ * görev olduğunu söylüyor, düğmeye düşen iş yalnızca eylemi söylemek.
+ *
+ * KAYDIRMA KALDIRILMADI: sarmalayıcıdaki `overflow-x-auto` duruyor, çünkü
+ * yeterince dar bir ekranda dokuz sütunlu bir tablo yine kayar — kaldırılsaydı
+ * kayma yerine sütunların ezilmesi olurdu.
+ *
+ * BİLEŞEN ROL BAŞINA ÜÇE BÖLÜNMEDİ: üçünün de yaptığı iş aynı (varsa kaldır,
+ * yoksa ata) ve fark yalnızca etiketle kapsam sütununda.
+ *
+ * YETKİ İKİ KEZ SORULUYOR: burada (basılmayacak düğmeyi basmamak için) ve
+ * eylemin içinde (form gövdesi kurcalanabilir). Buradaki kapı ile eylemdeki
+ * kapı AYNI fonksiyondan geliyor — ayrı yazılsalardı biri gevşer, öteki
+ * sıkışırdı (bkz. izinler.ts · ogrenciTemsilciligiAtayabilirMi).
  */
-function OkulTemsilcisiHucresi({
+function TemsilcilikHucresi({
+  rolKodu,
   ogrenci,
   kullanici,
   kendiOgrencisi,
   donusYolu,
 }: {
+  rolKodu: TemsilcilikRolu;
   ogrenci: {
     id: number;
+    ilKodu: string | null;
+    ilceKodu: string | null;
     kurumKodu: number | null;
     gorevRolleri: { id: number; rolKodu: string }[];
   };
@@ -105,21 +149,39 @@ function OkulTemsilcisiHucresi({
   /*
    * Danışman öğretmen okulundaki DANIŞMANSIZ öğrencileri de listeliyor
    * (10 Ağustos 2026); görev verme yetkisi ise yalnızca kendi öğrencilerinde.
-   * Danışmanı olmadığı öğrenciye görev veremez — hücre "—" kalır.
+   * Koordinatörde bu değerin bir hükmü yok — onun kapısı ilinden açılıyor.
    */
   kendiOgrencisi: boolean;
   donusYolu: string;
 }) {
-  const yetkili =
-    ogrenci.kurumKodu !== null &&
-    okulTemsilcisiAtayabilirMi(kullanici, ogrenci.kurumKodu, kendiOgrencisi);
-  if (!yetkili) {
-    return <span className="text-metin-yumusak">—</span>;
-  }
-
+  const tamAd = TEMSILCILIK_ADLARI[rolKodu];
   const mevcut = ogrenci.gorevRolleri.find(
-    (gorev) => gorev.rolKodu === "OKUL_TEMSILCISI",
+    (gorev) => gorev.rolKodu === rolKodu,
   );
+  const yetkili = ogrenciTemsilciligiAtayabilirMi(
+    kullanici,
+    rolKodu,
+    ogrenci,
+    kendiOgrencisi,
+  );
+
+  /*
+   * YETKİSİ OLMAYAN GÖREVİ GÖRÜR, DEĞİŞTİREMEZ: satırda görev varsa rozet
+   * basılıyor. "—" yazılsaydı, görevli bir öğrenci başkasının ekranında
+   * görevsiz görünürdü — oysa sütunun ilk işi durumu söylemek.
+   */
+  if (!yetkili) {
+    return mevcut ? (
+      <span
+        title={`${tamAd} (değiştirme yetkiniz yok)`}
+        className="rounded-full bg-rol-ogrenci-zemin px-2 py-0.5 text-xs text-rol-ogrenci-metin"
+      >
+        Görevli
+      </span>
+    ) : (
+      <span className="text-metin-yumusak">—</span>
+    );
+  }
 
   if (mevcut) {
     return (
@@ -128,9 +190,10 @@ function OkulTemsilcisiHucresi({
         <input type="hidden" name="donusYolu" value={donusYolu} />
         <button
           type="submit"
-          className="rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
+          title={`${tamAd} görevini kaldır`}
+          className="whitespace-nowrap rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
         >
-          Görevi kaldır
+          Kaldır
         </button>
       </form>
     );
@@ -139,17 +202,172 @@ function OkulTemsilcisiHucresi({
   return (
     <form action={gorevRoluAtaEylemi}>
       <input type="hidden" name="ogrenciId" value={ogrenci.id} />
-      <input type="hidden" name="rolKodu" value="OKUL_TEMSILCISI" />
+      <input type="hidden" name="rolKodu" value={rolKodu} />
       <input type="hidden" name="donusYolu" value={donusYolu} />
       <button
         type="submit"
-        className="rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin"
+        title={`${tamAd} yap`}
+        className="whitespace-nowrap rounded-md border border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin"
       >
-        Okul Temsilcisi yap
+        Görev ver
       </button>
     </form>
   );
 }
+
+/**
+ * ÇALIŞMA GRUBU TEMSİLCİSİ — "Çalışma grupları" sütununun altındaki atama
+ * kutusu (26 Ağustos 2026 · istek: "Çalışma grupları bu sütuna 14 çalışma
+ * grubundan temsilcisi yap/kaldır şeklinde açılan listeden seçsin").
+ *
+ * ---------------------------------------------------------------------------
+ * NİYE AYRI BİR SÜTUN DEĞİL
+ * ---------------------------------------------------------------------------
+ * Görev bir GRUBA veriliyor ve o sütun zaten öğrencinin gruplarını yazıyor;
+ * yan yana iki sütun aynı sözcüğü ("çalışma grubu") iki başlıkta tekrarlardı.
+ * Üstelik tablo temsilcilik sütunlarıyla birlikte dokuza çıkmış durumda —
+ * onuncu sütun aynı gün çözülen genişlik sorununu geri getirirdi.
+ *
+ * ---------------------------------------------------------------------------
+ * AÇILIR LİSTE NİYE GEREKLİ (diğer üç görevde yok)
+ * ---------------------------------------------------------------------------
+ * İl, ilçe ve okul temsilciliğinin kapsamı ÖĞRENCİNİN KAYDINDAN türüyor —
+ * öğrencinin ili bellidir, seçilecek bir şey yoktur. Çalışma grubunun kapsamı
+ * ise kayıttan türemiyor: bir öğrenci birden çok gruba üye olabilir, hiçbirine
+ * üye olmadan da bir grubun temsilcisi yapılabilir. Bu yüzden grup FORMDAN
+ * geliyor ve eylem onu veritabanına karşı doğruluyor (bkz.
+ * gorev-rolleri/eylemler.ts — kapatılmış bir gruba temsilci atanamaz).
+ *
+ * ÜYELİK ŞARTI KOŞULMADI: "önce gruba üye yap, sonra temsilci yap" iki adımlık
+ * bir zorunluluk olurdu ve üyelik ayrı bir yetkiden geçiyor
+ * (ogrenciCalismaGrubuYonetebilirMi). Temsilcilik bir görevdir, üyeliğin
+ * derecesi değil.
+ *
+ * DÖNEM BAŞINA GRUP BAŞINA TEK KİŞİ: eylem bunu kontrol ediyor ve dolu grupta
+ * "zaten X üzerinde" diyerek reddediyor. Liste burada doluları elemiyor —
+ * elemek için her satırda 18 grubun durumunu sorgulamak gerekirdi ve cevap
+ * zaten bir tık ötede.
+ */
+function CalismaGrubuTemsilciligi({
+  ogrenci,
+  kullanici,
+  gruplar,
+  donusYolu,
+}: {
+  ogrenci: {
+    id: number;
+    ilKodu: string | null;
+    gorevRolleri: {
+      id: number;
+      rolKodu: string;
+      calismaGrubu: { ad: string } | null;
+    }[];
+  };
+  kullanici: OturumKullanicisi;
+  gruplar: { id: number; ad: string }[];
+  donusYolu: string;
+}) {
+  const yetkili = calismaGrubuYoneticisiAtayabilirMi(kullanici, ogrenci.ilKodu);
+  const mevcut = ogrenci.gorevRolleri.find(
+    (gorev) => gorev.rolKodu === "CALISMA_GRUBU_YONETICISI",
+  );
+
+  /*
+   * YETKİSİ OLMAYAN GÖREVİ GÖRÜR, DEĞİŞTİREMEZ — üç temsilcilik sütunundaki
+   * kararın aynısı. Görevsiz satırda hiçbir şey basılmıyor.
+   */
+  if (!yetkili) {
+    return mevcut ? (
+      <span className="mt-1.5 block text-xs font-medium text-vurgu-metin">
+        {mevcut.calismaGrubu?.ad ?? "Çalışma grubu"} temsilcisi
+      </span>
+    ) : null;
+  }
+
+  if (mevcut) {
+    return (
+      <form action={gorevRoluKaldirEylemi} className="mt-1.5">
+        <input type="hidden" name="gorevId" value={mevcut.id} />
+        <input type="hidden" name="donusYolu" value={donusYolu} />
+        <span className="block text-xs font-medium text-vurgu-metin">
+          {mevcut.calismaGrubu?.ad ?? "Çalışma grubu"} temsilcisi
+        </span>
+        <button
+          type="submit"
+          title="Çalışma Grubu Temsilcisi görevini kaldır"
+          className="mt-1 rounded-md border border-cizgi px-2 py-0.5 text-xs font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
+        >
+          Temsilciliği kaldır
+        </button>
+      </form>
+    );
+  }
+
+  /*
+   * Boş seçenek `required` ile birlikte: grup seçmeden gönderilen form, sunucuya
+   * gidip hata sayfasıyla dönmek yerine tarayıcıda duruyor. Eylem yine de
+   * kontrol ediyor — tarayıcı doğrulaması bir koruma değil, bir kolaylık.
+   */
+  return (
+    <form
+      action={gorevRoluAtaEylemi}
+      className="mt-1.5 flex flex-wrap items-center gap-1"
+    >
+      <input type="hidden" name="ogrenciId" value={ogrenci.id} />
+      <input type="hidden" name="rolKodu" value="CALISMA_GRUBU_YONETICISI" />
+      <input type="hidden" name="donusYolu" value={donusYolu} />
+      <select
+        name="calismaGrubuId"
+        required
+        defaultValue=""
+        aria-label="Temsilcilik verilecek çalışma grubu"
+        className="max-w-[10rem] rounded-md border border-cizgi bg-kart px-1.5 py-0.5 text-xs text-metin outline-none focus:border-vurgu"
+      >
+        <option value="">Grup seçin…</option>
+        {gruplar.map((grup) => (
+          <option key={grup.id} value={grup.id}>
+            {grup.ad}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        title="Seçilen çalışma grubunun temsilcisi yap"
+        className="rounded-md border border-cizgi px-2 py-0.5 text-xs font-medium text-metin transition hover:bg-zemin"
+      >
+        Temsilcisi yap
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Sütun başlıkları ve `title` metinleri TEK YERDE, sıra da burada.
+ *
+ * Sıra kapsamın genişliğine göre daralıyor (il → ilçe → okul); tablo soldan
+ * sağa okunurken görevin kapsamı da daralıyor.
+ *
+ * BAŞLIK KÜÇÜK HARFLE ("İl temsilcisi"), `title` BÜYÜK HARFLE ("İl
+ * Temsilcisi"): ilki tablonun diğer sütun başlıklarıyla ("Çalışma grupları")
+ * aynı dili konuşuyor, ikincisi görevin resmî adı.
+ */
+const TEMSILCILIK_ADLARI: Record<TemsilcilikRolu, string> = {
+  IL_TEMSILCISI: "İl Temsilcisi",
+  ILCE_TEMSILCISI: "İlçe Temsilcisi",
+  OKUL_TEMSILCISI: "Okul Temsilcisi",
+};
+
+const TEMSILCILIK_BASLIKLARI: Record<TemsilcilikRolu, string> = {
+  IL_TEMSILCISI: "İl temsilcisi",
+  ILCE_TEMSILCISI: "İlçe temsilcisi",
+  OKUL_TEMSILCISI: "Okul temsilcisi",
+};
+
+const TEMSILCILIK_SIRASI: TemsilcilikRolu[] = [
+  "IL_TEMSILCISI",
+  "ILCE_TEMSILCISI",
+  "OKUL_TEMSILCISI",
+];
 
 /**
  * Satır başına "Danışmanlığı bırak" hücresi.
@@ -216,6 +434,113 @@ function DanismanlikHucresi({
     </details>
   );
 }
+/**
+ * MENTÖRLÜK HÜCRESİ (26 Ağustos 2026 · istek: "danışman öğretmen kendi
+ * öğrencilerinden mentör ise o da görünsün … eğer öğrenci başvurduysa buradan
+ * onaylasın, mentör yap / mentörlüğü kaldır butonu olsun").
+ *
+ * DURUM HERKESE, DÜĞME YALNIZCA DANIŞMANINA. Rozet bir bilgidir; koordinatör
+ * ve merkez de ilindeki mentörleri listeden görebilmeli. Karar ise öğrenciyi
+ * tanıyan kişinin: `kendiOgrencisi` false ise hücre yalnızca durumu yazıyor.
+ *
+ * ROZET RENKLERİ ORTAK SÖZLÜKTEN (MENTORLUK_DURUM_SINIFLARI): aynı durum,
+ * panodaki "Mentörlüğüm" kartında ve merkezin onay kuyruğunda da aynı renkte
+ * duruyor. Burada ayrı bir renk seçilseydi "onay bekliyor" iki ekranda iki
+ * farklı şey gibi okunurdu.
+ *
+ * BAŞVURUSU OLMAYAN ÖĞRENCİDE DÜĞME YOK, "Başvurmadı" yazıyor. Mentörlük
+ * çalışma grubu ve konu seçimiyle kurulan bir kayıttır (bkz.
+ * mentorlukKabulEdilirMi); danışmanın boş bir kayıt açması, havuzda uzmanlık
+ * satırı boş bir mentör kartı demek olurdu. Gerekçesi kural katmanında
+ * (danismanMentorlukKarariGecerliMi) ve eylem oradan da reddediyor — hücre
+ * yalnızca teklif etmiyor.
+ *
+ * KALDIRMA GEREKÇE İSTER ve `details` içinde açılıyor — aynı tablodaki
+ * "Danışmanlığı bırak" hücresiyle bilerek aynı biçim: satır içinde duran bir
+ * metin kutusu, tablo genişliğini altı öğrencide bir kaydırırdı.
+ */
+function MentorlukHucresi({
+  ogrenciId,
+  durum,
+  kendiOgrencisi,
+  donusYolu,
+}: {
+  ogrenciId: number;
+  durum: MentorlukDurumu | null;
+  kendiOgrencisi: boolean;
+  donusYolu: string;
+}) {
+  const rozet =
+    durum === null ? null : (
+      <span
+        className={`inline-block rounded-full px-2 py-0.5 text-xs ${MENTORLUK_DURUM_SINIFLARI[durum]}`}
+      >
+        {MENTORLUK_DURUM_ETIKETLERI[durum]}
+      </span>
+    );
+
+  if (!kendiOgrencisi) {
+    return rozet ?? <span className="text-metin-yumusak">—</span>;
+  }
+
+  if (durum === null) {
+    return <span className="text-metin-yumusak">Başvurmadı</span>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {rozet}
+      {durum === "ONAYLANDI" ? (
+        <details>
+          <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
+            Mentörlüğü kaldır
+          </summary>
+          {/*
+            Uyarı gerekçenin yanında: kaldırmanın sonucu, kararın verildiği
+            yerde okunmalı (emsali DanismanlikHucresi).
+          */}
+          <p className="mt-2 text-sm text-metin-yumusak">
+            Öğrenci mentör havuzundan çıkar ve ilanlara cevap yazamaz;
+            gerekçeniz ona bildirim olarak iletilir.
+          </p>
+          <form
+            action={ogrenciMentorluguKararEylemi}
+            className="mt-2 flex flex-wrap items-end gap-2"
+          >
+            <input type="hidden" name="ogrenciId" value={ogrenciId} />
+            <input type="hidden" name="donusYolu" value={donusYolu} />
+            <input type="hidden" name="karar" value="KALDIR" />
+            <label className="block grow">
+              <span className="text-sm font-medium text-metin">Gerekçe</span>
+              <input
+                type="text"
+                name="gerekce"
+                required
+                minLength={DANISMAN_KALDIRMA_GEREKCESI_ASGARI}
+                maxLength={500}
+                placeholder="Öğrenci yoğun sınav döneminde; mentörlüğe ara veriyoruz."
+                className={SINIF_SECIM}
+              />
+            </label>
+            <button type="submit" className={SINIF_IKINCIL_BUTON}>
+              Kaldır
+            </button>
+          </form>
+        </details>
+      ) : (
+        <form action={ogrenciMentorluguKararEylemi}>
+          <input type="hidden" name="ogrenciId" value={ogrenciId} />
+          <input type="hidden" name="donusYolu" value={donusYolu} />
+          <input type="hidden" name="karar" value="ONAYLA" />
+          <button type="submit" className={SINIF_IKINCIL_BUTON}>
+            Mentör yap
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 /** Sayfa bağlantısı üretirken mevcut filtreler korunur. */
 function sayfaBaglantisi(
   parametreler: SorguParametreleri,
@@ -265,8 +590,23 @@ export default async function OgrencilerSayfasi({
    *
    * Satır bazında yetki ayrıca sorulur (bkz. OkulTemsilcisiHucresi).
    */
-  const okulTemsilcisiYonetebilir =
-    danismanMi(kullanici) || projeYoneticisiMi(kullanici);
+  /*
+   * HANGİ TEMSİLCİLİK SÜTUNU BASILIR (26 Ağustos 2026).
+   *
+   * Sütun, kişinin O GÖREVİ HİÇ verebileceği durumda basılıyor; satır bazında
+   * yetki ayrıca soruluyor (bkz. TemsilcilikHucresi). Ayrım gerekli çünkü
+   * danışman öğretmen İl/İlçe Temsilcisi atayamaz — o iki sütun onun ekranında
+   * baştan sona "—" dolu iki şerit olur, üstelik tablonun genişliğini de
+   * karşılıksız artırırdı. Öğretmen tek sütun görüyor, koordinatör ve merkez
+   * üçünü.
+   */
+  const temsilcilikRolleri = TEMSILCILIK_SIRASI.filter((rolKodu) =>
+    rolKodu === "OKUL_TEMSILCISI"
+      ? danismanMi(kullanici) ||
+        ilKoordinatoruMu(kullanici) ||
+        projeYoneticisiMi(kullanici)
+      : ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici),
+  );
 
   /*
    * Danışmanlık sütunu YALNIZCA DANIŞMANA basılır: bırakma, danışmanın
@@ -427,6 +767,14 @@ export default async function OgrencilerSayfasi({
       // kaydının kimliğini istiyor, bu yüzden `id` de seçiliyor.
       kurumKodu: true,
       /*
+       * İL VE İLÇE KODU (26 Ağustos 2026): temsilcilik sütunlarının yetki
+       * sorusu bunlara bakıyor (bkz. ogrenciTemsilciligiAtayabilirMi) ve görev
+       * kaydı da bu kapsam sütunlarıyla açılıyor. Yukarıdaki `il`/`ilce`
+       * seçimleri yalnızca ADI getiriyor — ad bir kimlik değil.
+       */
+      ilKodu: true,
+      ilceKodu: true,
+      /*
        * DÖNEM KARŞILAŞTIRMASI ÖĞRENCİNİN KENDİ YILIYLA (10 Ağustos 2026 ·
        * istek: "Temsilcilik kısmında öğrenci il ilçe temsilcisi ise o da
        * görünsün").
@@ -452,8 +800,22 @@ export default async function OgrencilerSayfasi({
           il: { select: { ad: true } },
           ilce: { select: { ad: true } },
           kurum: { select: { ad: true } },
+          /*
+            ÇALIŞMA GRUBU TEMSİLCİLİĞİNİN KAPSAMI BİR YER DEĞİL, BİR GRUP
+            (26 Ağustos 2026): "Çalışma grupları" sütunu hangi grubun temsilcisi
+            olduğunu yazıyor ve `gorevRolAdi` de bu adı okuyor.
+          */
+          calismaGrubuId: true,
+          calismaGrubu: { select: { ad: true } },
         },
       },
+      /*
+        MENTÖRLÜK DURUMU LİSTEDE (26 Ağustos 2026 · istek: "danışman öğretmen
+        kendi öğrencilerinden mentör ise o da görünsün"). Kayıt birebir
+        (Mentorluk.kullaniciId birincil anahtar), yani satır başına tek sorgu
+        değil tek `join` — listede N+1 doğurmuyor.
+      */
+      mentorluk: { select: { durum: true } },
       ogrenciAtamalari: {
         where: { bitisTarihi: null },
         select: {
@@ -528,7 +890,21 @@ export default async function OgrencilerSayfasi({
             ? { yol: "/panel/yonetim", etiket: "Yönetim Paneli" }
             : { yol: "/panel", etiket: "Panel" }
         }
-        baslik="Öğrenciler"
+        /*
+          BAŞLIK KAPSAMI SÖYLER (26 Ağustos 2026 · istek: "üstteki öğrenciler
+          yazısı öğrencilerim olsun").
+
+          Danışman öğretmene bu ekran YALNIZCA kendi danışmanlığındaki
+          öğrencileri gösteriyor (bkz. kapsam.ts · ogrenciListeFiltresi) ve
+          buraya Panel'deki "Öğrencilerim" kartından geliyor; başlık "Öğrenciler"
+          derken listeyi olduğundan geniş gösteriyordu.
+
+          KOORDİNATÖR VE MERKEZ "ÖĞRENCİLER" KALIR: onların listesi bir ilin ya
+          da ülkenin tamamı, hiçbiri kendi öğrencisi değil — "Öğrencilerim"
+          orada yanlış olurdu. Ayrım, kapsam filtresini belirleyen koşulun
+          aynısı.
+        */
+        baslik={danismanMi(kullanici) ? "Öğrencilerim" : "Öğrenciler"}
         /*
           KAPSAM SATIRI KALKTI (26 Ağustos 2026 · istek: "Görüntüleme kapsamı:
           Danışmanlığınızdaki öğrenciler · 2 kayıt silelim"). Kapsamı liste
@@ -558,10 +934,39 @@ export default async function OgrencilerSayfasi({
           öğrenciler sizi danışman seçim listesinde görecek.
         </BilgiKutusu>
       )}
+      {gorevDurumu === "mentor-yapildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Öğrenci onaylı mentör oldu. Mentör havuzunda görünecek ve panodaki
+          ilanlara cevap yazabilecek; kendisine bildirim gitti.
+        </BilgiKutusu>
+      )}
+      {gorevDurumu === "mentorluk-kaldirildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Mentörlük kaldırıldı. Öğrenci havuzdan çıktı ve gerekçeniz ona
+          bildirim olarak iletildi.
+        </BilgiKutusu>
+      )}
+      {/*
+        TANINMAYAN `durum` DEĞERİ HAM BASILIYORDU: bilinen kodların listesi
+        aşağıdaki dallarla birlikte büyümemiş, "talep-onaylandi" gibi kodlar
+        hem kendi cümlesiyle hem de çıplak slug hâliyle iki kutu olarak
+        çıkıyordu. Liste 26 Ağustos 2026'da bu dosyadaki bütün kodlarla
+        eşitlendi; ham gösterim yalnızca gerçekten tanınmayan bir değer için
+        kalıyor (elle yazılmış bir adres gibi).
+      */}
       {gorevDurumu &&
-        !["atandi", "kaldirildi", "danismanlik-birakildi", "danismanlik-alindi"].includes(
-          gorevDurumu,
-        ) && <BilgiKutusu cesit="olumlu">{gorevDurumu}</BilgiKutusu>}
+        ![
+          "atandi",
+          "kaldirildi",
+          "danismanlik-birakildi",
+          "danismanlik-alindi",
+          "talep-onaylandi",
+          "talep-reddedildi",
+          "mentor-yapildi",
+          "mentorluk-kaldirildi",
+        ].includes(gorevDurumu) && (
+          <BilgiKutusu cesit="olumlu">{gorevDurumu}</BilgiKutusu>
+        )}
       {gorevDurumu === "talep-onaylandi" && (
         <BilgiKutusu cesit="olumlu">
           Danışman değişikliği onaylandı; öğrenci artık yeni danışmanına bağlı.
@@ -1036,12 +1441,31 @@ export default async function OgrencilerSayfasi({
                 <th className="px-4 py-3 font-medium">İl / İlçe</th>
                 <th className="px-4 py-3 font-medium">Roller</th>
                 <th className="px-4 py-3 font-medium">Çalışma grupları</th>
+                {/*
+                  MENTÖRLÜK, ÇALIŞMA GRUPLARININ HEMEN YANINDA (26 Ağustos 2026 ·
+                  istek: "Çalışma grupları bu sutunun yanına mentörlük durumu
+                  olsun"). Komşuluk bilinçli: mentörlüğün kapsamı da çalışma
+                  gruplarından oluşuyor (bkz. mentorlukKabulEdilirMi), yani iki
+                  sütun aynı soruyu iki açıdan cevaplıyor — "hangi alanlarda
+                  çalışıyor" ve "o alanlarda yol gösteriyor mu".
+
+                  SÜTUN HERKESE BASILIR, DÜĞMELER DEĞİL: durum bir bilgidir ve
+                  koordinatör de merkez de ilindeki mentörleri görebilmeli;
+                  karar ise yalnızca öğrencinin kendi danışmanının
+                  (bkz. MentorlukHucresi).
+                */}
+                <th className="px-4 py-3 font-medium">Mentörlük</th>
                 {danismanlikYonetebilir && (
                   <th className="px-4 py-3 font-medium">Danışmanlık</th>
                 )}
-                {okulTemsilcisiYonetebilir && (
-                  <th className="px-4 py-3 font-medium">Okul Temsilcisi</th>
-                )}
+                {temsilcilikRolleri.map((rolKodu) => (
+                  <th
+                    key={rolKodu}
+                    className="px-4 py-3 font-medium whitespace-nowrap"
+                  >
+                    {TEMSILCILIK_BASLIKLARI[rolKodu]}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -1103,6 +1527,31 @@ export default async function OgrencilerSayfasi({
                         : ogrenci.calismaGruplari
                             .map((secim) => secim.calismaGrubu.ad)
                             .join(", ")}
+                      {/*
+                        TEMSİLCİLİK ÜYELİKLERİN ALTINDA: üstteki satır "hangi
+                        gruplarda çalışıyor", alttaki "hangi grubun temsilcisi".
+                        İkincisi birincisinin bir alt kümesi değil — üye
+                        olmadığı bir grubun temsilcisi de olabilir — ama aynı
+                        soruyu tamamlıyor.
+                      */}
+                      <CalismaGrubuTemsilciligi
+                        ogrenci={{ ...ogrenci, gorevRolleri: gorevler }}
+                        kullanici={kullanici}
+                        gruplar={gruplar}
+                        donusYolu={donusYolu}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <MentorlukHucresi
+                        ogrenciId={ogrenci.id}
+                        durum={ogrenci.mentorluk?.durum ?? null}
+                        kendiOgrencisi={
+                          danismanlikYonetebilir &&
+                          ogrenci.ogrenciAtamalari[0]?.danismanKullaniciId ===
+                            kullanici.id
+                        }
+                        donusYolu={donusYolu}
+                      />
                     </td>
                     {/*
                       OKUL TEMSİLCİSİ ATAMASI (J2 · 5 Ağustos 2026). Görev
@@ -1126,15 +1575,21 @@ export default async function OgrencilerSayfasi({
                         />
                       </td>
                     )}
-                    {okulTemsilcisiYonetebilir && (
-                      <td className="px-4 py-3">
-                        {/*
-                          Hücreye DÖNEMİ SÜZÜLMÜŞ liste veriliyor: geçmiş
-                          dönemde okul temsilcisi olmuş bir öğrenciye bu yıl
-                          "Görevi kaldır" göstermek, olmayan bir görevi
-                          kaldırmayı teklif etmek olurdu.
-                        */}
-                        <OkulTemsilcisiHucresi
+                    {/*
+                      Hücreye DÖNEMİ SÜZÜLMÜŞ liste veriliyor: geçmiş dönemde
+                      temsilci olmuş bir öğrenciye bu yıl "Görevi kaldır"
+                      göstermek, olmayan bir görevi kaldırmayı teklif etmek
+                      olurdu.
+                    */}
+                    {/*
+                      Hücreye DÖNEMİ SÜZÜLMÜŞ liste veriliyor: geçmiş dönemde
+                      temsilci olmuş bir öğrenciye bu yıl "Kaldır" göstermek,
+                      olmayan bir görevi kaldırmayı teklif etmek olurdu.
+                    */}
+                    {temsilcilikRolleri.map((rolKodu) => (
+                      <td key={rolKodu} className="px-4 py-3">
+                        <TemsilcilikHucresi
+                          rolKodu={rolKodu}
                           ogrenci={{ ...ogrenci, gorevRolleri: gorevler }}
                           kullanici={kullanici}
                           kendiOgrencisi={
@@ -1144,7 +1599,7 @@ export default async function OgrencilerSayfasi({
                           donusYolu={donusYolu}
                         />
                       </td>
-                    )}
+                    ))}
                   </tr>
                 );
               })}

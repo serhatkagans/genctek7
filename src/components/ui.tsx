@@ -314,6 +314,104 @@ export function OlcuKarti({
   );
 }
 
+/**
+ * ÖLÇÜM KARTI — panel ve yönetim panosunun sayı kartı.
+ *
+ * BURAYA 26 AĞUSTOS 2026'DA TAŞINDI (istek: "İlimdeki öğrenciler … Onay
+ * bekleyen etkinlik bu iki kartı yönetim paneline alalım"). Panel'in içinde
+ * yerel bir bileşendi; kart iki ekranda birden görünmeye başlayınca kopyalamak
+ * yerine buraya alındı — kopya, birinin poster bandı değişince ötekinin geride
+ * kalması demekti.
+ *
+ * `OlcuKarti` İLE KARIŞTIRILMAMALI (yukarıda): o, çerçeveli sade bir KPI
+ * kutusu ve rapor ekranlarının şeridinde dört yan yana duruyor. Bu ise poster
+ * bandıyla açılan, tıklanabilir, tek başına duran bir kart.
+ *
+ * PANELİN ÖLÇÜM KARTI — ETKİNLİK KARTIYLA AYNI DİL (20 Ağustos 2026 · istek:
+ * "kartları, etkinlikler gibi görsel ve güzel görünümlü hale getir").
+ *
+ * Kart eskiden düz beyaz bir kutuydu: sol üstte etiket, sağ üstte küçük bir
+ * ikon kutusu, altında sayı. Etkinlikler ekranındaki kart ise gradyanlı bir
+ * POSTER bandıyla açılıyor, ikon o bandın içinde filigran duruyor ve kart
+ * imleç üstüne gelince bir tık yükseliyor (bkz. components/ui.tsx ·
+ * PosterKart). Aynı sistemin iki ekranı iki ayrı kart dili konuşuyordu.
+ *
+ * Buradaki kart PosterKart'ı KULLANMIYOR, dilini ödünç alıyor. Sebebi
+ * içeriğin farkı: PosterKart bir KAYDI tanıtır — başlık, rozetler, alt bilgi
+ * ve düğmeler taşır. Burada tanıtılacak kayıt yok, tek bir SAYI var ve o
+ * sayının kartın en iri öğesi olması gerekiyor. PosterKart'a "sayı kipi"
+ * eklemek, iki ekranın kartını da bulanıklaştırırdı.
+ *
+ * TON BİLGİ TAŞIR, süs değil: `uyari` bekleyen bir iş olduğunu, `olumlu`
+ * tamamlanmış bir şeyi, `vurgu` kişinin kendi tarihli taahhüdünü söyler.
+ * Çağıran vermezse nötr kalır — rastgele renk dağıtmak, rengin anlamını
+ * silerdi.
+ */
+export function OlcumKarti({
+  baslik,
+  deger,
+  aciklama,
+  Ikon,
+  yol,
+  ton = "notr",
+}: {
+  baslik: string;
+  deger: string;
+  aciklama?: string;
+  Ikon: React.ComponentType<{ size?: number; className?: string }>;
+  /** Verilirse kart, ilgili ekrana giden bir bağlantı olur. */
+  yol?: string;
+  /** Poster bandının rengi; bilgi taşır (bkz. başlıktaki not). */
+  ton?: "vurgu" | "olumlu" | "uyari" | "notr";
+}) {
+  const icerik = (
+    <>
+      {/*
+        POSTER BANDI. Etkinlik kartındakinden ALÇAK (h-28 değil h-16): orada
+        bandın işi afişi taşımak, burada yalnızca kartı renkle açmak — 112
+        piksellik bir bant, üç satırlık bir sayımın üstünde başlı başına bir
+        blok olurdu.
+      */}
+      <div className={`poster poster-${ton} relative grid h-16 place-items-center`}>
+        <Ikon size={26} className="text-white/50" />
+      </div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <p className="text-sm font-medium text-metin-yumusak">{baslik}</p>
+        {/*
+          Sayı başlık yazısıyla ve büyük basılıyor: bir sayımın işlevi uzaktan
+          okunabilmesidir, gövde puntosunda etiketinden ayrışmıyordu.
+        */}
+        <p className="mt-1 font-baslik text-3xl leading-tight font-extrabold text-baslik">
+          {deger}
+        </p>
+        {aciklama && (
+          <p className="mt-1.5 text-sm text-metin-yumusak">{aciklama}</p>
+        )}
+      </div>
+    </>
+  );
+
+  /*
+   * `overflow-hidden`: poster bandının köşeleri kartın yuvarlatmasını taşmasın.
+   * `hover:-translate-y-1` yalnızca bağlantı olan kartta — gidilecek yeri
+   * olmayan bir kartın imlece tepki vermesi, tıklanabilir olduğunu söylerdi.
+   */
+  const sinif =
+    "flex h-full flex-col overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart";
+
+  return yol ? (
+    <Link
+      href={yol}
+      className={`${sinif} transition hover:-translate-y-1 hover:border-vurgu hover:shadow-yuksek focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vurgu`}
+    >
+      {icerik}
+    </Link>
+  ) : (
+    <div className={sinif}>{icerik}</div>
+  );
+}
+
 /** Ölçü kutularını dörtlü ızgaraya dizer; darda ikiye, telefonda tek sütuna iner. */
 export function OlcuSeridi({ children }: { children: React.ReactNode }) {
   return (

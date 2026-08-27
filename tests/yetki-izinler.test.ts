@@ -23,6 +23,7 @@ import {
   ilTemsilcisiAtayabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
   ilKoordinatoruOnaylayabilirMi,
+  ogrenciTemsilciligiAtayabilirMi,
   okulTemsilcisiAtayabilirMi,
   rolEnvanteriGorebilirMi,
   yetkiDevrolduMu,
@@ -548,9 +549,138 @@ describe("rol ve görev atama", () => {
     const danisman = danismanYap({ kurumKodu: 750001 });
     expect(okulTemsilcisiAtayabilirMi(danisman, 750001, true)).toBe(true);
     expect(okulTemsilcisiAtayabilirMi(danisman, 750002, true)).toBe(false);
+    // Okulun ili GEÇİLMEDİĞİNDE koordinatör kapısı açılmaz: bilgiyi taşımayan
+    // çağıran, 26 Ağustos öncesiyle aynı cevabı alır.
     expect(okulTemsilcisiAtayabilirMi(koordinatorYap(), 750001, true)).toBe(
       false,
     );
+  });
+
+  /*
+   * 26 AĞUSTOS 2026 · istek: "il temsilcisi yap kaldır, ilçe temsilcisi yap
+   * kaldır, okul temsilcisi yap kaldır butonları olsun; il koordinatörleri
+   * bunların atamasını yapabilsin."
+   */
+  it("koordinatör KENDİ İLİNDEKİ okula temsilci atayabilir", () => {
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    // Danışmanlık koşulu koordinatöre sorulmaz: onun kapısı ilinden açılıyor.
+    expect(okulTemsilcisiAtayabilirMi(koordinator, 750001, false, "34")).toBe(
+      true,
+    );
+    expect(okulTemsilcisiAtayabilirMi(koordinator, 750001, false, "06")).toBe(
+      false,
+    );
+    // Danışmanın kapısı ilden AÇILMAZ: okulu tutmuyorsa il de kurtarmaz.
+    expect(
+      okulTemsilcisiAtayabilirMi(
+        danismanYap({ kurumKodu: 750001 }),
+        750002,
+        true,
+        "34",
+      ),
+    ).toBe(false);
+  });
+
+  describe("ogrenciTemsilciligiAtayabilirMi", () => {
+    const ogrenciKapsami = {
+      ilKodu: "34",
+      ilceKodu: "3401",
+      kurumKodu: 750001,
+    };
+
+    it("koordinatöre kendi ilinde üç görevi de açar", () => {
+      const koordinator = koordinatorYap({ ilKodu: "34" });
+      for (const rol of [
+        "IL_TEMSILCISI",
+        "ILCE_TEMSILCISI",
+        "OKUL_TEMSILCISI",
+      ] as const) {
+        expect(
+          ogrenciTemsilciligiAtayabilirMi(
+            koordinator,
+            rol,
+            ogrenciKapsami,
+            false,
+          ),
+        ).toBe(true);
+      }
+    });
+
+    it("başka ilin öğrencisinde üçünü de kapatır", () => {
+      const koordinator = koordinatorYap({ ilKodu: "06" });
+      for (const rol of [
+        "IL_TEMSILCISI",
+        "ILCE_TEMSILCISI",
+        "OKUL_TEMSILCISI",
+      ] as const) {
+        expect(
+          ogrenciTemsilciligiAtayabilirMi(
+            koordinator,
+            rol,
+            ogrenciKapsami,
+            false,
+          ),
+        ).toBe(false);
+      }
+    });
+
+    it("danışmana yalnızca kendi öğrencisinin okul temsilciliğini açar", () => {
+      const danisman = danismanYap({ kurumKodu: 750001 });
+      expect(
+        ogrenciTemsilciligiAtayabilirMi(
+          danisman,
+          "OKUL_TEMSILCISI",
+          ogrenciKapsami,
+          true,
+        ),
+      ).toBe(true);
+      expect(
+        ogrenciTemsilciligiAtayabilirMi(
+          danisman,
+          "OKUL_TEMSILCISI",
+          ogrenciKapsami,
+          false,
+        ),
+      ).toBe(false);
+      expect(
+        ogrenciTemsilciligiAtayabilirMi(
+          danisman,
+          "IL_TEMSILCISI",
+          ogrenciKapsami,
+          true,
+        ),
+      ).toBe(false);
+    });
+
+    it("kapsam verisi eksik öğrenciye görev vermez", () => {
+      // Görev kaydı kapsam sütunuyla açılıyor; ili olmayan öğrenciye İl
+      // Temsilcisi verilseydi kayıt kapsamsız doğardı.
+      const merkez = projeYoneticisiYap();
+      expect(
+        ogrenciTemsilciligiAtayabilirMi(
+          merkez,
+          "IL_TEMSILCISI",
+          { ilKodu: null, ilceKodu: null, kurumKodu: 750001 },
+          false,
+        ),
+      ).toBe(false);
+      expect(
+        ogrenciTemsilciligiAtayabilirMi(
+          merkez,
+          "ILCE_TEMSILCISI",
+          { ilKodu: "34", ilceKodu: null, kurumKodu: 750001 },
+          false,
+        ),
+      ).toBe(false);
+      expect(
+        ogrenciTemsilciligiAtayabilirMi(
+          merkez,
+          "OKUL_TEMSILCISI",
+          { ilKodu: "34", ilceKodu: "3401", kurumKodu: null },
+          false,
+        ),
+      ).toBe(false);
+    });
   });
 
   /*
@@ -580,20 +710,41 @@ describe("rol ve görev atama", () => {
     expect(ilTemsilcisiAtayabilirMi(danismanYap(), "34")).toBe(false);
   });
 
-  it("çalışma grubu yöneticisini YALNIZCA merkez atar", () => {
-    /*
-     * 11 Ağustos 2026 · istek: "koordinatör öğrenciyi çalışma grubu yöneticisi
-     * yapamasın, çalışma grubu üyesi yapabilsin sadece".
-     *
-     * Bu görev daha önce `ilTemsilcisiAtayabilirMi` ile aynı kapıdan
-     * geçiyordu. Ayrılmasının sebebi kapsam: çalışma grubu İL DEĞİL ÜLKE
-     * GENELİ bir yapıdır ve grubun yöneticisi tektir. Her ilin koordinatörü
-     * kendi ilinden birini atayabilseydi aynı grup için 81 il yarışırdı.
-     */
+  /*
+   * ÇALIŞMA GRUBU TEMSİLCİLİĞİ İKİ KEZ EL DEĞİŞTİRDİ; testler ikisini de
+   * tutuyor.
+   *
+   * 11 Ağustos 2026 · istek: "koordinatör öğrenciyi çalışma grubu yöneticisi
+   * yapamasın" — gerekçe, çalışma grubunun İL DEĞİL ÜLKE GENELİ bir yapı
+   * olması ve grubun temsilcisinin tek kişi olmasıydı.
+   *
+   * 26 Ağustos 2026 · öğrenciler listesine atama kutusu eklenirken kapı
+   * koordinatöre yeniden açıldı (onaylanan seçenek: "il koordinatörü de
+   * atayabilsin"). Yarış riski ortadan kalkmadı, GÖRÜNÜR oldu: dönem+grup
+   * başına tek kayıt kuralı eylemde duruyor ve ikinci il açık bir hata alıyor.
+   */
+  it("çalışma grubu temsilciliğinde merkez koşulsuz atar", () => {
     expect(calismaGrubuYoneticisiAtayabilirMi(projeYoneticisiYap())).toBe(true);
-    expect(calismaGrubuYoneticisiAtayabilirMi(koordinatorYap({ ilKodu: "34" })))
-      .toBe(false);
+    expect(calismaGrubuYoneticisiAtayabilirMi(projeYoneticisiYap(), "34")).toBe(
+      true,
+    );
+  });
+
+  it("koordinatör YALNIZCA kendi ilindeki öğrenciye atar", () => {
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    expect(calismaGrubuYoneticisiAtayabilirMi(koordinator, "34")).toBe(true);
+    expect(calismaGrubuYoneticisiAtayabilirMi(koordinator, "06")).toBe(false);
+    // İl geçilmediğinde kapı açılmaz: bilgiyi taşımayan çağıran, 26 Ağustos
+    // öncesiyle aynı cevabı alır.
+    expect(calismaGrubuYoneticisiAtayabilirMi(koordinator)).toBe(false);
+    expect(calismaGrubuYoneticisiAtayabilirMi(koordinator, null)).toBe(false);
+  });
+
+  it("danışman öğretmen çalışma grubu temsilcisi atayamaz", () => {
+    // Kapı yalnızca merkeze ve ilin koordinatörüne açıldı; danışmanlık bu
+    // görevde bir yetki doğurmuyor.
     expect(calismaGrubuYoneticisiAtayabilirMi(danismanYap())).toBe(false);
+    expect(calismaGrubuYoneticisiAtayabilirMi(danismanYap(), "34")).toBe(false);
   });
 
   it("gruba ÜYE eklemek koordinatörde kalır", () => {

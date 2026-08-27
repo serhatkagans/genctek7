@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { okulTuruKosulu } from "../okul/turler";
 import { SAYIMDA_DANISMAN, SAYIMDA_OGRENCI } from "./sayim-kosullari";
 
 /**
@@ -100,7 +101,8 @@ function ortakKosul(suzgec: EksikSuzgeci): Prisma.KurumWhereInput {
     aktif: true,
     ...(suzgec.ilKodu ? { ilKodu: suzgec.ilKodu } : {}),
     ...(suzgec.ilceKodu ? { ilceKodu: suzgec.ilceKodu } : {}),
-    ...(suzgec.okulTuru ? { okulTuru: suzgec.okulTuru } : {}),
+    /* "Diğer" bir tür adı değil, koşul (bkz. lib/okul/turler.ts). */
+    ...okulTuruKosulu(suzgec.okulTuru),
     ...(ara
       ? {
           OR: [

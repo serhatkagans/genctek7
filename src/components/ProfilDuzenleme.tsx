@@ -226,7 +226,24 @@ export function IletisimDuzenleme({
   ogrenci: boolean;
   kaydetEylemi: Eylem;
 }) {
-  const baglantiSorulsun = ogrenci || Boolean(kurumBilgileri);
+  /*
+   * BAĞLANTILAR ARTIK HERKESE SORULUYOR (26 Ağustos 2026 · istekler: "İletişim
+   * bilgilerim il koordinatörünün bu alanına linkedin ve instagram alanı da
+   * ekleyelim" · "bunları hatta öğrenci ve öğretmenlerin iletişim bilgileri
+   * alanına da ekleyelim instagram linkedin").
+   *
+   * Kutular öğrenciye ve dış kullanıcıya sorulup ÖĞRETMENE VE KOORDİNATÖRE
+   * sorulmuyordu; gerekçe "onların GençTek'teki yeri okulları ve görevleriyle
+   * belli, GitHub adresi sistemin işine yaramıyor" idi. Bu gerekçe kimin
+   * ADRESE İHTİYACI OLDUĞUNU değil, kimin ADRESİNİ ARADIĞINI ölçüyordu:
+   * koordinatörün kendi sayfası (bkz. panel/il-koordinatorum) açıldıktan sonra
+   * ona ulaşmak isteyen öğrenci de öğretmen de aynı soruyu soruyor. Sütunlar
+   * `ogretmen_profil` tablosunda zaten vardı ve boş duruyordu.
+   *
+   * `ogrenci` bayrağı KALDI: yalnızca yardım metnini seçiyor — öğrencinin
+   * adresini kimlerin göreceği ayrıca yazılıyor.
+   */
+  const baglantiSorulsun = true;
 
   return (
     <form action={kaydetEylemi} className="space-y-4">

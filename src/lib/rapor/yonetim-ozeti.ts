@@ -92,8 +92,13 @@ const DANISMANSIZ_OGRENCI = {
  * boş bir il, üç yıl önceki tek etkinliğiyle dolu görünürdü.
  *
  * İPTAL EDİLEN ETKİNLİK SAYILMAZ (`durum: AKTIF`): iptal, yapılmamış demektir.
+ *
+ * DIŞA VERİLDİ (26 Ağustos 2026): yönetim panosu koordinatörün etkinlik
+ * sayısını doğrudan sayıyor (ilçe özetleri faaliyet taşımıyor) ve aynı "bu yıl"
+ * tanımını kullanmalı — kopyalansaydı biri dönem tanımını değiştirdiğinde iki
+ * sayı ayrışırdı.
  */
-function buYilinFaaliyetleri() {
+export function buYilinFaaliyetleri() {
   const aralik = egitimOgretimYiliAraligi(egitimOgretimYili(new Date()));
   return {
     durum: "AKTIF" as const,

@@ -9,6 +9,7 @@ import {
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
+import { prisma } from "@/lib/db";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import { uygulamaYolu } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
@@ -32,6 +33,37 @@ export default async function PanelDuzeni({
   if (!kullanici) {
     redirect("/giris");
   }
+
+  /*
+   * ROL ETİKETİNDE İL KODU DEĞİL İL ADI (26 Ağustos 2026 · istek: "il
+   * koordinatörü yazısının yanında il kodu yazıyor 34 diye, onu ilin ismi
+   * neyse onunla değiştir").
+   *
+   * Etiket `rol.ilKodu` basıyordu — plaka kodu bir VERİTABANI ANAHTARIDIR ve
+   * ekranda karşılığı ilin adıdır. Aynı hata aynı gün panodaki kartta da
+   * düzeltildi.
+   *
+   * SORGU YALNIZCA İLİ OLAN ROL VARSA: rolsüz kullanıcıda ve okul personelinde
+   * (rolün ili yok) hiç çalışmıyor. Ad bulunamazsa etiket ek bilgisiz basılır —
+   * eksik veriyle kod göstermektense hiçbir şey göstermek yeğdir.
+   */
+  const rolIlKodlari = [
+    ...new Set(
+      kullanici.roller
+        .map((rol) => rol.ilKodu)
+        .filter((kod): kod is string => kod !== null),
+    ),
+  ];
+  const ilAdlari = new Map(
+    rolIlKodlari.length === 0
+      ? []
+      : (
+          await prisma.il.findMany({
+            where: { ilKodu: { in: rolIlKodlari } },
+            select: { ilKodu: true, ad: true },
+          })
+        ).map((il) => [il.ilKodu, il.ad] as const),
+  );
 
   /*
    * İLK GİRİŞ KAPISI VE ONAY ŞERİDİ KALKTI (21 Ağustos 2026 · istek: "KVKK'lar
@@ -185,6 +217,7 @@ export default async function PanelDuzeni({
         kullanici={kullanici}
         tema={tema}
         baglantilar={baglantilar}
+        ilAdlari={ilAdlari}
       >
         {children}
       </PanelCercevesi>
@@ -435,6 +468,7 @@ export default async function PanelDuzeni({
 
   return (
     <PanelCercevesi
+      ilAdlari={ilAdlari}
       kullanici={kullanici}
       tema={tema}
       baglantilar={baglantilar}
@@ -455,11 +489,17 @@ function PanelCercevesi({
   kullanici,
   tema,
   baglantilar,
+  ilAdlari,
   children,
 }: {
   kullanici: NonNullable<Awaited<ReturnType<typeof oturumKullanicisi>>>;
   tema: Awaited<ReturnType<typeof aktifTema>>;
   baglantilar: GezinmeBaglantisi[];
+  /*
+   * Rol etiketlerinde basılacak İL ADLARI, il koduna göre (26 Ağustos 2026).
+   * Çerçeve saf bir bileşen — veriyi kendisi çekmiyor, düzen bileşeni veriyor.
+   */
+  ilAdlari: Map<string, string>;
   children: React.ReactNode;
 }) {
   return (
@@ -547,7 +587,11 @@ function PanelCercevesi({
                     <RolEtiketi
                       key={rol.rolKodu}
                       rolKodu={rol.rolKodu}
-                      ekBilgi={rol.ilKodu}
+                      ekBilgi={
+                        rol.ilKodu === null
+                          ? undefined
+                          : (ilAdlari.get(rol.ilKodu) ?? undefined)
+                      }
                     />
                   ))
                 )}

@@ -779,15 +779,95 @@ export function ilKoordinatorAtayabilirMi(
  * MERKEZ HARİÇ: proje yöneticisinin danışmanlığı yoktur ve okulda danışman
  * kalmadığında düzeltmeyi yapabilecek tek kişidir; ona bu koşul sorulmaz.
  */
+/*
+ * İL KOORDİNATÖRÜ 26 AĞUSTOS 2026'DA İÇERİ ALINDI (istek: "il temsilcisi yap
+ * kaldır, ilçe temsilcisi yap kaldır, okul temsilcisi yap kaldır butonları
+ * olsun; il koordinatörleri bunların atamasını yapabilsin").
+ *
+ * KOORDİNATÖRÜN DIŞARIDA KALMASI BİR KARAR DEĞİL, ARTIKTI: yukarıdaki gerekçe
+ * baştan sona DANIŞMANI sınırlıyor ("göreceği her öğrenciye görev veremez") ve
+ * merkezi ayrı tutuyor; koordinatörden hiç söz etmiyor. Oysa okul zaten onun
+ * ilinin içinde ve İl/İlçe Temsilcisi görevlerini o veriyor
+ * (bkz. ilTemsilcisiAtayabilirMi) — okulda danışman yokken ya da danışman
+ * atamayı ihmal ettiğinde ilin sorumlusu düzeltemiyordu.
+ *
+ * `okulIlKodu` İSTEĞE BAĞLI: verilmediğinde koordinatör kapısı hiç açılmaz,
+ * yani bu bilgiyi taşımayan eski çağıranlar eskisi gibi davranır. Kapıyı
+ * sessizce açan bir varsayılan olsaydı, ilini bilmediğimiz bir okulda koşul
+ * "koordinatör mü" sorusuna inerdi.
+ */
 export function okulTemsilcisiAtayabilirMi(
   kullanici: OturumKullanicisi,
   kurumKodu: number,
   /** Öğrenci bu kullanıcının danışmanlığında mı? */
   kendiOgrencisiMi: boolean,
+  /** Okulun bağlı olduğu il; koordinatör kapısı yalnızca bununla açılır. */
+  okulIlKodu?: string | null,
 ): boolean {
   if (projeYoneticisiMi(kullanici)) return true;
+  if (
+    okulIlKodu &&
+    ilKoordinatoruMu(kullanici) &&
+    koordinatorIlKodu(kullanici) === okulIlKodu
+  ) {
+    return true;
+  }
   if (!kendiOgrencisiMi) return false;
   return danismanMi(kullanici) && danismanKurumKodu(kullanici) === kurumKodu;
+}
+
+/** Öğrenciler listesindeki temsilcilik sütunlarının kapsadığı görevler. */
+export type TemsilcilikRolu =
+  | "IL_TEMSILCISI"
+  | "ILCE_TEMSILCISI"
+  | "OKUL_TEMSILCISI";
+
+/**
+ * ÜÇ TEMSİLCİLİK İÇİN TEK KAPI (26 Ağustos 2026).
+ *
+ * Öğrenciler listesi artık üç görevi de satır içinde veriyor ve her sütun
+ * kendi yetkisini soruyor. Kapılar ayrı ayrı duruyordu; ekran onları
+ * `rolKodu`ya bakan bir `if` zinciriyle çağırsaydı aynı zincir hem burada hem
+ * eylemde yazılır ve biri güncellenip öteki unutulurdu.
+ *
+ * KAPSAM VERİSİ EKSİKSE HAYIR DENİR: ili olmayan öğrenciye İl Temsilcisi,
+ * okulu olmayan öğrenciye Okul Temsilcisi verilemez — atama kaydı o kapsam
+ * sütunlarıyla açılıyor (bkz. gorev-rolleri/eylemler.ts).
+ */
+export function ogrenciTemsilciligiAtayabilirMi(
+  kullanici: OturumKullanicisi,
+  rolKodu: TemsilcilikRolu,
+  ogrenci: {
+    ilKodu: string | null;
+    ilceKodu: string | null;
+    kurumKodu: number | null;
+  },
+  kendiOgrencisiMi: boolean,
+): boolean {
+  if (rolKodu === "IL_TEMSILCISI") {
+    return (
+      ogrenci.ilKodu !== null &&
+      ilTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)
+    );
+  }
+
+  if (rolKodu === "ILCE_TEMSILCISI") {
+    return (
+      ogrenci.ilKodu !== null &&
+      ogrenci.ilceKodu !== null &&
+      ilceTemsilcisiAtayabilirMi(kullanici, ogrenci.ilKodu)
+    );
+  }
+
+  return (
+    ogrenci.kurumKodu !== null &&
+    okulTemsilcisiAtayabilirMi(
+      kullanici,
+      ogrenci.kurumKodu,
+      kendiOgrencisiMi,
+      ogrenci.ilKodu,
+    )
+  );
 }
 
 export function ilTemsilcisiAtayabilirMi(
@@ -819,10 +899,37 @@ export function ilTemsilcisiAtayabilirMi(
  * değiştirilmedi. İstek de tam olarak bu ayrımı söylüyor — üye evet, yönetici
  * hayır.
  */
+/*
+ * İL KOORDİNATÖRÜ 26 AĞUSTOS 2026'DA GERİ ALINDI (istek: "Çalışma grupları bu
+ * sütuna 14 çalışma grubundan temsilcisi yap/kaldır şeklinde açılan listeden
+ * seçsin" · kapı sorulduğunda verilen cevap: "il koordinatörü de atayabilsin").
+ *
+ * 11 AĞUSTOS'TA KAPATILMIŞTI ve gerekçesi yukarıda duruyor: çalışma grubu ülke
+ * geneli bir yapı, grubun temsilcisi tek kişi, her il kendi adayını atayabilse
+ * "önce atayan kazanır" olurdu.
+ *
+ * O RİSK ORTADAN KALKMADI, GÖRÜNÜR OLDU: atama eylemi dönem+grup başına tek
+ * kayıt olduğunu zaten kontrol ediyor ve dolu bir grup için "Bu dönem için
+ * Çalışma Grubu Yöneticisi görevi zaten X üzerinde. Önce mevcut görevi
+ * kaldırın." diyerek reddediyor (bkz. gorev-rolleri/eylemler.ts). Yani ikinci
+ * il sessizce ezmiyor, açık bir hata alıyor — yarış "önce atayan kazanır" ama
+ * kaybeden bunu biliyor.
+ *
+ * KOORDİNATÖR KENDİ İLİYLE SINIRLI: `ogrenciIlKodu` verilmezse kapı yalnızca
+ * merkeze açık kalır. Liste zaten kapsam filtresinden geçiyor ama form gövdesi
+ * kurcalanabilir; sınır burada da duruyor.
+ */
 export function calismaGrubuYoneticisiAtayabilirMi(
   kullanici: OturumKullanicisi,
+  /** Görev verilecek öğrencinin ili; koordinatör kapısı bununla açılır. */
+  ogrenciIlKodu?: string | null,
 ): boolean {
-  return projeYoneticisiMi(kullanici);
+  if (projeYoneticisiMi(kullanici)) return true;
+  return Boolean(
+    ogrenciIlKodu &&
+      ilKoordinatoruMu(kullanici) &&
+      koordinatorIlKodu(kullanici) === ogrenciIlKodu,
+  );
 }
 
 /**

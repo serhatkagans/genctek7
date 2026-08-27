@@ -40,6 +40,7 @@ import {
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
@@ -992,6 +993,25 @@ export default async function FaaliyetlerSayfasi({
               <Link href="/panel/belgeler" className={SINIF_KIRMIZI_BUTON}>
                 <Award size={16} aria-hidden />
                 Belge oluştur
+              </Link>
+            )}
+            {/*
+              ETKİNLİK RAPORLARI (26 Ağustos 2026 · istek: "bu kartı
+              etkinliklere taşı"). Kart Yönetim Paneli'ndeydi ve oradan kalktı;
+              rapor bir ETKİNLİĞİN raporu, onu arayan kişi bu ekranda.
+
+              DÜĞME İKİNCİL: "Yeni etkinlik" ve "Belge oluştur" bir şey ÜRETİR,
+              bu bir listeye götürür. Üçü de kırmızı olsaydı hangisinin kayıt
+              açtığı seçilemezdi.
+
+              KAPI RAPOR YAZABİLENLERDE: ekranın kendi yetkisi de bu
+              (koordinatör, merkez ve danışman öğretmen) — kartın panodaki
+              hâlinde de böyleydi.
+            */}
+            {raporYazabilir && (
+              <Link href="/panel/raporlar" className={SINIF_IKINCIL_BUTON}>
+                <FileText size={16} aria-hidden />
+                Etkinlik raporları
               </Link>
             )}
           </>

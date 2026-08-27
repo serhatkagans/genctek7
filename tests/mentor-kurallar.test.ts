@@ -1,5 +1,6 @@
 import {
   basHarfler,
+  danismanMentorlukKarariGecerliMi,
   MENTOR_KONULARI_AZAMI,
   mentorKapsamiYaz,
   mentorlukKabulEdilirMi,
@@ -282,5 +283,95 @@ describe("havuz kartındaki mentör sıfatı", () => {
     // Rol listesi büyürse kart boş sıfat basmaktansa güvenli bir varsayılana
     // düşsün; ekran hiçbir hâlde adsız bir satır göstermemeli.
     expect(mentorSifati([{ rolKodu: "YENI_ROL" }], null)).toBe("Öğretmen");
+  });
+});
+
+/**
+ * DANIŞMANIN KENDİ ÖĞRENCİSİ İÇİN VERDİĞİ KARAR (26 Ağustos 2026).
+ *
+ * Merkezin kuyruğundan ayrı bir kural ve testleri de ayrı: ikisi aynı yerde
+ * denenirse "onaylanmış kayıt ikinci kez onaylanamaz" kısıtının hangisine ait
+ * olduğu kaybolur.
+ */
+describe("danismanMentorlukKarariGecerliMi", () => {
+  it("bekleyen başvuruyu onaylar", () => {
+    expect(
+      danismanMentorlukKarariGecerliMi({
+        mevcutDurum: "BEKLIYOR",
+        yeniDurum: "ONAYLANDI",
+        gerekce: "",
+      }),
+    ).toEqual({ olurMu: true, retGerekcesi: null });
+  });
+
+  it("reddedilmiş ve bırakılmış kaydı yeniden mentör yapabilir", () => {
+    // Merkezin kuyruğundan ayrılan yer burası: bir kez reddedilen öğrenci için
+    // ekran kalıcı bir çıkmaz olmamalı.
+    for (const mevcutDurum of ["REDDEDILDI", "BIRAKILDI"] as const) {
+      expect(
+        danismanMentorlukKarariGecerliMi({
+          mevcutDurum,
+          yeniDurum: "ONAYLANDI",
+          gerekce: "",
+        }).olurMu,
+      ).toBe(true);
+    }
+  });
+
+  it("başvurusu olmayan öğrenciyi mentör yapmaz", () => {
+    // Boş kayıt, havuzda uzmanlık satırı boş bir kart ve hiçbir ilana
+    // düşmeyen bir mentör demek olurdu.
+    const sonuc = danismanMentorlukKarariGecerliMi({
+      mevcutDurum: null,
+      yeniDurum: "ONAYLANDI",
+      gerekce: "",
+    });
+    expect(sonuc.olurMu).toBe(false);
+  });
+
+  it("zaten onaylı mentörü ikinci kez onaylamaz", () => {
+    expect(
+      danismanMentorlukKarariGecerliMi({
+        mevcutDurum: "ONAYLANDI",
+        yeniDurum: "ONAYLANDI",
+        gerekce: "",
+      }).olurMu,
+    ).toBe(false);
+  });
+
+  it("onaylı mentörlüğü gerekçeyle kaldırır", () => {
+    expect(
+      danismanMentorlukKarariGecerliMi({
+        mevcutDurum: "ONAYLANDI",
+        yeniDurum: "REDDEDILDI",
+        gerekce: "  Sınav dönemine giriyor, ara veriyoruz.  ",
+      }),
+    ).toEqual({
+      olurMu: true,
+      retGerekcesi: "Sınav dönemine giriyor, ara veriyoruz.",
+    });
+  });
+
+  it("kaldırmada kısa ya da boş gerekçeyi kabul etmez", () => {
+    // Gerekçe öğrenciye bildirim metninde gidiyor; boşluk doldurmak da sayılmaz.
+    for (const gerekce of ["", "   ", "kısa"]) {
+      expect(
+        danismanMentorlukKarariGecerliMi({
+          mevcutDurum: "ONAYLANDI",
+          yeniDurum: "REDDEDILDI",
+          gerekce,
+        }).olurMu,
+      ).toBe(false);
+    }
+  });
+
+  it("onaylı olmayan bir kaydı kaldırmaya kalkışmaz", () => {
+    expect(
+      danismanMentorlukKarariGecerliMi({
+        mevcutDurum: "BEKLIYOR",
+        yeniDurum: "REDDEDILDI",
+        gerekce: "Yeterince uzun bir gerekçe metni.",
+      }).olurMu,
+    ).toBe(false);
   });
 });

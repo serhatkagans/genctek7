@@ -1,4 +1,5 @@
 import { kazanimGrubununTipleri } from "@/lib/kazanim/kurallar";
+import { okulTuruKosulu } from "@/lib/okul/turler";
 import type { Prisma } from "@/generated/prisma/client";
 import type { PaydasTuru } from "@/generated/prisma/enums";
 import {
@@ -165,7 +166,8 @@ export function ogrenciListeFiltresi(
   if (filtreler.kurumKodu) kosullar.push({ kurumKodu: filtreler.kurumKodu });
   // Okul türü öğrencide değil bağlı olduğu kurumda durur.
   if (filtreler.okulTuru) {
-    kosullar.push({ kurum: { okulTuru: filtreler.okulTuru } });
+    /* "Diğer" = standart listede olmayan türler (bkz. lib/okul/turler.ts). */
+    kosullar.push({ kurum: okulTuruKosulu(filtreler.okulTuru) });
   }
   if (filtreler.egitimOgretimYili) {
     kosullar.push({ egitimOgretimYili: filtreler.egitimOgretimYili });
@@ -302,7 +304,8 @@ export function ogretmenListeFiltresi(
   if (filtreler.ilceKodu) kosullar.push({ ilceKodu: filtreler.ilceKodu });
   if (filtreler.kurumKodu) kosullar.push({ kurumKodu: filtreler.kurumKodu });
   if (filtreler.okulTuru) {
-    kosullar.push({ kurum: { okulTuru: filtreler.okulTuru } });
+    /* "Diğer" = standart listede olmayan türler (bkz. lib/okul/turler.ts). */
+    kosullar.push({ kurum: okulTuruKosulu(filtreler.okulTuru) });
   }
   if (filtreler.brans) {
     kosullar.push({ brans: { contains: filtreler.brans, mode: "insensitive" } });

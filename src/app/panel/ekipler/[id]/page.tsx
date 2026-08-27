@@ -19,6 +19,17 @@ import {
   ekipSohbetiOkuyabilirMi,
   ekipSohbetineYazabilirMi,
 } from "@/lib/ekip/kurallar";
+import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
+import {
+  ADAY_KISI_TURU_ETIKETLERI,
+  ADAY_ROL_ETIKETLERI,
+  ADAY_ROLLERI,
+  type AdayKisiTuru,
+  adayKosulu,
+  adaySuzgeciDoluMu,
+  adaySuzgeciniCoz,
+} from "@/lib/ekip/aday-suzgeci";
+import { okulTuruSecenekleri } from "@/lib/okul/turler";
 import { tarihSaatYaz } from "@/lib/tarih";
 import {
   ekibeUyeEkleEylemi,
@@ -54,11 +65,25 @@ export default async function EkipSayfasi({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ durum?: string; hata?: string; ara?: string }>;
+  /*
+   * SÜZGEÇ PARAMETRELERİ (26 Ağustos 2026): üye ekleme artık ad aramasından
+   * ibaret değil; kişi türü, okul türü, çalışma grubu ve rol de adres
+   * çubuğunda taşınıyor (bkz. lib/ekip/aday-suzgeci.ts).
+   */
+  searchParams: Promise<{
+    durum?: string;
+    hata?: string;
+    ara?: string;
+    kisiTuru?: string;
+    okulTuru?: string;
+    grup?: string;
+    rol?: string;
+  }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
   const { id } = await params;
-  const { durum, hata, ara } = await searchParams;
+  const parametreler = await searchParams;
+  const { durum, hata } = parametreler;
 
   const ekipId = Number.parseInt(id, 10);
   if (!Number.isFinite(ekipId)) notFound();
@@ -135,32 +160,62 @@ export default async function EkipSayfasi({
    * Arama yapılmadan aday BASILMAZ: rastgele elli kişilik bir liste,
    * koordinatörün aradığı kişiyi bulmasına yardım etmez.
    */
-  const aramaMetni = (ara ?? "").trim();
-  const adaylar =
-    yonetebilir && ekip.aktif && aramaMetni.length >= 2
-      ? await prisma.kullanici.findMany({
-          where: {
-            aktif: true,
-            ilKodu: ekip.ilKodu,
-            id: { notIn: uyeIdleri.length > 0 ? uyeIdleri : [-1] },
-            OR: [
-              { ad: { contains: aramaMetni, mode: "insensitive" } },
-              { soyad: { contains: aramaMetni, mode: "insensitive" } },
-            ],
-          },
-          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-          take: 20,
-          select: {
-            id: true,
-            ad: true,
-            soyad: true,
-            sinif: true,
-            brans: true,
-            kurum: { select: { ad: true } },
-            roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
-          },
-        })
-      : [];
+  const suzgec = adaySuzgeciniCoz(parametreler);
+  const suzgecDolu = adaySuzgeciDoluMu(suzgec);
+
+  /*
+   * SÜZGEÇ SEÇENEKLERİ: okul türleri standart listeyle birleştiriliyor (bkz.
+   * lib/okul/turler.ts) ve çalışma grupları veritabanından geliyor. İkisi de
+   * yalnızca formu basacaksak sorgulanıyor — üye olmayan bir kullanıcı bu
+   * ekranı açtığında iki gereksiz sorgu ödenmesin.
+   */
+  const formBasilacak = yonetebilir && ekip.aktif;
+  const [ilinOkulTurleri, calismaGruplari] = formBasilacak
+    ? await Promise.all([
+        prisma.kurum.findMany({
+          where: { aktif: true, ilKodu: ekip.ilKodu },
+          distinct: ["okulTuru"],
+          orderBy: { okulTuru: "asc" },
+          select: { okulTuru: true },
+        }),
+        prisma.calismaGrubu.findMany({
+          where: { aktif: true },
+          orderBy: { siraNo: "asc" },
+          select: { id: true, ad: true },
+        }),
+      ])
+    : [[], []];
+
+  /*
+   * SÜZGEÇSİZ ADAY BASILMAZ: ilin tamamı yüzlerce kişi ve rastgele bir liste,
+   * koordinatörün aradığı kişiyi bulmasına yardım etmiyor. Eskiden koşul "en az
+   * iki harf" idi; artık süzgeçlerden HERHANGİ BİRİ yeterli — "meslek
+   * liselerindeki okul temsilcileri" sorusunda yazılacak bir ad yok.
+   *
+   * SINIR 50: eski hâlinde 20'ydi ve ad aramasında yetiyordu. Süzgeçler
+   * "ilimdeki tüm mentörler" gibi doğal olarak daha uzun listeler üretiyor;
+   * yine de sınırsız değil — sayfalama yerine sınır seçildi çünkü ekran bir
+   * envanter değil, bir seçim kutusu.
+   */
+  const adaylar = formBasilacak && suzgecDolu
+    ? await prisma.kullanici.findMany({
+        where: adayKosulu(suzgec, {
+          ilKodu: ekip.ilKodu,
+          haricIdler: uyeIdleri,
+        }),
+        orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+        take: 50,
+        select: {
+          id: true,
+          ad: true,
+          soyad: true,
+          sinif: true,
+          brans: true,
+          kurum: { select: { ad: true } },
+          roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
+        },
+      })
+    : [];
 
   return (
     <div className="space-y-6">
@@ -194,7 +249,16 @@ export default async function EkipSayfasi({
       )}
       {ekip.aciklama && <p className="text-metin">{ekip.aciklama}</p>}
 
-      <BilgiKutusu cesit="uyari">{EKIP_SOHBET_UYARISI}</BilgiKutusu>
+      {/*
+        SOHBET UYARI ŞERİDİ KALKTI (26 Ağustos 2026 · istek: "bunu sil: Ekip
+        sohbeti gizli değildir…").
+
+        KURAL DEĞİŞMEDİ: sohbet hâlâ ekibi kuran koordinatöre ve merkeze açık
+        (bkz. lib/ekip/kurallar.ts · ekipSohbetiOkuyabilirMi) ve bu, ekip
+        kanalının danışman onayından geçmeden açılabilmesinin koşulu. Kalkan
+        yalnızca her sayfa açılışında okunan şerit; metin sabiti
+        (`EKIP_SOHBET_UYARISI`) yerinde duruyor ve yeniden basılabilir.
+      */}
 
       <Kart>
         <KartBasligi
@@ -263,6 +327,29 @@ export default async function EkipSayfasi({
           aciklama={`${ekip.uyeler.length} kişi`}
           Ikon={Users}
         />
+        {/*
+          ÜYE LİSTESİ ÇIKTISI BURAYA TAŞINDI (26 Ağustos 2026 · istek: "İşlemler
+          altında görüntüleme ve excel simgeleri var küçük … simge olanı
+          kaldır").
+
+          Bağlantı ekip envanterindeki satır ikonuydu ve o sütun kalktı. Rota
+          silinmedi çünkü cevapladığı soru duruyor — "şu ekipte kimler var" —
+          ve yeri artık o sorunun sorulduğu liste: üyelerin kendi kartı.
+          Kaldırılsaydı rotanın hiçbir kapısı kalmayacaktı.
+
+          YETKİ SORULMUYOR: kartı gören zaten sohbeti okuyabilen kişidir
+          (üye, ekibi kuran koordinatör ya da merkez) ve rotanın kendi kapısı
+          da aynı. Üyesi olduğu ekibin üye listesini indirmek yeni bir erişim
+          açmıyor.
+        */}
+        {ekip.uyeler.length > 0 && (
+          <p className="mb-4">
+            <DisaAktarmaBagi
+              yol={`/panel/ekipler/${ekip.id}/uyeler/disa-aktar`}
+              kayitSayisi={ekip.uyeler.length}
+            />
+          </p>
+        )}
         {ekip.uyeler.length === 0 ? (
           <p className="text-metin-yumusak">
             Ekipte henüz üye yok.{" "}
@@ -311,33 +398,137 @@ export default async function EkipSayfasi({
         <Kart>
           <KartBasligi
             baslik="Üye ekle"
-            aciklama={`${ekip.il.ad} ilindeki kişiler arasında arayın. Eklenen kişiye bildirim gider.`}
+            aciklama={`${ekip.il.ad} ilindeki kişiler arasında süzün. Eklenen kişiye bildirim gider.`}
             Ikon={UserPlus}
           />
-          <form method="get" className="flex flex-wrap items-end gap-2">
-            <label className="block grow">
+          {/*
+            GELİŞMİŞ SÜZGEÇ (26 Ağustos 2026 · istek: "bunun yerine gelişmiş
+            filtre ekleyelim: öğretmen öğrenci, okul türü, çalışma grubu,
+            rolleri"). Süzgeçler BİRLİKTE daraltıyor; gerekçesi ve koşulları
+            lib/ekip/aday-suzgeci.ts başlığında.
+
+            Ad kutusu duruyor ve ilk sırada: adını bilen kişi için hâlâ en kısa
+            yol. Tek farkı, artık tek kapı olmaması.
+          */}
+          <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="block">
               <span className="text-sm font-medium text-metin">
                 Ad ya da soyad
               </span>
               <input
                 type="search"
                 name="ara"
-                defaultValue={aramaMetni}
+                defaultValue={suzgec.ara ?? ""}
                 minLength={2}
-                placeholder="En az iki harf yazın"
+                placeholder="En az iki harf"
                 className={SINIF_GIRDI}
               />
             </label>
-            <button type="submit" className={SINIF_IKINCIL_BUTON}>
-              Ara
-            </button>
+
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Kişi</span>
+              <select
+                name="kisiTuru"
+                defaultValue={suzgec.kisiTuru ?? ""}
+                className={SINIF_GIRDI}
+              >
+                <option value="">Öğretmen ve öğrenci</option>
+                {(
+                  Object.keys(ADAY_KISI_TURU_ETIKETLERI) as AdayKisiTuru[]
+                ).map((tur) => (
+                  <option key={tur} value={tur}>
+                    {ADAY_KISI_TURU_ETIKETLERI[tur]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Okul türü</span>
+              <select
+                name="okulTuru"
+                defaultValue={suzgec.okulTuru ?? ""}
+                className={SINIF_GIRDI}
+              >
+                <option value="">Tüm okul türleri</option>
+                {okulTuruSecenekleri(
+                  ilinOkulTurleri.map((okul) => okul.okulTuru),
+                ).map((tur) => (
+                  <option key={tur} value={tur}>
+                    {tur}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-metin">
+                Çalışma grubu
+              </span>
+              <select
+                name="grup"
+                defaultValue={
+                  suzgec.calismaGrubuId === null
+                    ? ""
+                    : String(suzgec.calismaGrubuId)
+                }
+                className={SINIF_GIRDI}
+              >
+                <option value="">Tüm gruplar</option>
+                {calismaGruplari.map((grup) => (
+                  <option key={grup.id} value={grup.id}>
+                    {grup.ad}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Görevi</span>
+              <select
+                name="rol"
+                defaultValue={suzgec.rol ?? ""}
+                className={SINIF_GIRDI}
+              >
+                <option value="">Tüm görevler</option>
+                {ADAY_ROLLERI.map((rol) => (
+                  <option key={rol} value={rol}>
+                    {ADAY_ROL_ETIKETLERI[rol]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex items-end gap-2">
+              <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                Ara
+              </button>
+              {suzgecDolu && (
+                <Link
+                  href={`/panel/ekipler/${ekip.id}`}
+                  className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
+                >
+                  Temizle
+                </Link>
+              )}
+            </div>
           </form>
 
-          {aramaMetni.length >= 2 && (
+          {suzgecDolu && (
             <div className="mt-4">
+              {/*
+                SINIRA DAYANAN LİSTE SÖYLENİYOR: 50 satır dolduğunda kullanıcı
+                listenin bittiğini değil kesildiğini bilmeli, yoksa aradığı kişi
+                "yok" sanılır.
+              */}
+              {adaylar.length >= 50 && (
+                <p className="mb-2 text-sm text-metin-yumusak">
+                  İlk 50 kişi gösteriliyor; süzgeçleri daraltarak arayabilirsiniz.
+                </p>
+              )}
               {adaylar.length === 0 ? (
                 <p className="text-metin-yumusak">
-                  Aramanıza uyan, ekipte olmayan kişi bulunamadı.
+                  Bu süzgeçlere uyan, ekipte olmayan kişi bulunamadı.
                 </p>
               ) : (
                 <ul className="divide-y divide-cizgi">
