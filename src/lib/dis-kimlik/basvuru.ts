@@ -14,6 +14,8 @@ import {
   basvuruAlindiEpostasi,
   basvuruOnaylandiEpostasi,
   basvuruReddedildiEpostasi,
+  bekleyenBasvuruEpostasi,
+  zatenKayitliEpostasi,
 } from "./eposta";
 import { type DisBasvuruKaydi, TUR_ETIKETLERI, turunRolu } from "./kurallar";
 import { sifreOzetle } from "./sifre";
@@ -32,6 +34,12 @@ import { sifreOzetle } from "./sifre";
 
 export type BasvuruSonucu =
   | { durum: "ALINDI"; basvuruId: number }
+  /**
+   * Başvuru AÇILMADI ama ekran bunu söylemez (27 Ağustos 2026 · güvenlik
+   * incelemesi). Çağıran bu durumu "ALINDI" ile aynı şekilde karşılar; fark
+   * yalnızca adresin gerçek sahibine giden e-postada görünür.
+   */
+  | { durum: "SESSIZ" }
   | { durum: "REDDEDILDI"; mesaj: string };
 
 /**
@@ -40,10 +48,23 @@ export type BasvuruSonucu =
  * ÇAKIŞMA KONTROLLERİ (hepsi aynı gerekçeyle: aynı e-posta iki hesap
  * doğuramaz):
  *   1. Aynı e-postayla BEKLEYEN başvuru varsa yenisi alınmaz. Veritabanında da
- *      kısmi unique index var (ux_dis_basvuru_bekleyen_eposta); buradaki
- *      kontrol kullanıcıya anlamlı mesaj vermek için.
+ *      kısmi unique index var (ux_dis_basvuru_bekleyen_eposta).
  *   2. E-posta zaten bir dış kimliğe bağlıysa kişi kayıtlıdır — kayıt değil
  *      giriş yapmalı.
+ *
+ * ÇAKIŞMA EKRANA SÖYLENMEZ (27 Ağustos 2026 · güvenlik incelemesi). İki kontrol
+ * de eskiden kullanıcıya "bu adres sistemde kayıtlı" / "onay bekleyen başvuru
+ * var" diyordu; bu, kimlik istemeyen bir uçta ÇALIŞAN BİR ORACLE'dı — elinde
+ * adres listesi olan biri formu tek tek doldurup kimin üye olduğunu
+ * öğrenebiliyordu. Artık ikisi de `SESSIZ` dönüyor, ekran "başvurunuz alındı"
+ * diyor ve gerçek durumu yalnızca adresin SAHİBİ kendi gelen kutusunda görüyor.
+ *
+ * ZAMANLAMA DA EŞİTLENİYOR: mesajlar susturulup şifre özeti atlanırsa fark bu
+ * kez SÜREDE görünürdü — gerçek başvuru scrypt çalıştırır (yüzlerce ms),
+ * çakışan başvuru anında dönerdi. `sifreOzetle` bu yüzden çakışma yollarında da
+ * çağrılıyor, sonucu atılıyor. Eşitleme tam değildir (gerçek yol ayrıca yazma
+ * ve bildirim yapar), ama baskın terim kapanır; kalan farkı sömürmek başvuru
+ * hız sınırının (app/basvuru/eylemler.ts) altında pratik değil.
  *
  * REDDEDİLMİŞ BAŞVURU ENGEL DEĞİLDİR: tekrar başvuru serbest (bkz. ret
  * gerekçesinin zorunlu olma sebebi).
@@ -57,11 +78,9 @@ export async function disBasvuruOlustur(
     select: { kullaniciId: true },
   });
   if (mevcutKimlik) {
-    return {
-      durum: "REDDEDILDI",
-      mesaj:
-        "Bu e-posta adresi sistemde kayıtlı. Giriş yapın ya da şifrenizi sıfırlayın.",
-    };
+    await sifreOzetle(kayit.sifre);
+    await zatenKayitliEpostasi(kayit.eposta);
+    return { durum: "SESSIZ" };
   }
 
   const bekleyen = await prisma.disKullaniciBasvurusu.findFirst({
@@ -69,11 +88,9 @@ export async function disBasvuruOlustur(
     select: { id: true },
   });
   if (bekleyen) {
-    return {
-      durum: "REDDEDILDI",
-      mesaj:
-        "Bu e-posta adresiyle onay bekleyen bir başvuru zaten var. Sonucu e-postayla bildirilecek.",
-    };
+    await sifreOzetle(kayit.sifre);
+    await bekleyenBasvuruEpostasi(kayit.eposta);
+    return { durum: "SESSIZ" };
   }
 
   /*

@@ -92,5 +92,11 @@ export async function basvuruEylemi(veri: FormData): Promise<void> {
     redirect(`${temelYol}&hata=${encodeURIComponent(sonuc.mesaj)}`);
   }
 
+  /*
+   * "SESSIZ" DE BURAYA DÜŞER: başvurunun açılmadığı (adres kayıtlı ya da
+   * bekleyen başvuru var) durumda ekran, açıldığı durumdan AYIRT EDİLEMEZ
+   * olmalı — ayrım tam da kapatılmak istenen sızıntıydı. Gerçek durumu
+   * adresin sahibi e-postasında görüyor (bkz. dis-kimlik/basvuru.ts).
+   */
   redirect("/basvuru?durum=alindi");
 }

@@ -346,7 +346,16 @@ async function main() {
 
     const sonuc = await disBasvuruOlustur(karar.kayit, simdi);
     if (sonuc.durum !== "ALINDI") {
-      throw new Error(`${kisi.girdi.eposta}: ${sonuc.mesaj}`);
+      /*
+       * "SESSIZ" burada da bir arızadır: örnek verinin adresleri temiz bir
+       * veritabanına yazılıyor, çakışma çıkıyorsa betik iki kez çalıştırılmış
+       * demektir. Ekranda susan durum betikte KONUŞMALI.
+       */
+      const neden =
+        sonuc.durum === "SESSIZ"
+          ? "adres zaten kayıtlı ya da bekleyen başvurusu var"
+          : sonuc.mesaj;
+      throw new Error(`${kisi.girdi.eposta}: ${neden}`);
     }
 
     const onay = await basvuruyuOnayla(sonuc.basvuruId, yoneticiId, simdi);

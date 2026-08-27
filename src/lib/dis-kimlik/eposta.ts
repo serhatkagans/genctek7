@@ -69,3 +69,54 @@ export async function sifreSifirlamaEpostasi(
     `Merhaba ${adSoyad},\n\nŞifrenizi sıfırlamak için aşağıdaki bağlantıyı kullanın. Bağlantı ${gecerlilikDakika} dakika geçerlidir ve bir kez kullanılabilir.\n\n${baglanti}\n\nBu isteği siz yapmadıysanız bu iletiyi yok sayın; şifreniz değişmez.\n\nGençTek`,
   );
 }
+
+/**
+ * Zaten kayıtlı bir adrese başvuru geldiğinde (27 Ağustos 2026 · güvenlik
+ * incelemesi).
+ *
+ * Bu ileti bir SIZINTI KAPATMA aracı: ekran artık "bu e-posta sistemde
+ * kayıtlı" demiyor, herkese "başvurunuz alındı" diyor. Durumu yalnızca adresin
+ * GERÇEK sahibi, kendi gelen kutusunda öğreniyor. Elinde adres listesiyle
+ * kimin üye olduğunu tarayan birine ekran hiçbir şey söylemiyor.
+ *
+ * BAŞVURU FORMUNDAKİ AD KULLANILMAZ, hitap adsızdır: o alanı isteği yapan kişi
+ * doldurdu ve burada alıcı BAŞKASI olabilir. Adı yazmak, saldırganın seçtiği
+ * metni gerçek bir kullanıcının gelen kutusuna taşımak olurdu.
+ */
+export async function zatenKayitliEpostasi(alici: string): Promise<void> {
+  await gonder(
+    alici,
+    "GençTek giriş başvurunuz hakkında",
+    `Merhaba,
+
+Bu e-posta adresiyle GençTek Bilgi Sistemi'ne bir giriş başvurusu yapıldı. Adres SİSTEMDE ZATEN KAYITLI olduğu için yeni bir başvuru açılmadı.
+
+Giriş yapabilirsiniz. Şifrenizi hatırlamıyorsanız giriş ekranındaki "Şifremi unuttum" bağlantısını kullanın.
+
+Bu başvuruyu siz yapmadıysanız bu iletiyi yok sayın; hesabınızda hiçbir şey değişmedi.
+
+GençTek`,
+  );
+}
+
+/**
+ * Aynı adresle bekleyen bir başvuru varken yenisi geldiğinde.
+ *
+ * Gerekçe yukarıdakiyle aynı; ekran ayrım yapmıyor, ayrımı yalnızca adresin
+ * sahibi görüyor. Ad yine kullanılmıyor.
+ */
+export async function bekleyenBasvuruEpostasi(alici: string): Promise<void> {
+  await gonder(
+    alici,
+    "GençTek giriş başvurunuz hakkında",
+    `Merhaba,
+
+Bu e-posta adresiyle GençTek Bilgi Sistemi'ne bir giriş başvurusu yapıldı. Aynı adresle ONAY BEKLEYEN bir başvuru zaten bulunduğu için yenisi açılmadı.
+
+Mevcut başvurunuz sonuçlandığında bu adrese bilgi verilecek.
+
+Bu başvuruyu siz yapmadıysanız bu iletiyi yok sayın.
+
+GençTek`,
+  );
+}
