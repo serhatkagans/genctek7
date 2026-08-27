@@ -1,5 +1,5 @@
 import { appendFile, mkdir } from "node:fs/promises";
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   type HataKaydi,
   type HataKaynagi,
@@ -7,6 +7,7 @@ import {
   sorgusuzYol,
 } from "./hata-kurallar";
 import { ortam } from "./ortam";
+import { uygulamaKoku } from "./uygulama-koku";
 
 /**
  * Beklenmeyen hataların sunucu tarafındaki kaydı (12 Ağustos 2026).
@@ -62,40 +63,15 @@ import { ortam } from "./ortam";
 export type { HataKaydi } from "./hata-kurallar";
 
 /**
- * Göreli depolama yolunun çözüleceği kök.
+ * Günlük dosyalarının durduğu dizin.
  *
- * NİYE `process.cwd()` DEĞİL (21 Ağustos 2026 · istek: "arada hata veriyor
- * ancak hata kayıtlarına nedeni işlenmiyor"). Üretimde standalone çıktı
- * çalışıyor (next.config.ts · output: "standalone") ve Next'in ürettiği
- * `server.js` ilk satırlarında `process.chdir(__dirname)` yapıyor: çalışma
- * dizini `/opt/genctek` değil, `/opt/genctek/.next/standalone` oluyor.
- *
- * `DEPOLAMA_YEREL_DIZIN` göreli bırakılmış bir kurulumda (depodaki .env
- * varsayılanı `./depolama`) günlük bu yüzden
- * `/opt/genctek/.next/standalone/depolama/hata-gunlugu` altına yazılmaya
- * çalışılıyordu. Orası servis tanımında SALT OKUNUR: genctek.service
- * `ProtectSystem=strict` ve `ReadWritePaths=/opt/genctek/depolama` diyor.
- * Yazma EACCES ile düşüyor, `hataKaydet` hatayı yutuyor (yutmalı da) ve ekran
- * boş kalıyordu — hata günlüğü tam da hata varken susuyordu.
- *
- * Çözüm, kökü standalone dizininden GERİ ALMAK: `.next/standalone` içindeysek
- * iki üst dizin uygulamanın gerçek kökü. Mutlak yol verilmiş kurulumlarda
- * (DAGITIM.md'nin önerdiği `/opt/genctek/depolama`) bu hesap devreye girmez.
+ * Göreli ayar CWD'ye göre çözülmez; gerekçesi `lib/uygulama-koku.ts` içinde.
  */
-function depolamaKoku(): string {
-  const calisma = process.cwd();
-  const standaloneSonu = `${sep}.next${sep}standalone`;
-  return calisma.endsWith(standaloneSonu)
-    ? calisma.slice(0, -standaloneSonu.length)
-    : calisma;
-}
-
-/** Günlük dosyalarının durduğu dizin. */
 export function hataGunlukDizini(): string {
   const ayar = ortam.DEPOLAMA_YEREL_DIZIN;
   return isAbsolute(ayar)
     ? resolve(ayar, "hata-gunlugu")
-    : resolve(depolamaKoku(), ayar, "hata-gunlugu");
+    : resolve(uygulamaKoku(), ayar, "hata-gunlugu");
 }
 
 /** Bir zaman için dosya adı — aya göre bölünür. */

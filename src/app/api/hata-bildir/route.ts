@@ -1,4 +1,5 @@
 import { hataKaydet, hataKaydiHazirla } from "@/lib/hata-kaydi";
+import { hizSiniriOlustur, istekAnahtari } from "@/lib/hiz-siniri";
 import { sorgusuzYol } from "@/lib/hata-kurallar";
 
 export const dynamic = "force-dynamic";
@@ -57,26 +58,39 @@ const KIMLIK_SINIRI = 100;
 /** Gövdenin okunmadan önce reddedildiği boyut. */
 const GOVDE_SINIRI = 32 * 1024;
 
-/** Süreç başına dakikada yazılacak en fazla istemci kaydı. */
-const DAKIKA_SINIRI = 60;
-
-let pencereBaslangici = 0;
-let penceredekiKayit = 0;
-
 /**
- * Kaydın yazılmasına izin var mı?
+ * İKİ KATMANLI SINIR (27 Ağustos 2026 · güvenlik incelemesi).
  *
- * Sabit pencere yeterli: amaç adil paylaşım değil, dosyanın kontrolsüz
- * büyümesini durdurmak. Aynı hata dakikada altmış kez zaten görülmüştür.
+ * Önce yalnızca süreç başına ortak bir sayaç vardı ve bu, korumayı saldırıya
+ * çeviriyordu: dakikada 60 boş bildirim gönderen biri kotayı tüketip GERÇEK
+ * istemci hatalarının yazılmasını engelleyebilirdi — hata günlüğü tam da
+ * gerektiği anda susardı. Sınır artık ÖNCE IP başına uygulanıyor; bir
+ * kaynağın gürültüsü başkasının kaydını düşürmüyor.
+ *
+ * Süreç başına tavan yine de duruyor: dağıtık bir kaynaktan (ya da başlığı
+ * olmayan isteklerden) gelen yük dosyayı kontrolsüz büyütmesin diye. IP sınırı
+ * adaleti, ortak tavan dosya boyutunu korur.
+ *
+ * DİKKAT: bu uç KİMLİK İSTEMEZ, dolayısıyla kayıtlar doğrulanmamış veridir;
+ * sınırın gevşetilmesi doğrudan günlüğün güvenilirliğini düşürür.
  */
-function siniraTakildiMi(): boolean {
-  const simdi = Date.now();
-  if (simdi - pencereBaslangici > 60_000) {
-    pencereBaslangici = simdi;
-    penceredekiKayit = 0;
-  }
-  penceredekiKayit += 1;
-  return penceredekiKayit > DAKIKA_SINIRI;
+const IP_DAKIKA_SINIRI = 10;
+const SUREC_DAKIKA_SINIRI = 60;
+
+const ipSiniri = hizSiniriOlustur({
+  pencereMs: 60_000,
+  sinir: IP_DAKIKA_SINIRI,
+});
+const surecSiniri = hizSiniriOlustur({
+  pencereMs: 60_000,
+  sinir: SUREC_DAKIKA_SINIRI,
+  enFazlaAnahtar: 1,
+});
+
+/** Kaydın yazılmasına izin var mı? IP sınırı önce, süreç tavanı sonra. */
+function siniraTakildiMi(istek: Request): boolean {
+  if (ipSiniri.takildiMi(istekAnahtari(istek))) return true;
+  return surecSiniri.takildiMi("hepsi");
 }
 
 function metin(deger: unknown, sinir: number): string | null {
@@ -114,7 +128,7 @@ export async function POST(istek: Request) {
   const mesaj = metin(nesne.mesaj, MESAJ_SINIRI);
   if (!mesaj) return new Response(null, { status: 204 });
 
-  if (siniraTakildiMi()) return new Response(null, { status: 204 });
+  if (siniraTakildiMi(istek)) return new Response(null, { status: 204 });
 
   /*
    * Kayıt, sunucu tarafıyla AYNI işlevden geçiriliyor: `hataKaydiHazirla`

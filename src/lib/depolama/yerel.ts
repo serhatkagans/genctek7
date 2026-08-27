@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { ortam } from "../ortam";
+import { uygulamaKoku } from "../uygulama-koku";
 import {
   DepolamaHatasi,
   type DepolamaSaglayici,
@@ -38,8 +39,17 @@ const UZANTILAR: Record<string, string> = {
 /** Yalnızca bu sağlayıcının ürettiği biçime uyan anahtarlar kabul edilir. */
 const ANAHTAR_DESENI = /^\d{4}\/\d{2}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/;
 
+/**
+ * Yüklenen dosyaların kökü.
+ *
+ * GÖRELİ AYAR CWD'YE GÖRE ÇÖZÜLMEZ (27 Ağustos 2026): üretimde standalone
+ * çıktı çalışıyor ve çalışma dizini `.next/standalone`; düz `resolve()` yüklenen
+ * dosyaları oradaki salt okunur dizine yazmaya çalışıyordu. Gerekçenin tamamı
+ * `lib/uygulama-koku.ts` içinde — hata günlüğü de aynı hesabı kullanıyor.
+ */
 function kokDizin(): string {
-  return resolve(ortam.DEPOLAMA_YEREL_DIZIN);
+  const ayar = ortam.DEPOLAMA_YEREL_DIZIN;
+  return isAbsolute(ayar) ? resolve(ayar) : resolve(uygulamaKoku(), ayar);
 }
 
 /**

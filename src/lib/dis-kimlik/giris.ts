@@ -4,6 +4,7 @@ import { erisimLogla } from "../yetki/log";
 import {
   basarisizDenemeSonucu,
   epostaNormalle,
+  type KilitDurumu,
   kilitKalanDakika,
   kilitliMi,
 } from "./kurallar";
@@ -33,6 +34,60 @@ export type DisGirisSonucu =
  * deneyen birine doğrudan cevap verirdi.
  */
 const GENEL_HATA = "E-posta adresi veya şifre hatalı.";
+
+/**
+ * Başarısız denemeyi sayar ve gerekirse kilidi kurar.
+ *
+ * SAYAÇ İŞLEM İÇİNDE VE SATIR KİLİTLİ ARTIYOR (27 Ağustos 2026 · güvenlik
+ * incelemesi). Önce sayaç istek başında okunmuş değerden hesaplanıp MUTLAK
+ * değer olarak yazılıyordu; bu klasik bir kayıp güncelleme (lost update):
+ * aynı anda gönderilen N deneme sayacı 0 okur, N'i de 1 yazar ve kaba kuvvet
+ * sınırı N kat gecikir. Sınırın kendisi kâğıt üzerinde duruyor ama pratikte
+ * paralel istekle aşılabiliyordu.
+ *
+ * KURAL HAM SQL'E TAŞINMADI: `basarisizDenemeSonucu` birim testli ve sayaç
+ * davranışının tek doğruluk kaynağı (kilitlenince sıfırlama dahil). Bu yüzden
+ * satır `FOR UPDATE` ile kilitlenip TAZE değer okunuyor, karar yine o
+ * fonksiyonda veriliyor. Kilit işlem bitince düşer; scrypt doğrulaması işlemin
+ * DIŞINDA kalır, yoksa her deneme bir veritabanı bağlantısını yüzlerce
+ * milisaniye tutardı (üretimde havuz dar — bkz. lib/db-havuz.ts).
+ *
+ * ARADA KİLİTLENDİYSE DOKUNULMAZ: paralel bir istek bu satırı kilitlemiş
+ * olabilir; taze durum kilitliyse sayaç yeniden artırılmaz. Artırılsaydı
+ * `basarisizDenemeSonucu` kilitli durumu "0 deneme" sayıp kilidi TEMİZLERDİ.
+ */
+async function basarisizDenemeyiIsle(
+  kullaniciId: number,
+  simdi: Date,
+): Promise<KilitDurumu> {
+  return prisma.$transaction(async (tx) => {
+    const satirlar = await tx.$queryRaw<
+      { basarisiz_deneme: number; kilit_bitis_tarihi: Date | null }[]
+    >`SELECT basarisiz_deneme, kilit_bitis_tarihi
+        FROM dis_kimlik
+       WHERE kullanici_id = ${kullaniciId}
+         FOR UPDATE`;
+
+    const satir = satirlar[0];
+    if (!satir) return { basarisizDeneme: 0, kilitBitisTarihi: null };
+
+    const taze: KilitDurumu = {
+      basarisizDeneme: satir.basarisiz_deneme,
+      kilitBitisTarihi: satir.kilit_bitis_tarihi,
+    };
+    if (kilitliMi(taze, simdi)) return taze;
+
+    const yeniDurum = basarisizDenemeSonucu(taze, simdi);
+    await tx.disKimlik.update({
+      where: { kullaniciId },
+      data: {
+        basarisizDeneme: yeniDurum.basarisizDeneme,
+        kilitBitisTarihi: yeniDurum.kilitBitisTarihi,
+      },
+    });
+    return yeniDurum;
+  });
+}
 
 export async function disGirisYap(
   epostaGirdisi: string,
@@ -70,14 +125,7 @@ export async function disGirisYap(
   const dogruMu = await sifreDogrula(sifre, kimlik.sifreOzeti);
 
   if (!dogruMu) {
-    const yeniDurum = basarisizDenemeSonucu(kimlik, simdi);
-    await prisma.disKimlik.update({
-      where: { kullaniciId: kimlik.kullaniciId },
-      data: {
-        basarisizDeneme: yeniDurum.basarisizDeneme,
-        kilitBitisTarihi: yeniDurum.kilitBitisTarihi,
-      },
-    });
+    const yeniDurum = await basarisizDenemeyiIsle(kimlik.kullaniciId, simdi);
 
     if (yeniDurum.kilitBitisTarihi !== null) {
       const kalan = kilitKalanDakika(yeniDurum, simdi);

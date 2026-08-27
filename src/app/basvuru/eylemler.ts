@@ -1,8 +1,36 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { disBasvuruOlustur } from "@/lib/dis-kimlik/basvuru";
 import { disBasvuruGirdisiniCoz } from "@/lib/dis-kimlik/kurallar";
+import { basliklardanAnahtar, hizSiniriOlustur } from "@/lib/hiz-siniri";
+
+/**
+ * BAŞVURU HIZ SINIRI (27 Ağustos 2026 · güvenlik incelemesi).
+ *
+ * Bu kapı kimlik istemez ve iki şeyi birden açıyordu: sınırsız başvuru (proje
+ * yöneticisinin onay kuyruğunu boğan spam) ve E-POSTA KEŞFİ — `disBasvuruOlustur`
+ * "bu adres sistemde kayıtlı" ile "onay bekleyen başvuru var" arasında ayrım
+ * yapıyor, yani elinde adres listesi olan biri kimin üye olduğunu tek tek
+ * sorabiliyordu. Keşfin işe yaraması HACME bağlı; sınır tam da onu kesiyor.
+ *
+ * SINIR ÇAĞRIDAN ÖNCE UYGULANIR: `disBasvuruOlustur` içine konsaydı, kontrol
+ * ancak veritabanına sorulduktan sonra çalışır ve mesaj zaten üretilmiş olurdu.
+ *
+ * SAYAÇ IP BAŞINA: e-posta başına saymak keşfi durdurmazdı (saldırgan her
+ * denemede farklı adres yazıyor). Kurumsal bir NAT arkasındaki birden çok
+ * gerçek başvurucu aynı kovayı paylaşır; pencere bu yüzden dar (10 dakika) ve
+ * hak sayısı bir formu birkaç kez yanlış dolduran kişiyi kapıda bırakmayacak
+ * kadar bol tutuldu.
+ */
+const PENCERE_DAKIKA = 10;
+const PENCERE_BASINA_BASVURU = 5;
+
+const basvuruSiniri = hizSiniriOlustur({
+  pencereMs: PENCERE_DAKIKA * 60_000,
+  sinir: PENCERE_BASINA_BASVURU,
+});
 
 /**
  * EBA dışı giriş başvurusu.
@@ -45,6 +73,18 @@ export async function basvuruEylemi(veri: FormData): Promise<void> {
   const karar = disBasvuruGirdisiniCoz(girdi, new Date());
   if (!karar.olurMu) {
     redirect(`${temelYol}&hata=${encodeURIComponent(karar.neden)}`);
+  }
+
+  /*
+   * Sınır BİÇİM DOĞRULAMASINDAN SONRA, veritabanına sorulmadan önce: boş
+   * gönderilen bir form hakkı yakmamalı, ama hiçbir sorgu da çalışmamalı.
+   */
+  if (basvuruSiniri.takildiMi(basliklardanAnahtar(await headers()))) {
+    redirect(
+      `${temelYol}&hata=${encodeURIComponent(
+        `Kısa sürede çok fazla başvuru gönderildi. ${PENCERE_DAKIKA} dakika sonra tekrar deneyin.`,
+      )}`,
+    );
   }
 
   const sonuc = await disBasvuruOlustur(karar.kayit);
