@@ -126,7 +126,7 @@ export interface OgrenciListeFiltreleri {
   /** Danışmanı olmayan öğrenciler (il koordinatörünün takip etmesi gereken durum). */
   danismansizMi?: boolean;
   /**
-   * DENEYİM SÜZGECİ (15 Ağustos 2026 · manisa-farklari-plani.md · Aşama 8).
+   * DENEYİM SÜZGECİ (15 Ağustos 2026 · Manisa farkları turu).
    *
    * Manisa panelinde öğrenciler "Deneyimler" alanına göre süzülüyor
    * ("TEKNOFEST Yarışmaları", "Bilim fuarları"). Bizde bu veri ZATEN VAR:

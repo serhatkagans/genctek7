@@ -1,7 +1,7 @@
 /**
  * YATAY BAR — büyüklük karşılaştırması (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 7. Panel bugüne kadar tamamen sayılarla
+ * Manisa farkları turu. Panel bugüne kadar tamamen sayılarla
  * çalışıyordu; "hangi çalışma grubunda kaç etkinlik oldu" sorusu 15 satırlık
  * bir listede okunuyordu ve büyüklükler karşılaştırılamıyordu.
  *

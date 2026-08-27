@@ -5,7 +5,7 @@ import { zipOlustur } from "@/lib/zip";
  * Küçük bir XLSX (Excel çalışma kitabı) yazıcısı (15 Ağustos 2026).
  *
  * İSTEK: Manisa GençTek ekibinin panelinde raporlar `.xlsx` olarak iniyor;
- * bizimkiler CSV. Karşılaştırma notu: `manisa-farklari-plani.md` · Aşama 1.
+ * bizimkiler CSV. Karşılaştırma notu: Manisa farkları turu.
  *
  * ---------------------------------------------------------------------------
  * NEDEN PAKET DEĞİL DE ELLE

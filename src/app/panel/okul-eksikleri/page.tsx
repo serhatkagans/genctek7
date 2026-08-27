@@ -41,7 +41,7 @@ const YOL = "/panel/okul-eksikleri";
 /**
  * OKUL EKSİK DURUM ANALİZİ (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 3. Yönetim Paneli "burada kaç okul var"
+ * Manisa farkları turu. Yönetim Paneli "burada kaç okul var"
  * diye sayıyor; bu ekran "hangi okulda ne eksik" diye soruyor. İkisi ayrı
  * ekran çünkü ikisi ayrı iş: biri durum raporu, bu bir GÖREV LİSTESİ.
  *

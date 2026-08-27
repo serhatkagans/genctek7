@@ -392,7 +392,7 @@ export default async function RaporlarSayfasi() {
         TAMAMLANAN ETKİNLİK RAPORLARI — XLSX (15 Ağustos 2026).
 
         Manisa GençTek panelindeki "Raporları Excel İndir" düğmesinin karşılığı
-        (`manisa-farklari-plani.md` · Aşama 1). Aşağıdaki istatistik kartından
+        (Manisa farkları turu). Aşağıdaki istatistik kartından
         FARKLI bir soruyu cevaplıyor: orası "hangi programda kaç etkinlik oldu"
         diye sayıyor, burası her etkinliğin kendi satırını ve raporunun metnini
         veriyor.

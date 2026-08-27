@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 /**
  * Erişim kayıtlarının dosya çıktısı — KVKK denetim dökümü (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 2c, yüksek öncelikli dört ekranın ilki.
+ * Manisa farkları turu, yüksek öncelikli dört ekranın ilki.
  * Denetim ekranının ekranda kalması, "kim neye baktı" sorusunun kurum içi bir
  * incelemede paylaşılabilir bir belgeye dönüşememesi demekti; ekran 50'şer
  * kayıt sayfalıyor ve iki yıllık kaydı sayfa sayfa okumak mümkün değil.

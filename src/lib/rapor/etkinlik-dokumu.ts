@@ -4,7 +4,7 @@ import type { XlsxSutun } from "@/lib/rapor/xlsx";
 /**
  * TAMAMLANAN ETKİNLİKLERİN TOPLU RAPOR DÖKÜMÜ (15 Ağustos 2026).
  *
- * Karşılaştırma: `manisa-farklari-plani.md` · Aşama 1. Manisa GençTek ekibinin
+ * Karşılaştırma: Manisa farkları turu. Manisa GençTek ekibinin
  * panelinde "Raporları Excel İndir" düğmesi biten etkinliklerin sonucunu tek
  * dosyada veriyor; bizde etkinliklerin PLANLAMA tarafı (kontenjan, başvuru,
  * seçilen) zaten dışa aktarılıyordu ama SONUÇ tarafı hiç yoktu.

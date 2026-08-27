@@ -589,7 +589,9 @@ src/app/
 
 ### 15.3 Kök Referans Belgeleri
 
-`README.md`, `DAGITIM.md`, `permissions.md`, `domain-rules.md`, `data-model.md`, `hata-kimligi.md`, `liste.md`, `belge-promptu.md`, `baglantilarim-plani.md`, `PROJE-INCELEME-RAPORU.md`, `SKILL.md`, `proje.md` (bu belge).
+`README.md`, `DAGITIM.md`, `permissions.md`, `domain-rules.md`, `data-model.md`, `SKILL.md`, `proje.md` (bu belge) ve `kurulum/` altındaki ekler (`ek-a`…`ek-f`, `sso-veri-talebi.md`).
+
+Biten iş planları 27 Ağustos 2026'da kaldırıldı (`liste.md`, `baglantilarim-plani.md`, `manisa-farklari-plani.md`, `hata-kimligi.md`): hepsi tamamlanmıştı ve kararların gerekçesi ilgili dosyaların yorumlarında duruyor. Geçmişleri git'te.
 
 ---
 

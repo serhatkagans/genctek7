@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 /**
  * TAMAMLANAN ETKİNLİKLERİN RAPOR DÖKÜMÜ (XLSX) — 15 Ağustos 2026.
  *
- * `manisa-farklari-plani.md` · Aşama 1c. Satır üretimi ve sayımlar
+ * Manisa farkları turu. Satır üretimi ve sayımlar
  * `lib/rapor/etkinlik-dokumu.ts` içinde ve birim testli; burada yalnızca kapı,
  * sorgu ve dosyaya çevirme var.
  *

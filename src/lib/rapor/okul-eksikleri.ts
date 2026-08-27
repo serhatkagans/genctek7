@@ -5,7 +5,7 @@ import { SAYIMDA_DANISMAN, SAYIMDA_OGRENCI } from "./sayim-kosullari";
 /**
  * OKUL EKSİK DURUM ANALİZİ (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 3. Manisa GençTek panelindeki "Okul Eksik
+ * Manisa farkları turu. Manisa GençTek panelindeki "Okul Eksik
  * Durumlar" ekranının karşılığı: hangi okulda danışman, öğrenci ya da temsilci
  * eksik. Bizde bu bilginin tek izi Yönetim Paneli'ndeki `danismansizOkul`
  * sayacıydı — bir SAYI, ama "hangi okullar" sorusunun cevabı yoktu ve sayıyı

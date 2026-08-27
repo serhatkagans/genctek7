@@ -12,7 +12,7 @@ const YOL = "/panel/ekip-yonetimi";
 /**
  * MERKEZİ EKİP LİSTESİ (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 5c. Manisa panelindeki "Ekip Yönetimi"
+ * Manisa farkları turu. Manisa panelindeki "Ekip Yönetimi"
  * ekranının karşılığı: 144 ekip tek listede, tür rozeti, danışman, üye sayısı.
  *
  * ============================================================================

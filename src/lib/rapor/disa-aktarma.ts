@@ -5,7 +5,7 @@ import { tarihYaz } from "@/lib/tarih";
 /**
  * Dışa aktarmanın ortak yüzeyi — biçim seçimi tek yerde (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 2. Panelde bugün altı dışa aktarma rotası
+ * Manisa farkları turu. Panelde bugün altı dışa aktarma rotası
  * var ve hepsi aynı üç satırı tekrarlıyordu:
  * `csvYaniti(ad, csvBelgesi(BASLIKLAR, satirlar))`. Her rota kendi biçim
  * dalını yazsaydı, bir rota `?bicim` parametresini okumayı unuttuğunda bunu

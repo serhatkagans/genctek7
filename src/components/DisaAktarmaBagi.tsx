@@ -4,7 +4,7 @@ import { uygulamaYolu } from "@/lib/ortam";
 /**
  * Liste ekranlarının indirme bağlantısı (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 2a. Manisa panelinde Excel tek bir ekranın
+ * Manisa farkları turu. Manisa panelinde Excel tek bir ekranın
  * özelliği değil, panelin genelinde aynı biçimde duran bir davranış; bizde her
  * ekran kendi bağlantısını kendi etiketiyle basıyordu ve biri "CSV indir" derken
  * dosya artık XLSX iniyordu.

@@ -152,7 +152,7 @@ export const EKIP_SOHBET_UYARISI =
   "Ekip sohbeti gizli değildir: ekibi kuran il koordinatörü ve proje yöneticisi mesajları okuyabilir. Telefon, adres gibi iletişim bilgilerinizi yazmayın.";
 
 // ---------------------------------------------------------------------------
-// Ekip türü ve kapsamı (15 Ağustos 2026 · manisa-farklari-plani.md · Aşama 5)
+// Ekip türü ve kapsamı (15 Ağustos 2026 · Manisa farkları turu)
 // ---------------------------------------------------------------------------
 
 export const EKIP_TURU_ETIKETLERI: Record<EkipTuru, string> = {

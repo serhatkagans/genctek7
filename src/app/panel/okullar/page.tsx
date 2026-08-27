@@ -29,7 +29,7 @@ const YOL = "/panel/okullar";
 /**
  * OKULLAR EKRANI (15 Ağustos 2026).
  *
- * `manisa-farklari-plani.md` · Aşama 4. Bugüne kadar okul listesi yalnızca
+ * Manisa farkları turu. Bugüne kadar okul listesi yalnızca
  * Yönetim Paneli'nin il → ilçe kırılımının son basamağındaydı; kurum kodu
  * görünmüyor, arama ve tür süzgeci yoktu.
  *
