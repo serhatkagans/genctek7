@@ -28,7 +28,7 @@ EBA SSO erişimi henüz yok. Bu aşamada:
 
 **İlk giriş:** Kullanıcı yoksa oluştur. Rol tayini:
 - `AuthProvider` öğrenci döndürüyorsa → `OGRENCI`
-- Öğretmen ise → rolsüz kullanıcı, danışman listesine girmesi için kendi işaretlemesi gerekir
+- Öğretmen ise → **doğrudan `DANISMAN` rolü açılır** (27 Ağustos 2026 · istek: "sisteme giriş yapınca direk danışman olsun"); okul kaydı yoksa rol verilmez, çünkü danışmanlık bir okula bağlanır
 - `IL_KOORDINATOR` ve `PROJE_YONETICISI` asla otomatik verilmez, elle atanır
 
 **Sonraki girişler:** `AuthProvider`'dan gelen alanları güncelle. Kurum kodu değiştiyse Bölüm 3'teki devir akışını tetikle.
@@ -53,7 +53,8 @@ Kurallar:
 - Bir öğretmen aynı anda hem `DANISMAN` hem `IL_KOORDINATOR` olamaz (DB kısıtı).
 - `IL_KOORDINATOR` atamasını yalnızca `PROJE_YONETICISI` yapar.
 - `PROJE_YONETICISI` = YEĞİTEK kullanıcısı. Ayrı bir süper-admin rolü yok.
-- Tüm öğretmenler sisteme giriş yapabilir; danışman listesinde görünmek için `DanismanOlarakGorevAlmakIstiyorum` alanını işaretlemeleri gerekir. Onay süreci yoktur.
+- Tüm öğretmenler sisteme giriş yapabilir ve **ilk girişte danışman öğretmen olurlar**; ayrı bir işaretleme adımı yoktur (27 Ağustos 2026). Önceki kural `DanismanOlarakGorevAlmakIstiyorum` kutusunun işaretlenmesini istiyordu; kutu bir onay değildi — kimse reddetmiyordu, herkesin tek tek geçtiği boş bir kapıydı ve geçmeyen öğretmen öğrencilerin danışman seçim listesinde hiç görünmüyordu.
+- **Bırakma akışı duruyor**: görevini bırakan öğretmen rolsüz kalır ve bir sonraki girişinde rol yeniden AÇILMAZ — rol yalnızca kullanıcı ilk kez oluşturulurken veriliyor (bkz. lib/kullanici/sagla.ts). Aksi hâlde kişinin kendi kararı sessizce geri alınırdı.
 - `MEZUN` ve `PAYDAS_TEMSILCISI` **otomatik verilmez ve elle de atanmaz**: yalnızca onaylanan bir dış başvurudan doğar (Bölüm 17). İkisinin de **kurum kodu yoktur** — bu, kapsam filtrelerini yazarken sürekli akılda tutulması gereken tek fark.
 - İki dış rol, kapsam filtrelerinin hiçbirinde varsayılan olarak "görür" tarafına düşmez. Yetkileri `permissions.md` Bölüm 1.1'de sayılıdır ve **dar başlangıç** ilkesine tabidir.
 
@@ -839,7 +840,7 @@ Bu ekran listeden **daha fazla** kişisel veri gösterdiği için (iletişim bil
 
 `/panel/ogretmenler` ekranı, analiz dokümanı Bölüm 2'nin karşılığıdır.
 
-- **"Öğretmen" ayrı bir kullanıcı tipi değildir**: aktif öğrenci rolü olmayan kullanıcıdır. Görev almamış öğretmen de envanterdedir — listenin en çok işe yarayan satırı, henüz danışmanlık işaretlememiş öğretmendir. YEĞİTEK personeli listeden çıkarılır: okulda görevli bir öğretmen değildir.
+- **"Öğretmen" ayrı bir kullanıcı tipi değildir**: aktif öğrenci rolü olmayan kullanıcıdır. Görev almamış öğretmen de envanterdedir; 27 Ağustos 2026'dan beri bu yalnızca **okul kaydı eksik olan** ya da **görevini bırakmış** öğretmen demektir (ilk girişte rol kendiliğinden açılıyor). YEĞİTEK personeli listeden çıkarılır: okulda görevli bir öğretmen değildir.
 - Kapsam: danışman öğretmen **kendi okulu**, il koordinatörü **kendi ili**, proje yöneticisi **tüm iller**. Öğrenci hiçbir koşulda göremez.
 - Danışmanın kapsamı okuldur, "kendi danışmanlığındakiler" değil (öğrenci envanterinden farkı budur): meslektaş listesi kişisel veri bakımından daha dar ve okuldaki diğer danışmanı görmek iş birliğinin ön koşulu.
 - **Görev aldığı eğitim-öğretim yılları ayrı bir alanda tutulmaz**, `kullanici_rol` kayıtlarının tarihlerinden türetilir. İkinci bir yer tutulsaydı rol devrinde ikisi ayrışır ve hangisinin doğru olduğu bilinemezdi. Yıl sınırı **1 Eylül**'dür.

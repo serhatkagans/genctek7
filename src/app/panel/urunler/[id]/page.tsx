@@ -136,7 +136,7 @@ export default async function UrunDetaySayfasi({
         className="inline-flex items-center gap-1.5 text-sm text-vurgu-metin hover:underline"
       >
         <ArrowLeft size={15} aria-hidden />
-        GençTek Market
+        GençTek Vitrin
       </Link>
 
       <SayfaBasligi

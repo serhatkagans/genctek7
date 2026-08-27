@@ -12,6 +12,7 @@ import {
   disaAktarmaYaniti,
 } from "@/lib/rapor/disa-aktarma";
 import type { XlsxSutun } from "@/lib/rapor/xlsx";
+import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import { ogrenciListeFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -41,6 +42,24 @@ const SUTUNLAR: readonly XlsxSutun[] = [
   { baslik: "İl", genislik: 14 },
   { baslik: "İlçe", genislik: 16 },
   { baslik: "Danışman", genislik: 22 },
+  /*
+    TEMSİLCİLİK SÜTUNLARI (27 Ağustos 2026 · istek: "excele şu sütundaki
+    verileri de ekleyelim · İl temsilcisi · İlçe temsilcisi · Okul
+    temsilcisi").
+
+    ÜÇ AYRI SÜTUN, TEK "GÖREVLER" SÜTUNU DEĞİL: ekranda da üç ayrı sütun ve
+    dosyayı açan kişi genellikle tek bir göreve göre süzüyor ("il
+    temsilcilerini ayıkla"). Tek hücrede virgülle birleştirilseydi süzme
+    yapılamazdı.
+
+    HÜCRE "Evet" DEĞİL, GÖREVİN YERİNİ YAZIYOR (ekrandaki `gorevRolAdi` ile
+    aynı kaynak): "Manisa" bilgisi öğrencinin güncel ilinden değil GÖREV
+    KAYDININ kapsamından geliyor — öğrenci dönem içinde taşınsa da görev
+    verildiği yerde kalır.
+  */
+  { baslik: "İl temsilcisi", genislik: 20 },
+  { baslik: "İlçe temsilcisi", genislik: 20 },
+  { baslik: "Okul temsilcisi", genislik: 28 },
   { baslik: "Çalışma grupları", genislik: 34 },
   { baslik: "Deneyimler", genislik: 50 },
 ];
@@ -104,6 +123,23 @@ export async function GET(istek: Request) {
         select: { calismaGrubu: { select: { ad: true } } },
       },
       /*
+        GÖREV KAYITLARI: ekrandaki temsilcilik sütunlarıyla AYNI kaynak ve aynı
+        dönem kıyası (öğrencinin kendi `egitimOgretimYili` alanıyla, bakan
+        kişinin yılıyla değil — bkz. ogrenciler/page.tsx). Kapsam adları da
+        seçiliyor çünkü hücre "Evet" değil yerin adını yazıyor.
+      */
+      gorevRolleri: {
+        select: {
+          rolKodu: true,
+          egitimOgretimYili: true,
+          il: { select: { ad: true } },
+          ilce: { select: { ad: true } },
+          kurum: { select: { ad: true } },
+          calismaGrubuId: true,
+          calismaGrubu: { select: { ad: true } },
+        },
+      },
+      /*
        * DENEYİMLER (Aşama 8): GençTek DIŞINDA kazanılanlar. GençTek etkinlik
        * katılımı buraya girmiyor — o zaten sistemin kendi kaydından geliyor ve
        * dosyada tekrar edilmesi "aynı veriyi iki kez saklama" olurdu.
@@ -140,6 +176,15 @@ export async function GET(istek: Request) {
 
   const satirlar = ogrenciler.map((ogrenci) => {
     const danisman = ogrenci.ogrenciAtamalari[0]?.danisman;
+    /* Yalnızca öğrencinin İÇİNDE BULUNDUĞU dönemin görevleri; geçmiş dönem
+       görevleri dosyada "bu yıl temsilci" gibi okunurdu. */
+    const gorevler = ogrenci.gorevRolleri.filter(
+      (gorev) => gorev.egitimOgretimYili === ogrenci.egitimOgretimYili,
+    );
+    const temsilcilik = (rolKodu: string) => {
+      const gorev = gorevler.find((kayit) => kayit.rolKodu === rolKodu);
+      return gorev ? gorevRolAdi(gorev) : "";
+    };
     return [
       ogrenci.ad,
       ogrenci.soyad,
@@ -153,6 +198,9 @@ export async function GET(istek: Request) {
       ogrenci.il?.ad ?? "",
       ogrenci.ilce?.ad ?? "",
       danisman ? `${danisman.ad} ${danisman.soyad}` : "Atanmadı",
+      temsilcilik("IL_TEMSILCISI"),
+      temsilcilik("ILCE_TEMSILCISI"),
+      temsilcilik("OKUL_TEMSILCISI"),
       ogrenci.calismaGruplari
         .map((secim) => secim.calismaGrubu.ad)
         .join(", "),

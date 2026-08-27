@@ -163,7 +163,7 @@ export async function urunMarketKarariEylemi(veri: FormData): Promise<void> {
     gerekce: String(veri.get("gerekce") ?? ""),
   });
   if (!karar.olurMu) {
-    redirect(`/panel/talepler/onaylar?hata=${encodeURIComponent(karar.neden)}`);
+    redirect(`${KOK}?hata=${encodeURIComponent(karar.neden)}`);
   }
 
   await prisma.kullaniciKazanim.update({
@@ -198,6 +198,10 @@ export async function urunMarketKarariEylemi(veri: FormData): Promise<void> {
 
   revalidatePath(KOK);
   revalidatePath(`${KOK}/${urun.id}`);
-  revalidatePath("/panel/talepler/onaylar");
-  redirect("/panel/talepler/onaylar?durum=urun-karari");
+  /*
+   * DÖNÜŞ VİTRİNE (27 Ağustos 2026): kuyruk oraya taşındı. Kararı verdikten
+   * sonra genel onay ekranına düşmek, kişiyi kuyruğun artık olmadığı bir
+   * sayfaya göndermek olurdu.
+   */
+  redirect(`${KOK}?durum=urun-karari`);
 }

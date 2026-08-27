@@ -22,6 +22,7 @@ import {
   ilKoordinatorAtayabilirMi,
   ilTemsilcisiAtayabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
+  ogrenciMentorluguneKararVerebilirMi,
   ilKoordinatoruOnaylayabilirMi,
   ogrenciTemsilciligiAtayabilirMi,
   okulTemsilcisiAtayabilirMi,
@@ -30,6 +31,10 @@ import {
   yorumSilebilirMi,
   yorumYazabilirMi,
 } from "@/lib/yetki/izinler";
+import {
+  ogrenciGorevSuzgeciGecerliMi,
+  ogrenciListeFiltresi,
+} from "@/lib/yetki/kapsam";
 import {
   danismanYap,
   faaliyetYap,
@@ -835,6 +840,86 @@ describe("öğrenci görev rolleri ek yetki vermez", () => {
  * varsayılan dalı tutuyordu; test o dalın tek savunma hattı olmadığını
  * doğruluyor.
  */
+describe("öğrenci mentörlüğüne karar verme", () => {
+  const ogrenci = { id: 100, ilKodu: "34" };
+
+  it("danışman kendi öğrencisine karar verir", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(danismanYap(), ogrenci, true),
+    ).toBe(true);
+  });
+
+  it("danışman, danışmanlığında olmayan öğrenciye karar veremez", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(danismanYap(), ogrenci, false),
+    ).toBe(false);
+  });
+
+  /*
+   * 27 Ağustos 2026 · istek: "il koordinatörü de öğrencinin mentörlük
+   * başvurusunu onaylayabilsin". Danışmanı olmayan öğrencinin başvurusu bu
+   * ekranda kimseye düğme basmıyordu.
+   */
+  it("il koordinatörü kendi ilindeki öğrenciye karar verir", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(
+        koordinatorYap({ ilKodu: "34" }),
+        ogrenci,
+        false,
+      ),
+    ).toBe(true);
+  });
+
+  it("il koordinatörü başka ilin öğrencisine karar veremez", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(
+        koordinatorYap({ ilKodu: "06" }),
+        ogrenci,
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("ili olmayan öğrenci koordinatörün kapsamına girmez", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(
+        koordinatorYap({ ilKodu: "34" }),
+        { id: 100, ilKodu: null },
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  /*
+   * 27 Ağustos 2026 · istek: "proje yöneticisine mentörlük ata kaldır da
+   * olsun". Bir tur önce merkez dışarıdaydı; kuyruğun kopyası olduğu
+   * düşünülmüştü, oysa kuyruk yalnızca BEKLEYEN başvuruyu karara bağlıyor.
+   */
+  it("proje yöneticisi de karar verir", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(projeYoneticisiYap(), ogrenci, false),
+    ).toBe(true);
+  });
+
+  /* Kimse kendi işini onaylamaz — mentorlukOnaylayabilirMi ile aynı ilke. */
+  it("kişi kendi kaydına karar veremez", () => {
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(
+        koordinator,
+        { id: koordinator.id, ilKodu: "34" },
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("öğrencinin kendisi başkasına karar veremez", () => {
+    expect(
+      ogrenciMentorluguneKararVerebilirMi(ogrenciYap({ id: 101 }), ogrenci, false),
+    ).toBe(false);
+  });
+});
+
 describe("öğrenci envanteri", () => {
   it("öğrenci, dış kullanıcılar ve görev almamış öğretmen envanteri göremez", () => {
     expect(ogrenciEnvanteriGorebilirMi(ogrenciYap())).toBe(false);
@@ -1043,5 +1128,54 @@ describe("faaliyet raporu yazma yetkisi", () => {
     const koordinator = koordinatorYap({ ilKodu: "34" });
     expect(faaliyetRaporuYazabilirMi(koordinator, ilFaaliyeti())).toBe(true);
     expect(ekYukleyebilirMi(koordinator, ilFaaliyeti())).toBe(false);
+  });
+});
+
+/**
+ * ÖĞRENCİ LİSTESİNİN GÖREV/ROL SÜZGECİ (27 Ağustos 2026 · istek: "üstteki
+ * filtrelere yeni bir rol alanı ilçe temsilcisi il temsilcisi okul temsilcisi
+ * mentör şeklinde açılan liste filtresi olsun").
+ *
+ * Süzgeç YALNIZCA DARALTIR: kapsam filtresinin üstüne biniyor, onun yerine
+ * geçmiyor. Testler koşulun `AND` zincirine eklendiğini ve "mentör"ün bir görev
+ * kaydı değil onaylı mentörlük olarak sorulduğunu sınıyor.
+ */
+describe("öğrenci listesi · görev/rol süzgeci", () => {
+  it("geçerli değerleri tanır, uydurmayı reddeder", () => {
+    for (const deger of [
+      "IL_TEMSILCISI",
+      "ILCE_TEMSILCISI",
+      "OKUL_TEMSILCISI",
+      "MENTOR",
+    ]) {
+      expect(ogrenciGorevSuzgeciGecerliMi(deger)).toBe(true);
+    }
+    expect(ogrenciGorevSuzgeciGecerliMi("CALISMA_GRUBU_YONETICISI")).toBe(false);
+    expect(ogrenciGorevSuzgeciGecerliMi("")).toBe(false);
+  });
+
+  it("temsilcilikte açık görev kaydı arar", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
+      gorevRolu: "IL_TEMSILCISI",
+    });
+    expect(kosul.AND).toContainEqual({
+      gorevRolleri: { some: { rolKodu: "IL_TEMSILCISI" } },
+    });
+  });
+
+  /* "Mentör" bir görev değil, ONAYLANMIŞ bir mentörlük kaydıdır. */
+  it("mentörde onaylı mentörlük kaydı arar", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {
+      gorevRolu: "MENTOR",
+    });
+    expect(kosul.AND).toContainEqual({ mentorluk: { durum: "ONAYLANDI" } });
+  });
+
+  it("süzgeç yokken listeyi daraltmaz", () => {
+    const kosul = ogrenciListeFiltresi(projeYoneticisiYap(), {});
+    const koşullar = Array.isArray(kosul.AND) ? kosul.AND : [];
+    expect(
+      koşullar.some((parca) => parca !== null && "mentorluk" in parca),
+    ).toBe(false);
   });
 });

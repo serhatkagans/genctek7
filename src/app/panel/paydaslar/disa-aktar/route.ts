@@ -33,7 +33,10 @@ const SUTUNLAR: readonly XlsxSutun[] = [
   { baslik: "Kurum", genislik: 34 },
   { baslik: "Tür", genislik: 22 },
   { baslik: "İl", genislik: 14 },
-  { baslik: "Yetkili kişi", genislik: 22 },
+  /* Etiket 27 Ağustos 2026'da "İrtibat kişisi" oldu; sütun zaten vardı
+     (istek: "listeye paydaştaki yetkili kişisi eklensin, excele de ekle"
+     — dosyada eksik olan sütun değil, LİSTEDEKİ sütundu). */
+  { baslik: "İrtibat kişisi", genislik: 22 },
   { baslik: "Telefon", genislik: 16 },
   { baslik: "E-posta", genislik: 28 },
   { baslik: "Adres", genislik: 40 },

@@ -69,11 +69,44 @@ export async function kullaniciSagla(
           data: { kullaniciId: kullanici.id },
         });
       } else if (kimlik.tip === "OGRETMEN") {
-        // Rol verilmez. Öğretmen "danışman olarak görev almak istiyorum"
-        // kutusunu işaretlemeden danışman listesinde görünmez.
+        /*
+         * ÖĞRETMEN İLK GİRİŞTE DOĞRUDAN DANIŞMAN OLUR (27 Ağustos 2026 · istek:
+         * "bu onay var buna gerek yok, sisteme giriş yapınca direk danışman
+         * olsun").
+         *
+         * Önce rol VERİLMİYORDU: öğretmen Panelim'deki "Görevi işaretle"
+         * düğmesine basana kadar rolsüz kalıyor, öğrencilerin danışman seçim
+         * listesinde görünmüyor ve Öğrencilerim ekranını açamıyordu. O adım bir
+         * onay değil, yalnızca bir kutuydu — kimse reddetmiyordu, dolayısıyla
+         * herkesin tek tek geçtiği boş bir kapıydı.
+         *
+         * OKULU OLMAYANA ROL VERİLMEZ: danışmanlık bir OKULA bağlanır
+         * (`kurumKodu` rol kaydında) ve kural katmanı da kurumsuz kişiyi
+         * reddediyor (bkz. ogretmen/danismanlik.ts). Bu kişinin işi kayıt
+         * düzeltmesidir; Panelim ona bunu yazıyor.
+         *
+         * BIRAKMA AKIŞI DEĞİŞMEDİ ve bu yüzden rol YALNIZCA OLUŞTURMADA
+         * veriliyor, her girişte değil: görevi bırakan öğretmen bir sonraki
+         * girişinde yeniden danışman yapılsaydı, kendi kararı sessizce geri
+         * alınırdı (bkz. danismanlikDurumunuDegistir).
+         */
+        const danismanOlabilir = kimlik.kurumKodu !== null;
         await islem.ogretmenProfil.create({
-          data: { kullaniciId: kullanici.id },
+          data: {
+            kullaniciId: kullanici.id,
+            danismanOlmakIstiyor: danismanOlabilir,
+            isaretlemeTarihi: danismanOlabilir ? new Date() : null,
+          },
         });
+        if (danismanOlabilir) {
+          await islem.kullaniciRol.create({
+            data: {
+              kullaniciId: kullanici.id,
+              rolKodu: "DANISMAN",
+              kurumKodu: kimlik.kurumKodu,
+            },
+          });
+        }
       }
 
       return kullanici;

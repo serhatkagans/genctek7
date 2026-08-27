@@ -122,6 +122,23 @@ function iptalEdildiMi(faaliyetDurumu: FaaliyetDurumu): boolean {
   return faaliyetDurumu !== "AKTIF";
 }
 
+/**
+ * Kararın kendisini yazan SADE rozet (27 Ağustos 2026).
+ *
+ * `OnayRozeti` faaliyete özgü iki elemeyi de yapıyor (iptal edilmiş faaliyette
+ * ve "onay gerekmez"de hiç basmıyor); paydaş kuyruğunda o elemelerin karşılığı
+ * yok — her kayıt karara tabi ve durum her zaman yazılmalı. Renk ve etiket
+ * sözlüğü ORTAK kalıyor ki "onay bekliyor" iki ekranda iki farklı şey gibi
+ * okunmasın.
+ */
+export function OnayDurumuRozeti({ durum }: { durum: OnayDurumu }) {
+  return (
+    <span className={`${SINIF_ROZET} ${ONAY_SINIFLARI[durum]}`}>
+      {ONAY_DURUMU_ETIKETLERI[durum]}
+    </span>
+  );
+}
+
 /** Yayındaki faaliyette onay rozeti gürültüdür; yalnızca istisnalar gösterilir. */
 export function OnayRozeti({
   onayDurumu,
@@ -132,11 +149,7 @@ export function OnayRozeti({
 }) {
   if (iptalEdildiMi(faaliyetDurumu)) return null;
   if (onayDurumu === "ONAY_GEREKMEZ") return null;
-  return (
-    <span className={`${SINIF_ROZET} ${ONAY_SINIFLARI[onayDurumu]}`}>
-      {ONAY_DURUMU_ETIKETLERI[onayDurumu]}
-    </span>
-  );
+  return <OnayDurumuRozeti durum={onayDurumu} />;
 }
 
 export function BasvuruRozeti({ durum }: { durum: BasvuruDurumu }) {

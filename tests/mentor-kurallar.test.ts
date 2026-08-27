@@ -1,6 +1,6 @@
 import {
   basHarfler,
-  danismanMentorlukKarariGecerliMi,
+  ogrenciMentorlukKarariGecerliMi,
   MENTOR_KONULARI_AZAMI,
   mentorKapsamiYaz,
   mentorlukKabulEdilirMi,
@@ -293,10 +293,10 @@ describe("havuz kartındaki mentör sıfatı", () => {
  * denenirse "onaylanmış kayıt ikinci kez onaylanamaz" kısıtının hangisine ait
  * olduğu kaybolur.
  */
-describe("danismanMentorlukKarariGecerliMi", () => {
+describe("ogrenciMentorlukKarariGecerliMi", () => {
   it("bekleyen başvuruyu onaylar", () => {
     expect(
-      danismanMentorlukKarariGecerliMi({
+      ogrenciMentorlukKarariGecerliMi({
         mevcutDurum: "BEKLIYOR",
         yeniDurum: "ONAYLANDI",
         gerekce: "",
@@ -309,7 +309,7 @@ describe("danismanMentorlukKarariGecerliMi", () => {
     // ekran kalıcı bir çıkmaz olmamalı.
     for (const mevcutDurum of ["REDDEDILDI", "BIRAKILDI"] as const) {
       expect(
-        danismanMentorlukKarariGecerliMi({
+        ogrenciMentorlukKarariGecerliMi({
           mevcutDurum,
           yeniDurum: "ONAYLANDI",
           gerekce: "",
@@ -321,7 +321,7 @@ describe("danismanMentorlukKarariGecerliMi", () => {
   it("başvurusu olmayan öğrenciyi mentör yapmaz", () => {
     // Boş kayıt, havuzda uzmanlık satırı boş bir kart ve hiçbir ilana
     // düşmeyen bir mentör demek olurdu.
-    const sonuc = danismanMentorlukKarariGecerliMi({
+    const sonuc = ogrenciMentorlukKarariGecerliMi({
       mevcutDurum: null,
       yeniDurum: "ONAYLANDI",
       gerekce: "",
@@ -331,7 +331,7 @@ describe("danismanMentorlukKarariGecerliMi", () => {
 
   it("zaten onaylı mentörü ikinci kez onaylamaz", () => {
     expect(
-      danismanMentorlukKarariGecerliMi({
+      ogrenciMentorlukKarariGecerliMi({
         mevcutDurum: "ONAYLANDI",
         yeniDurum: "ONAYLANDI",
         gerekce: "",
@@ -341,7 +341,7 @@ describe("danismanMentorlukKarariGecerliMi", () => {
 
   it("onaylı mentörlüğü gerekçeyle kaldırır", () => {
     expect(
-      danismanMentorlukKarariGecerliMi({
+      ogrenciMentorlukKarariGecerliMi({
         mevcutDurum: "ONAYLANDI",
         yeniDurum: "REDDEDILDI",
         gerekce: "  Sınav dönemine giriyor, ara veriyoruz.  ",
@@ -356,7 +356,7 @@ describe("danismanMentorlukKarariGecerliMi", () => {
     // Gerekçe öğrenciye bildirim metninde gidiyor; boşluk doldurmak da sayılmaz.
     for (const gerekce of ["", "   ", "kısa"]) {
       expect(
-        danismanMentorlukKarariGecerliMi({
+        ogrenciMentorlukKarariGecerliMi({
           mevcutDurum: "ONAYLANDI",
           yeniDurum: "REDDEDILDI",
           gerekce,
@@ -367,7 +367,7 @@ describe("danismanMentorlukKarariGecerliMi", () => {
 
   it("onaylı olmayan bir kaydı kaldırmaya kalkışmaz", () => {
     expect(
-      danismanMentorlukKarariGecerliMi({
+      ogrenciMentorlukKarariGecerliMi({
         mevcutDurum: "BEKLIYOR",
         yeniDurum: "REDDEDILDI",
         gerekce: "Yeterince uzun bir gerekçe metni.",

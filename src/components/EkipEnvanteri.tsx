@@ -88,6 +88,10 @@ export async function EkipEnvanteri({
         il: { select: { ad: true } },
         kurum: { select: { ad: true } },
         danisman: { select: { ad: true, soyad: true, aktif: true } },
+        /* Ekibi kuran kişi (27 Ağustos 2026 · istek: "bir de ekibi kim kurmuş
+           ona ait bir sütun"). Alan zaten vardı (`kuranKullaniciId`, şemada
+           ZORUNLU) ve yalnızca ekranda görünmüyordu. */
+        kuran: { select: { ad: true, soyad: true } },
         _count: { select: { uyeler: true, mesajlar: true } },
       },
     }),
@@ -256,6 +260,7 @@ export async function EkipEnvanteri({
                   <th className="py-2 pr-4 font-medium">Tür</th>
                   <th className="py-2 pr-4 font-medium">İl / Okul</th>
                   <th className="py-2 pr-4 font-medium">Danışman</th>
+                  <th className="py-2 pr-4 font-medium">Kuran</th>
                   <th className="py-2 pr-4 font-medium">Üye</th>
                   <th className="py-2 font-medium">Mesaj</th>
                 </tr>
@@ -297,8 +302,23 @@ export async function EkipEnvanteri({
                           {EKIP_TURU_ETIKETLERI[ekip.tur]}
                         </span>
                       </td>
+                      {/*
+                        SÜTUN BAŞLIĞI NE VAAT EDİYORSA ONU YAZIYOR (27 Ağustos
+                        2026 · istek: "listede il / okul sütunu var ama sadece
+                        il ismi var, okul ismi yazmıyor").
+
+                        Önce okul varsa YALNIZCA okulu, yoksa yalnızca ili
+                        basıyordu; yani "İl / Okul" başlığı hiçbir satırda
+                        ikisini birden göstermiyordu. Okulu olmayan ekiplerde
+                        (çalışma grubu, il GençTek ekibi) kurum kaydı NULL'dur
+                        ve bu bir eksiklik değil — o ekipler bir okula bağlı
+                        değil (şemadaki ck_ekip_okul_takimi_kurum). Artık il
+                        her zaman yazılıyor, okul varsa yanına ekleniyor.
+                      */}
                       <td className="py-2 pr-4 text-metin-yumusak">
-                        {ekip.kurum?.ad ?? ekip.il?.ad ?? ""}
+                        {[ekip.il?.ad, ekip.kurum?.ad]
+                          .filter(Boolean)
+                          .join(" / ") || "—"}
                       </td>
                       <td className="py-2 pr-4">
                         {ekip.danisman ? (
@@ -311,6 +331,9 @@ export async function EkipEnvanteri({
                         ) : (
                           <span className="text-metin-yumusak">Atanmadı</span>
                         )}
+                      </td>
+                      <td className="py-2 pr-4 text-metin-yumusak">
+                        {ekip.kuran.ad} {ekip.kuran.soyad}
                       </td>
                       {/*
                         ÜYESİ 0 OLAN EKİP GİZLENMİYOR: kurulmuş ama

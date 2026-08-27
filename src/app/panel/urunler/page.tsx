@@ -1,9 +1,19 @@
 import type { OnayDurumu } from "@/generated/prisma/enums";
 import { Eye, ExternalLink, Plus, ScrollText, Users } from "lucide-react";
-import { projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { UrunOnayKuyrugu } from "@/components/UrunOnayKuyrugu";
+import {
+  projeYoneticisiMi,
+  urunMarketOnayiVerebilirMi,
+} from "@/lib/yetki/izinler";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import Link from "next/link";
-import { Kart, Rozet, RozetSeridi, SayfaBasligi } from "@/components/ui";
+import {
+  BilgiKutusu,
+  Kart,
+  Rozet,
+  RozetSeridi,
+  SayfaBasligi,
+} from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
@@ -48,9 +58,9 @@ function vitrinEtiketi(urun: {
 export default async function MarketSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ suzgec?: string }>;
+  searchParams: Promise<{ suzgec?: string; durum?: string; hata?: string }>;
 }) {
-  const { suzgec: hamSuzgec } = await searchParams;
+  const { suzgec: hamSuzgec, durum, hata } = await searchParams;
   const kullanici = await oturumKullanicisiZorunlu();
   const suzgec = suzgeciCoz(hamSuzgec);
 
@@ -100,6 +110,42 @@ export default async function MarketSayfasi({
     sahipKumesi: sahipKumesi(kayit.kullanici.roller.map((r) => r.rolKodu)),
   }));
 
+  /*
+   * ONAY KUYRUĞU VİTRİNİN BAŞINDA (27 Ağustos 2026 · istek: "öğrenci market
+   * bölümünden bir ürün girdiğinde onun onayı proje yöneticisinin market
+   * sayfasına gitsin").
+   *
+   * Kuyruk 26 Ağustos'ta merkezin genel onay ekranındaydı (talepler/onaylar);
+   * karar ise VİTRİNE bakılarak veriliyor — "bu ürün ülke geneline açık bir
+   * vitrinde durmalı mı" sorusunun cevabı, vitrinin nasıl göründüğünü gören
+   * kişide. Aynı ekranda hem bekleyeni hem yayımdakini görmek, kararın ölçüsünü
+   * de veriyor.
+   *
+   * SORGU YALNIZCA KARAR VERENE: başka rolde hiç çalışmıyor ve liste boş
+   * kalıyor (bileşen de sıfırda hiçbir şey basmıyor).
+   */
+  const bekleyenUrunler = urunMarketOnayiVerebilirMi(kullanici)
+    ? await prisma.kullaniciKazanim.findMany({
+        where: { tip: "URUN", marketOnayDurumu: "BEKLIYOR" },
+        orderBy: { olusturmaTarihi: "asc" },
+        select: {
+          id: true,
+          baslik: true,
+          aciklama: true,
+          gelistirenEkip: true,
+          olusturmaTarihi: true,
+          kullanici: {
+            select: {
+              ad: true,
+              soyad: true,
+              kurum: { select: { ad: true } },
+              il: { select: { ad: true } },
+            },
+          },
+        },
+      })
+    : [];
+
   const gosterilecek = urunleriSuz(urunler, suzgec, kullanici.id);
   const aktifTanim = suzgecTanimi(suzgec);
 
@@ -112,9 +158,27 @@ export default async function MarketSayfasi({
         olduğunu söylüyor.
       */}
       <SayfaBasligi
-        baslik="Ürünlerim · GençTek Market"
+        baslik="Ürünlerim · GençTek Vitrin"
         rozet={<Rozet cesit="vurgu">{gosterilecek.length} ürün</Rozet>}
       />
+
+      {/* Ürün kararının sonucu artık burada okunuyor (27 Ağustos 2026): karar
+          bu ekrandan veriliyor, mesajı da burada. */}
+      {durum === "urun-karari" && (
+        <BilgiKutusu cesit="olumlu">
+          Ürün karara bağlandı; sahibine bildirim gönderildi.
+        </BilgiKutusu>
+      )}
+      {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      {/*
+        BEKLEYEN ÜRÜNLER LİSTENİN ÜSTÜNDE: karar verilecek iş, okunacak
+        vitrinden önce gelir. Sıfırken bileşen hiçbir şey basmıyor, yani
+        kuyruğu olmayan gün ekran eskisi gibi açılıyor.
+      */}
+      {urunMarketOnayiVerebilirMi(kullanici) && (
+        <UrunOnayKuyrugu urunler={bekleyenUrunler} />
+      )}
 
       {/*
         Dosya YALNIZCA MERKEZE ve yalnızca markette PAYLAŞILAN ürünleri taşıyor

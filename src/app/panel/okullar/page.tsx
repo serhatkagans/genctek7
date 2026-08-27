@@ -19,7 +19,7 @@ import {
 } from "@/lib/yetki/izinler";
 import type { SorguParametreleri } from "../ogrenciler/filtreler";
 import { okulTuruSecenekleri } from "@/lib/okul/turler";
-import { listeBasilsinMi, okulSorgusu, okulSuzgeciniCoz } from "./filtreler";
+import { okulSorgusu, okulSuzgeciniCoz } from "./filtreler";
 
 export const dynamic = "force-dynamic";
 
@@ -69,21 +69,20 @@ export default async function OkullarSayfasi({
 
   const merkezMi = projeYoneticisiMi(kullanici);
   const suzgec = okulSuzgeciniCoz(kullanici, parametreler);
-  const listeVar = listeBasilsinMi(suzgec);
   const sayfaNo = Math.max(
     1,
     Number.parseInt((parametreler.sayfa as string) ?? "1", 10) || 1,
   );
 
   const [toplam, okullar, iller, ilceler, turler] = await Promise.all([
-    listeVar ? prisma.kurum.count({ where: okulKosulu(suzgec) }) : 0,
-    listeVar
-      ? okulOzetleriniGetir({
-          ...suzgec,
-          atla: (sayfaNo - 1) * SAYFA_BOYUTU,
-          al: SAYFA_BOYUTU,
-        })
-      : [],
+    /* Liste her zaman basılıyor (bkz. filtreler.ts · kalkan "Aramaya başlayın"
+       kapısı); süzgeçsiz açılışın maliyeti bir sayım ile 50 satır. */
+    prisma.kurum.count({ where: okulKosulu(suzgec) }),
+    okulOzetleriniGetir({
+      ...suzgec,
+      atla: (sayfaNo - 1) * SAYFA_BOYUTU,
+      al: SAYFA_BOYUTU,
+    }),
     merkezMi
       ? prisma.il.findMany({
           orderBy: { ad: "asc" },
@@ -124,30 +123,24 @@ export default async function OkullarSayfasi({
            zaten sol menüde duruyor. */
         geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
         baslik="Okullar"
-        aciklama={
-          merkezMi
-            ? "Ülke genelindeki okullar — arayarak ya da il seçerek listeleyin"
-            : "İlinizdeki okullar"
-        }
+        /*
+          MERKEZİN AÇIKLAMA CÜMLESİ KALKTI (27 Ağustos 2026 · istek: "bunları
+          sil"). Cümle zaten kalkan kapıyı tarif ediyordu ("arayarak ya da il
+          seçerek listeleyin"); liste artık süzgeçsiz de basılıyor, yani
+          yönergenin kendisi yanlış hâle gelmişti.
+        */
+        aciklama={merkezMi ? undefined : "İlinizdeki okullar"}
       />
 
       {/*
-        OKUL EKLEME YOK VE BU EKRANDA SÖYLENİYOR (Aşama 4d).
+        "OKUL EKLENMEZ" BİLGİ KUTUSU KALKTI (27 Ağustos 2026 · istek: "bunları
+        sil").
 
-        Manisa panelinde "Yeni Okul Ekle" sekmesi var; bizde açılmayacak.
-        `Kurum` kayıtları MEB kurum kodundan geliyor — elle açılan bir okul,
-        gecelik senkron çalıştığında ya yinelenir ya da eşleşmeyen bir kayıt
-        olarak kalır; şemadaki "salt okunur" ilkesiyle de çelişir.
-
-        Kararın ekranda YAZILI olması, eksik bir okul gören kişinin "ekleme
-        düğmesi nerede" diye aramasını engelliyor: cevap "yok" değil, "başka
-        yerden düzeltilir".
+        KARARIN KENDİSİ DEĞİŞMEDİ: `Kurum` kayıtları MEB kurum kodundan gelir,
+        elle açılan bir okul gecelik senkronda ya yinelenir ya eşleşmeyen bir
+        kayıt olarak kalır — bu ekranda hâlâ ekleme/düzenleme düğmesi yok.
+        Kalkan yalnızca her açılışta okunan uyarı metni.
       */}
-      <BilgiKutusu cesit="bilgi">
-        Okul kayıtları MEB kurum kodundan gelir ve buradan eklenip düzenlenmez.
-        Eksik ya da hatalı bir okul, kaynak sistemden düzeltilir.
-      </BilgiKutusu>
-
       <Kart>
         {/* "Süzgeçler" → "Filtreler" (26 Ağustos 2026 · istek). */}
         <KartBasligi baslik="Filtreler" Ikon={Search} />
@@ -228,6 +221,34 @@ export default async function OkullarSayfasi({
             </select>
           </label>
 
+          {/*
+            DANIŞMAN SÜZGECİ (27 Ağustos 2026 · istek: "filtreye danışmanlı
+            okullar danışmansız okullar sütunu ekle").
+
+            "Danışman" tanımı tablodaki Danışman sütununun saydığı kümenin
+            aynısı (bkz. yonetim-kurallari.ts · okulKosulu); süzgeç ile sütun
+            ayrı yazılsaydı "danışmansız" listesinde sayısı 1 olan bir satır
+            çıkabilirdi.
+
+            Sekme değil AÇILIR LİSTE: aynı ekranda iki farklı süzgeç yüzeyi
+            (üstte form, altta sekme şeridi) taşımaktansa hepsi tek formda —
+            kalkan ekip sekmelerinin yerine de bu geldi.
+          */}
+          <label className="block">
+            <span className="text-sm font-medium text-metin">
+              Danışman öğretmen
+            </span>
+            <select
+              name="danisman"
+              defaultValue={suzgec.danismanDurumu ?? "hepsi"}
+              className={SINIF_GIRDI}
+            >
+              <option value="hepsi">Tüm okullar</option>
+              <option value="danismanli">Danışmanlı okullar</option>
+              <option value="danismansiz">Danışmansız okullar</option>
+            </select>
+          </label>
+
           <div className="sm:col-span-2 lg:col-span-4">
             <button type="submit" className={SINIF_BIRINCIL_BUTON}>
               Ara
@@ -236,50 +257,16 @@ export default async function OkullarSayfasi({
         </form>
       </Kart>
 
-      {!listeVar ? (
-        <Kart className="text-metin-yumusak">
-          <KartBasligi baslik="Aramaya başlayın" Ikon={School} />
-          <p>
-            Ülke genelinde on binlerce okul kayıtlı; listenin tamamı tek sayfada
-            gösterilmiyor. Bir il seçin ya da okul adı, ilçe adı veya kurum kodu
-            yazarak arayın.
-          </p>
-        </Kart>
-      ) : (
-        <Kart>
-          {/*
-            EKİP SEKMELERİ (Aşama 5 ile açıldı). Manisa'daki "Ekip Tanımlanan /
-            Tanımlanmayan" sekmelerinin karşılığı. Yalnızca AÇIK OKUL TAKIMLARI
-            sayılıyor; çalışma grubu ve il ekibi bir okula bağlı değil.
+      <Kart>
+        {/*
+          EKİP SEKMELERİ KALKTI (27 Ağustos 2026 · istek: "bunları sil · Ekip
+          tanımlanan / Ekip tanımlanmayan"). Yerine gelen danışman süzgeci
+          yukarıdaki Filtreler formunun içinde — ekranın tek bir süzgeç yüzeyi
+          olması, aynı soruyu iki farklı denetimle sormaktan iyi.
 
-            Sekmeler mevcut süzgeçleri koruyor: il seçip "ekip tanımlanmayan"a
-            geçen kişi, o ilin listesinde kalmalı.
-          */}
-          <nav className="mb-5 flex flex-wrap gap-2" aria-label="Ekip durumu">
-            {(
-              [
-                ["hepsi", "Tüm okullar"],
-                ["ekipli", "Ekip tanımlanan"],
-                ["ekipsiz", "Ekip tanımlanmayan"],
-              ] as const
-            ).map(([deger, etiket]) => (
-              <Link
-                key={deger}
-                href={`${YOL}?${okulSorgusu({ ...suzgec, ekipDurumu: deger })}`}
-                aria-current={
-                  (suzgec.ekipDurumu ?? "hepsi") === deger ? "page" : undefined
-                }
-                className={
-                  (suzgec.ekipDurumu ?? "hepsi") === deger
-                    ? "rounded-kart bg-vurgu-zemin px-3 py-2 text-sm font-medium text-vurgu-metin"
-                    : "rounded-kart border border-cizgi px-3 py-2 text-sm text-metin-yumusak"
-                }
-              >
-                {etiket}
-              </Link>
-            ))}
-          </nav>
-
+          "ARAMAYA BAŞLAYIN" BOŞ DURUM KARTI DA KALKTI: liste artık süzgeçsiz
+          de basılıyor (bkz. filtreler.ts).
+        */}
           <KartBasligi
             baslik="Okullar"
             aciklama={`${toplam} okul${toplam > SAYFA_BOYUTU ? ` · ${sayfaNo}. sayfa` : ""}`}
@@ -309,8 +296,7 @@ export default async function OkullarSayfasi({
                     <th className="py-2 pr-4 font-medium">Kurum kodu</th>
                     <th className="py-2 pr-4 font-medium">Öğretmen</th>
                     <th className="py-2 pr-4 font-medium">Danışman</th>
-                    <th className="py-2 pr-4 font-medium">Öğrenci</th>
-                    <th className="py-2 font-medium">Ekip</th>
+                    <th className="py-2 font-medium">Öğrenci</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -351,13 +337,6 @@ export default async function OkullarSayfasi({
                           </span>
                         )}
                       </td>
-                      <td className="py-2">
-                        {okul.ekipSayisi > 0 ? (
-                          `${okul.ekipSayisi} ekip`
-                        ) : (
-                          <span className="text-metin-yumusak">—</span>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -391,8 +370,7 @@ export default async function OkullarSayfasi({
               </span>
             </div>
           )}
-        </Kart>
-      )}
+      </Kart>
     </div>
   );
 }

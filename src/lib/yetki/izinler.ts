@@ -149,6 +149,54 @@ export function mentorlukOnaylayabilirMi(
 }
 
 /**
+ * BİR ÖĞRENCİNİN mentörlüğüne karar verebilir mi? (26 Ağustos 2026 · danışman;
+ * 27 Ağustos 2026 · istek: "il koordinatörü de öğrencinin mentörlük
+ * başvurusunu onaylayabilsin")
+ *
+ * BU KAPI `mentorlukOnaylayabilirMi` DEĞİLDİR ve onun gerekçesini de
+ * çürütmüyor. Yukarıdaki kural merkezin KUYRUĞUNUN kapısı ve koordinatörü
+ * oradan çıkaran sebep "kimse kendi işini onaylamaz" idi: koordinatör kendi
+ * mentörlük başvurusunu kendi ekranında görüyordu. Burada karar verilen kayıt
+ * BAŞKASININ — kendi ilindeki bir öğrencinin — mentörlüğü; o sakınca doğmuyor.
+ * Yine de kendi kaydına düşmesin diye açıkça eleniyor (aşağıda), çünkü bu
+ * fonksiyon ileride öğrenci olmayan listelerde de çağrılabilir.
+ *
+ * KOORDİNATÖR NİYE EKLENDİ: danışmanı olmayan öğrencinin başvurusu bu ekranda
+ * kimseye düğme basmıyordu ve merkezin ülke genelindeki kuyruğunda bir ada
+ * dönüşüyordu — orada "bu öğrenci akranlarına yol gösterebilir mi" sorusunun
+ * cevabı yok. İl koordinatörü öğrenciye danışmandan uzak ama merkezden çok
+ * daha yakın duruyor; ilindeki öğrenciyi zaten temsilciliğe de o atıyor
+ * (bkz. ilTemsilcisiAtayabilirMi).
+ *
+ * MERKEZ DE İÇERİDE (27 Ağustos 2026 · istek: "proje yöneticisine mentörlük
+ * ata kaldır da olsun"). Bir tur önce dışarıda bırakılmıştı; gerekçe "merkezin
+ * kendi kuyruğu var, buradaki düğme onun kopyası olur" idi. Kopya değil:
+ * kuyruk yalnızca BEKLEYEN başvuruyu karara bağlıyor, buradaki düğme ise daha
+ * önce reddedilmiş bir öğrenciyi yeniden mentör yapabiliyor ve onaylı bir
+ * mentörlüğü gerekçesiyle kaldırabiliyor (bkz. mentor/kurallar.ts ·
+ * ogrenciMentorlukKarariGecerliMi). Merkezin kapsamı da zaten ülke geneli —
+ * il koordinatörüne açılan kapının kapalı kalması için bir sebep yok.
+ *
+ * KAPSAM ÖĞRENCİNİN İLİ: koordinatörün listesi zaten iliyle sınırlı ama liste
+ * bir yetki değildir — süzgeç kurcalanabilir, bu yüzden il kodu burada da
+ * karşılaştırılıyor (emsali ilTemsilcisiAtayabilirMi).
+ */
+export function ogrenciMentorluguneKararVerebilirMi(
+  kullanici: OturumKullanicisi,
+  ogrenci: { id: number; ilKodu: string | null },
+  kendiOgrencisiMi: boolean,
+): boolean {
+  if (ogrenci.id === kullanici.id) return false;
+  if (projeYoneticisiMi(kullanici)) return true;
+  if (danismanMi(kullanici) && kendiOgrencisiMi) return true;
+  return (
+    ogrenci.ilKodu !== null &&
+    ilKoordinatoruMu(kullanici) &&
+    koordinatorIlKodu(kullanici) === ogrenci.ilKodu
+  );
+}
+
+/**
  * GençTek görev ilanlarını açar ve başvuruları karara bağlar mı?
  *
  * MENTÖRLÜKLE AYNI KAPI (21 Ağustos 2026 · istek: "yönetim panelinde yeni kart
@@ -1188,6 +1236,24 @@ export function paydasYonetebilirMi(
   if (!ilKoordinatoruMu(kullanici)) return false;
   if (koordinatorIlKodu(kullanici) === ilKodu) return true;
   return ekleyenKullaniciId !== undefined && ekleyenKullaniciId === kullanici.id;
+}
+
+/**
+ * Paydaş kaydını onaylar / reddeder mi? — YALNIZCA MERKEZ (27 Ağustos 2026 ·
+ * istek: "proje yöneticisi bu listeden en son sütunda onay veya red versin").
+ *
+ * KAYDI AÇAN KARAR VEREMEZ: paydaş envanterini il koordinatörü dolduruyor
+ * (`paydasEkleyebilirMi`), kararı ise onun üstündeki merci veriyor. Aynı
+ * kişide toplansaydı onay bir adım değil, bir tıklama fazlası olurdu — market
+ * onayında ve GençTek görevlerinde de aynı ayrım var.
+ *
+ * MERKEZİN KENDİ AÇTIĞI KAYIT DA KUYRUĞA DÜŞER ve onu yine merkez onaylar.
+ * "Kimse kendi işini onaylamaz" kuralı burada aranmıyor: mentörlükte o kural
+ * koordinatörün ÜSTÜNDE bir merci olduğu için işliyordu; merkezin üstünde
+ * yok, dolayısıyla kural uygulanabilir değil.
+ */
+export function paydasOnaylayabilirMi(kullanici: OturumKullanicisi): boolean {
+  return projeYoneticisiMi(kullanici);
 }
 
 /**

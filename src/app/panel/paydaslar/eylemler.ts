@@ -4,9 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { paydasGirdisiniCoz, type PaydasGirdisi } from "@/lib/paydas/kurallar";
+import {
+  PAYDAS_RET_GEREKCESI_ASGARI,
+  paydasGirdisiniCoz,
+  type PaydasGirdisi,
+} from "@/lib/paydas/kurallar";
 import {
   paydasEkleyebilirMi,
+  paydasOnaylayabilirMi,
   paydasYonetebilirMi,
 } from "@/lib/yetki/izinler";
 import { paydasKapsamFiltresi } from "@/lib/yetki/kapsam";
@@ -238,4 +243,63 @@ export async function paydasDurumEylemi(veri: FormData): Promise<void> {
   revalidatePath(YOL);
   revalidatePath(yol);
   redirect(`${yol}?durum=${aktif ? "aktif" : "pasif"}`);
+}
+
+/**
+ * Paydaş kaydının merkez kararı (27 Ağustos 2026).
+ *
+ * `paydasDurumEylemi`den AYRI: o kaydın aktif/pasif olmasını değiştiriyor —
+ * "bu iş birliği sürüyor mu" sorusu. Bu ise "bu kayıt geçerli mi" sorusu ve
+ * kararın sahibi başka biri. Tek eyleme sıkıştırılsalardı pasife alma yetkisi
+ * olan koordinatör, onay yetkisine de dokunmuş olurdu.
+ *
+ * RET GEREKÇE İSTER: gerekçesiz ret, kaydı açan koordinatöre neyi düzeltip
+ * yeniden sunacağını söylemez (emsali: faaliyet ve mentörlük retleri).
+ */
+export async function paydasOnayEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!paydasOnaylayabilirMi(kullanici)) {
+    throw new YetkiHatasi("Paydaş kaydını yalnızca proje yöneticisi karara bağlar.");
+  }
+
+  const id = Number.parseInt(metin(veri, "id"), 10);
+  if (!Number.isInteger(id)) throw new BulunamadiHatasi();
+
+  const reddediliyor = metin(veri, "karar") === "REDDET";
+  const gerekce = metin(veri, "gerekce");
+  if (reddediliyor && gerekce.length < PAYDAS_RET_GEREKCESI_ASGARI) {
+    hataylaDon(
+      YOL,
+      `Ret gerekçesi en az ${PAYDAS_RET_GEREKCESI_ASGARI} karakter olmalı.`,
+    );
+  }
+
+  const paydas = await prisma.paydas.findUnique({
+    where: { id },
+    select: { id: true, ad: true },
+  });
+  if (!paydas) throw new BulunamadiHatasi();
+
+  await prisma.paydas.update({
+    where: { id },
+    data: {
+      onayDurumu: reddediliyor ? "REDDEDILDI" : "ONAYLANDI",
+      onayVerenKullaniciId: kullanici.id,
+      onayTarihi: new Date(),
+      /* Onayda eski ret gerekçesi TEMİZLENİR: duran bir gerekçe, onaylanmış
+         kaydın yanında "neden reddedilmişti" diye okunurdu. */
+      retGerekcesi: reddediliyor ? gerekce : null,
+    },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PAYDAS",
+    hedefId: paydas.id,
+    detay: `Paydaş kaydı ${reddediliyor ? "reddedildi" : "onaylandı"}: ${paydas.ad}`,
+  });
+
+  revalidatePath(YOL);
+  redirect(`${YOL}?durum=${reddediliyor ? "paydas-reddedildi" : "paydas-onaylandi"}`);
 }

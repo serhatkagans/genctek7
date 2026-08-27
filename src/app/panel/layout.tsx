@@ -9,10 +9,10 @@ import {
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
-import { prisma } from "@/lib/db";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import { uygulamaYolu } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
+import { rolIlAdlariniGetir } from "@/lib/yetki/rol-il-adlari";
 import {
   disKullaniciMi,
   rolEnvanteriGorebilirMi,
@@ -35,35 +35,11 @@ export default async function PanelDuzeni({
   }
 
   /*
-   * ROL ETİKETİNDE İL KODU DEĞİL İL ADI (26 Ağustos 2026 · istek: "il
-   * koordinatörü yazısının yanında il kodu yazıyor 34 diye, onu ilin ismi
-   * neyse onunla değiştir").
-   *
-   * Etiket `rol.ilKodu` basıyordu — plaka kodu bir VERİTABANI ANAHTARIDIR ve
-   * ekranda karşılığı ilin adıdır. Aynı hata aynı gün panodaki kartta da
-   * düzeltildi.
-   *
-   * SORGU YALNIZCA İLİ OLAN ROL VARSA: rolsüz kullanıcıda ve okul personelinde
-   * (rolün ili yok) hiç çalışmıyor. Ad bulunamazsa etiket ek bilgisiz basılır —
-   * eksik veriyle kod göstermektense hiçbir şey göstermek yeğdir.
+   * Rol rozetinin yanındaki il ADI; sorgu ve gerekçesi ortak yardımcıda
+   * (bkz. lib/yetki/rol-il-adlari.ts). Paneldeki vitrin de aynı adları
+   * kullanıyor.
    */
-  const rolIlKodlari = [
-    ...new Set(
-      kullanici.roller
-        .map((rol) => rol.ilKodu)
-        .filter((kod): kod is string => kod !== null),
-    ),
-  ];
-  const ilAdlari = new Map(
-    rolIlKodlari.length === 0
-      ? []
-      : (
-          await prisma.il.findMany({
-            where: { ilKodu: { in: rolIlKodlari } },
-            select: { ilKodu: true, ad: true },
-          })
-        ).map((il) => [il.ilKodu, il.ad] as const),
-  );
+  const ilAdlari = await rolIlAdlariniGetir(kullanici);
 
   /*
    * İLK GİRİŞ KAPISI VE ONAY ŞERİDİ KALKTI (21 Ağustos 2026 · istek: "KVKK'lar
@@ -208,7 +184,18 @@ export default async function PanelDuzeni({
     baglantilar.push(...mentorSekmesi);
     baglantilar.push({
       yol: "/panel/urunler",
-      etiket: "Market",
+      /* "Market" → "GençTek Vitrin" (27 Ağustos 2026 · istek: "market ismi
+         değişsin gençtek vitrin olsun"). Ekranın kendisi zaten bir VİTRİN
+         olarak tarif ediliyordu (bkz. urunler/page.tsx · kart notu); "market"
+         alışveriş çağrıştırıyordu, oysa burada satılan bir şey yok. Adres ve
+         yetki değişmedi.
+
+         PARANTEZ İÇİNDE "(Showcase)" (aynı gün · istek: "gençtek vitrinin adı
+         GençTek Vitrin (Showcase) olsun menüdeki"). Yalnızca MENÜ ETİKETİ;
+         sayfa başlığı, kart adları ve adres Türkçe kaldı. Aynı satır aşağıda
+         bir kez daha geçiyor (dış kullanıcı menüsü erken dönüşle kapanıyor) —
+         ikisi birlikte değişmeli, yoksa iki rol menüde iki farklı ad okur. */
+      etiket: "GençTek Vitrin (Showcase)",
       grup: "Ekosistem",
       ikon: "Store",
     });
@@ -394,7 +381,9 @@ export default async function PanelDuzeni({
    */
   baglantilar.push({
     yol: "/panel/urunler",
-    etiket: "Market",
+    /* Etiket dış kullanıcı menüsündekiyle AYNI olmalı (bkz. yukarıdaki not ·
+       "(Showcase)" 27 Ağustos 2026). */
+    etiket: "GençTek Vitrin (Showcase)",
     grup: "Ekosistem",
     ikon: "Store",
   });

@@ -3,12 +3,14 @@ import {
   Award,
   CalendarDays,
   Check,
+  ClipboardCheck,
   FileText,
   Filter,
   Hourglass,
   Landmark,
   MapPin,
   Plus,
+  Send,
   UserCheck,
   Users,
   X,
@@ -35,6 +37,7 @@ import {
   Kart,
   KartBasligi,
   KartIzgarasi,
+  OlcumKarti,
   PosterKart,
   Rozet,
   SayfaBasligi,
@@ -62,6 +65,7 @@ import {
   KATILIM_BICIMI_ETIKETLERI,
   KATILIM_BICIMLERI,
 } from "@/lib/kazanim/kurallar";
+import { faaliyetKatilimSayisi } from "@/lib/rapor/istatistik";
 import { tarihYaz } from "@/lib/tarih";
 import {
   basvuruYapabilirMi,
@@ -716,6 +720,27 @@ export default async function FaaliyetlerSayfasi({
     Number.parseInt(tekil(parametreler.sayfa) ?? "1", 10) || 1,
   );
 
+  /*
+   * MERKEZİN İKİ ÖLÇÜMÜ PANELDEN BURAYA TAŞINDI (27 Ağustos 2026 · istekler:
+   * "onay bekleyen etkinlikler kartı etkinlikler bölümüne gidecek" · "etkinlik
+   * katılımı kart olarak gitsin"). İkisi de bir ETKİNLİK sayısı; onları arayan
+   * kişi bu ekranda.
+   *
+   * SAYILAR ÜLKE GENELİDİR ve ekrandaki süzgeçlerden bağımsız: kart "şu an
+   * listede kaç tane" değil, "toplamda ne var" diyor — raporsuz etkinlik
+   * kartıyla aynı kural.
+   *
+   * Yalnızca merkezde sorgulanıyor; başka rolde `null` kalıyor ve hiç
+   * çalışmıyor.
+   */
+  const merkezMi = projeYoneticisiMi(kullanici);
+  const [onayBekleyenSayisi, katilim] = merkezMi
+    ? await Promise.all([
+        prisma.faaliyet.count({ where: { onayDurumu: "BEKLIYOR" } }),
+        faaliyetKatilimSayisi(),
+      ])
+    : [0, null];
+
   const [toplam, raporsuzSayisi, faaliyetler, gruplar, iller] =
     await Promise.all([
       prisma.faaliyet.count({ where: nerede }),
@@ -1017,6 +1042,45 @@ export default async function FaaliyetlerSayfasi({
           </>
         }
       />
+
+      {/*
+        MERKEZİN ÖLÇÜM ŞERİDİ (27 Ağustos 2026). Kartlar panelden buraya taşındı;
+        gerekçe yukarıdaki sorgunun başında yazılı.
+
+        ONAY KARTININ BAĞLANTISI SAYININ KENDİSİYLE AYNI ŞEYİ SÖYLER
+        (?onay=bekleyen): kartın paneldeki hâlinde bir tur boyunca sayı ülke
+        genelini sayarken bağlantı ulusal kapsam listesine götürüyordu ve
+        tıklayan kişi saydığı kayıtları listede bulamıyordu. Süzgeç bu ekranın
+        kendi süzgeci, yani kart tıklanınca kişi başka bir sayfaya düşmüyor.
+
+        KATILIM KARTI BAĞLANTISIZ: karşılığı bir liste değil, seçilmiş
+        başvuruların toplamı — tıklanacak bir yeri yok.
+      */}
+      {merkezMi && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <OlcumKarti
+            baslik="Onay bekleyen etkinlik"
+            ton="uyari"
+            Ikon={ClipboardCheck}
+            deger={String(onayBekleyenSayisi)}
+            yol="/panel/etkinlikler?onay=bekleyen"
+          />
+          {katilim && (
+            <OlcumKarti
+              baslik="Etkinlik katılımı"
+              Ikon={Send}
+              deger={String(katilim.toplamKatilim)}
+              /*
+               * Toplam ve tekil AYRI sorulardır: ilki programın yükünü,
+               * ikincisi kaç farklı kişiye ulaşıldığını söyler. Tek sayı
+               * gösterilseydi "400 katılım" ile "120 öğrenciye ulaştık"
+               * birbirine karışırdı.
+               */
+              aciklama={`${katilim.tekilKatilimci} farklı kişi · seçilmiş başvurular`}
+            />
+          )}
+        </div>
+      )}
 
       {/*
         RAPORSUZ BİTEN ETKİNLİK (26 Ağustos 2026 · istek: "bu kartı

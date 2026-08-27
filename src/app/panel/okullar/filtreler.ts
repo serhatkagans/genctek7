@@ -1,5 +1,5 @@
 import {
-  ekipDurumuGecerliMi,
+  danismanDurumuGecerliMi,
   type OkulSuzgeci,
 } from "@/lib/rapor/yonetim-kurallari";
 import { koordinatorIlKodu, projeYoneticisiMi } from "@/lib/yetki/izinler";
@@ -25,41 +25,34 @@ export function okulSuzgeciniCoz(
     ilceKodu: tekil(parametreler.ilce),
     okulTuru: tekil(parametreler.okulTuru),
     ara: tekil(parametreler.ara),
-    ekipDurumu: (() => {
-      const deger = tekil(parametreler.ekip) ?? "hepsi";
-      return ekipDurumuGecerliMi(deger) ? deger : "hepsi";
+    /*
+      EKİP SÜZGECİ BU EKRANDAN KALKTI (27 Ağustos 2026 · istek: "bunları sil ·
+      Ekip tanımlanan / Ekip tanımlanmayan"). Kural katmanındaki `ekipDurumu`
+      duruyor (yonetim-kurallari.ts) — ekip envanteri kendi ekranında aynı
+      soruyu soruyor; kalkan yalnızca buradaki sekme şeridi.
+    */
+    danismanDurumu: (() => {
+      const deger = tekil(parametreler.danisman) ?? "hepsi";
+      return danismanDurumuGecerliMi(deger) ? deger : "hepsi";
     })(),
   };
 }
 
-/**
- * Ekranın süzgeçsiz açılıp açılmayacağı.
+/*
+ * "ARAMAYA BAŞLAYIN" KAPISI KALKTI (27 Ağustos 2026 · istek: "buraya tüm
+ * okulları listeleyeceğim alan gelsin").
  *
- * MERKEZ İÇİN SÜZGEÇSİZ AÇILIŞTA LİSTE BASILMAZ (`manisa-farklari-plani.md` ·
- * Aşama 4a). Manisa'nın ekranı tek il için tasarlanmış: 156 okul, açılışta düz
- * liste, kaydırarak da bulunabilir. Ulusal ölçekte aynı düzen on binlerce okul
- * demek — her açılışta ödenen bir tam tablo taraması ve zaten kaydırılarak
- * kullanılamayacak bir liste.
+ * `listeBasilsinMi` ekranı süzgeçsiz açılışta boş bırakıyordu; gerekçesi
+ * "ülke genelinde on binlerce okul var, ilk 50'si hiçbir soruya cevap vermez"
+ * idi. İstek bunun tersini söylüyor ve teknik engel de yok: liste ZATEN
+ * sayfalı (SAYFA_BOYUTU = 50, skip/take) — süzgeçsiz açılışın maliyeti bir
+ * `count` ile 50 satır, listenin tamamı hiçbir zaman çekilmiyor.
  *
- * Boş durum bir eksiklik değil ekranın çalışma biçimi: 50 bin kayıtlık listenin
- * ilk 50'si hiçbir soruya cevap vermiyor.
- *
- * KOORDİNATÖRDE HER ZAMAN LİSTE VAR: ili zaten sabit, yani ekran doğrudan
- * Manisa ölçeğinde açılıyor. Ölçek sorunu yalnızca merkezin sorunu.
+ * Fonksiyon tümüyle silindi; `?kirilim`li dallar gibi geride bir "her zaman
+ * true dönen" koşul bırakmak, okuyan kişiye hâlâ bir kapı varmış izlenimi
+ * verirdi. Dosya çıktısı da aynı kapıyı kullanıyordu (disa-aktar/route.ts) ve
+ * o da açıldı: ekran neyi listeliyorsa CSV de onu indirmeli.
  */
-export function listeBasilsinMi(suzgec: OkulSuzgeci): boolean {
-  return Boolean(
-    suzgec.ilKodu ||
-      suzgec.ilceKodu ||
-      suzgec.okulTuru ||
-      suzgec.ara?.trim(),
-  );
-  /*
-   * SEKME TEK BAŞINA LİSTE AÇMAZ: "ekip tanımlanmayan okullar" ülke genelinde
-   * on binlerce satır demek ve ekranın var oluş sebebi tam olarak bunu
-   * basmamak. Sekme bir daraltma, arama yerine geçmiyor.
-   */
-}
 
 /** Süzgeçleri koruyan sorgu dizesi. */
 export function okulSorgusu(
@@ -71,8 +64,8 @@ export function okulSorgusu(
   if (suzgec.ilceKodu) sorgu.set("ilce", suzgec.ilceKodu);
   if (suzgec.okulTuru) sorgu.set("okulTuru", suzgec.okulTuru);
   if (suzgec.ara) sorgu.set("ara", suzgec.ara);
-  if (suzgec.ekipDurumu && suzgec.ekipDurumu !== "hepsi") {
-    sorgu.set("ekip", suzgec.ekipDurumu);
+  if (suzgec.danismanDurumu && suzgec.danismanDurumu !== "hepsi") {
+    sorgu.set("danisman", suzgec.danismanDurumu);
   }
 
   for (const [anahtar, deger] of Object.entries(ekler)) {

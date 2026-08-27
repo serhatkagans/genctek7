@@ -145,7 +145,7 @@ export default async function PaydasDetaySayfasi({
           <KartBasligi baslik="Kurum bilgileri" Ikon={Handshake} />
           <dl className="grid gap-4 sm:grid-cols-2">
             {[
-              ["Yetkili kişi", paydas.yetkiliKisi],
+              ["İrtibat kişisi", paydas.yetkiliKisi],
               ["Telefon", paydas.telefon],
               ["E-posta", paydas.eposta],
               ["Adres", paydas.adres],
@@ -224,7 +224,7 @@ export default async function PaydasDetaySayfasi({
               </div>
 
               <label className="block">
-                <span className={SINIF_ETIKET}>Yetkili kişi</span>
+                <span className={SINIF_ETIKET}>İrtibat kişisi</span>
                 <input
                   type="text"
                   name="yetkiliKisi"

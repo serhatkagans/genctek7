@@ -107,3 +107,46 @@ export function kullaniciRolEtiketi(kullanici: OturumKullanicisi): string {
     .map((rol) => ROL_ETIKETLERI[rol.rolKodu])
     .join(" · ");
 }
+
+/**
+ * VİTRİNDEKİ (banner) KURUMSAL UNVAN — 27 Ağustos 2026 · istekler: "proje
+ * yöneticisi bunu genç bilişim ekosistemi koordinatörlüğü olsun / yeğitek …
+ * bannera" · "koordinatör için bannera da yazalım / il koordinatörü diye".
+ *
+ * NİYE `ROL_ETIKETLERI`'NİN ÜSTÜNE AYRI BİR SÖZLÜK: rol etiketi bir TABLO
+ * HÜCRESİ ve bir CSV sütunudur — öğretmen listesinde, görev rolleri ekranında,
+ * dışa aktarmalarda, rol rozetinde hep aynı iki kelimeyle geçiyor. Oraya
+ * "Genç Bilişim Ekosistemi Koordinatörlüğü · YEĞİTEK" yazılsaydı sütun taşar
+ * ve rozet satır boyu bir şeride dönerdi. Vitrin ise kişinin kendi panelinde
+ * kimlik cümlesini kurduğu tek yer; uzun unvanın yeri orası.
+ *
+ * İL ADI UNVANIN ÖNÜNE GEÇER ("Manisa İl Koordinatörü"): kapsamsız bir
+ * "İl koordinatörü" satırı, hangi ilin koordinatörü olduğunu söylemiyordu —
+ * aynı düzeltme 26 Ağustos'ta üst bardaki rol rozetinde de yapılmıştı (bkz.
+ * panel/layout.tsx · ilAdlari). Ad bulunamazsa unvan yalın basılır; il kodu
+ * (plaka) ekrana YAZILMAZ, o bir veritabanı anahtarıdır.
+ *
+ * Sözlükte karşılığı olmayan rol `ROL_ETIKETLERI`'ne düşer: öğrenci, danışman,
+ * mezun ve paydaş için vitrinde de aynı kısa ad doğru.
+ */
+export const VITRIN_ROL_UNVANLARI: Partial<Record<RolKodu, string>> = {
+  PROJE_YONETICISI: "Genç Bilişim Ekosistemi Koordinatörlüğü · YEĞİTEK",
+  IL_KOORDINATOR: "İl Koordinatörü",
+};
+
+export function vitrinRolUnvani(
+  kullanici: OturumKullanicisi,
+  ilAdlari?: ReadonlyMap<string, string>,
+): string {
+  if (kullanici.roller.length === 0) {
+    return "Öğretmen (danışmanlık görevi alınmadı)";
+  }
+  return kullanici.roller
+    .map((rol) => {
+      const unvan =
+        VITRIN_ROL_UNVANLARI[rol.rolKodu] ?? ROL_ETIKETLERI[rol.rolKodu];
+      const ilAdi = rol.ilKodu === null ? null : ilAdlari?.get(rol.ilKodu);
+      return ilAdi ? `${ilAdi} ${unvan}` : unvan;
+    })
+    .join(" · ");
+}

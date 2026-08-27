@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  Compass,
   CalendarClock,
   ClipboardCheck,
   Filter,
@@ -39,7 +40,7 @@ import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
 import { tarihYaz } from "@/lib/tarih";
 import {
   gencTekGoreviYonetebilirMi,
-  urunMarketOnayiVerebilirMi,
+  mentorlukOnaylayabilirMi,
   mentorlukBasvurabilirMi,
   panodaIlanAcabilirMi,
   panoIlaniOnaylayabilirMi,
@@ -149,7 +150,6 @@ export default async function TaleplerSayfasi({
     kendiTalepleri,
     bekleyenIlanSayisi,
     bekleyenGorevSayisi,
-    bekleyenUrunSayisi,
   ] = await Promise.all([
     prisma.calismaGrubu.findMany({
       where: { aktif: true },
@@ -267,17 +267,23 @@ export default async function TaleplerSayfasi({
     gencTekGoreviYonetebilirMi(kullanici)
       ? prisma.gencTekGorevBasvurusu.count({ where: { onayDurumu: "BEKLIYOR" } })
       : 0,
-    /* Markette yayım bekleyen ürünler de aynı kuyrukta (26 Ağustos 2026). */
-    urunMarketOnayiVerebilirMi(kullanici)
-      ? prisma.kullaniciKazanim.count({
-          where: { tip: "URUN", marketOnayDurumu: "BEKLIYOR" },
-        })
-      : 0,
+    /* Ürün sayımı 27 Ağustos 2026'da kalktı: kuyruk GençTek Vitrin ekranına
+       taşındı ve orada kendi başlığında sayılıyor. */
   ]);
 
-  /* Kart iki kuyruğu birden açıyor; sayı da ikisinin toplamı. */
-  const bekleyenSayisi =
-    bekleyenIlanSayisi + bekleyenGorevSayisi + bekleyenUrunSayisi;
+  /*
+   * İLAN KARTININ SAYISI (27 Ağustos 2026). Görev başvuruları kendi kartına,
+   * ürünler ise GençTek Vitrin ekranına taşındı — üçü de kendi kapısında
+   * sayılıyor ve hiçbiri iki kez sayılmıyor.
+   */
+  const bekleyenSayisi = bekleyenIlanSayisi;
+
+  /* Mentörlük kuyruğu bu ekrana 27 Ağustos 2026'da taşındı (Yönetim
+     Paneli'ndeki kartın yerine). */
+  const bekleyenMentorluk = mentorlukOnaylayabilirMi(kullanici)
+    ? await prisma.mentorluk.count({ where: { durum: "BEKLIYOR" } })
+    : 0;
+  const bekleyenGorevBasvurusu = bekleyenGorevSayisi;
 
   const filtreVar =
     Boolean(aramaMetni) || Number.isFinite(grupId) || Boolean(tur);
@@ -365,18 +371,63 @@ export default async function TaleplerSayfasi({
           />
         )}
         {/*
-          ONAY KUYRUĞU KARTI (14 Ağustos 2026). Merkez panoya zaten bakıyor;
-          kuyruğa giden yolun burada da olması, kararı ilanların yanında
-          tutuyor. Kartın ikizi Yönetim Paneli'nde duruyor.
+          ONAY KUYRUKLARI ÜÇ AYRI KART (27 Ağustos 2026 · istek: "panodaki onay
+          kuyruğu kartını çoklayalım · birinde mentör onayları · gençtek görevi
+          onayları").
+
+          TEK KART ÜÇ FARKLI İŞİ SAYIYORDU: pano ilanları, görev başvuruları ve
+          market ürünleri. Rozetteki sayı toplamdı, yani "7 iş bekliyor" diyen
+          bir kart tıklanana kadar hangi işin beklediğini söylemiyordu. Üç kart
+          üç soruya ayrı ayrı cevap veriyor ve her biri kendi ekranına gidiyor.
+
+          MENTÖR VE GÖREV KARTLARI YÖNETİM PANELİ'NDEN TAŞINDI (aynı istek:
+          "mentör onayları zaten yönetim panelinde var, buraya taşınacak o
+          kart"). Orada kalmalarının gerekçesi "merkezin onay işleri tek panoda
+          toplansın" idi; o pano artık burası — ikisi de bir BAŞVURUNUN
+          karara bağlanması ve panonun kimliği zaten bu.
+
+          KART SIFIRDA DA BASILIYOR, yalnızca rozeti düşüyor: kaybolan kart,
+          kuyruğun var olduğunu unutturur.
         */}
+        {mentorlukOnaylayabilirMi(kullanici) && (
+          <KisayolKarti
+            baslik="Mentör onayları"
+            aciklama={
+              bekleyenMentorluk > 0
+                ? `${bekleyenMentorluk} başvuru kararınızı bekliyor`
+                : undefined
+            }
+            Ikon={Compass}
+            yol="/panel/mentorluk"
+            ton="uyari"
+          />
+        )}
+        {gencTekGoreviYonetebilirMi(kullanici) && (
+          <KisayolKarti
+            baslik="GençTek görevi onayları"
+            aciklama={
+              bekleyenGorevBasvurusu > 0
+                ? `${bekleyenGorevBasvurusu} başvuru kararınızı bekliyor`
+                : undefined
+            }
+            Ikon={BadgeCheck}
+            yol="/panel/genctek-gorevleri"
+            ton="uyari"
+          />
+        )}
         {onaylayabilir && (
           <KisayolKarti
-            baslik="Onay kuyruğu"
+            baslik="İlan onayları"
             /*
               Açıklama yerine yalnızca SAYI kalıyor (21 Ağustos 2026 · istek:
               panodaki açıklamalar kalksın): "kaç ilan kararımı bekliyor"
               tanım değil, karar verdiren bilgidir. Sıfırken satır hiç
               basılmıyor.
+
+              SAYI ARTIK GÖREV BAŞVURULARINI İÇERMİYOR: onlar kendi kartında
+              sayılıyor ve iki kartın aynı işi iki kez sayması, toplamı
+              anlamsız kılardı. Kartın açtığı ekran ikisini birden gösteriyor —
+              orada bir daralma yok, yalnızca rozet kendi işini sayıyor.
             */
             aciklama={
               bekleyenSayisi > 0

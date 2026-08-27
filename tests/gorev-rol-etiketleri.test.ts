@@ -1,7 +1,16 @@
 import {
   GOREV_ROL_ETIKETLERI,
+  ROL_ETIKETLERI,
   gorevRolAdi,
+  kullaniciRolEtiketi,
+  vitrinRolUnvani,
 } from "@/lib/yetki/etiketler";
+import {
+  danismanYap,
+  koordinatorYap,
+  projeYoneticisiYap,
+  rolsuzOgretmenYap,
+} from "./yardimcilar";
 
 /**
  * Görev rollerinin ekrandaki adı.
@@ -82,5 +91,43 @@ describe("görevin yer adıyla yazılması", () => {
     expect(gorevRolAdi({ rolKodu: "ILCE_TEMSILCISI", ilce: null })).toBe(
       "İlçe Temsilcisi",
     );
+  });
+});
+
+/**
+ * Paneldeki vitrinin (banner) unvan satırı — 27 Ağustos 2026.
+ *
+ * Kısa rol etiketinin AYNI KALDIĞI da burada sınanıyor: uzun unvan tabloya,
+ * rozete ve CSV'ye sızarsa sütun taşar.
+ */
+describe("vitrin unvanı", () => {
+  it("proje yöneticisini kurumun adıyla yazar", () => {
+    expect(vitrinRolUnvani(projeYoneticisiYap())).toBe(
+      "Genç Bilişim Ekosistemi Koordinatörlüğü · YEĞİTEK",
+    );
+    expect(ROL_ETIKETLERI.PROJE_YONETICISI).toBe("Proje yöneticisi");
+  });
+
+  it("il koordinatörünü ilin adıyla yazar", () => {
+    const koordinator = koordinatorYap({ ilKodu: "45" });
+    expect(
+      vitrinRolUnvani(koordinator, new Map([["45", "Manisa"]])),
+    ).toBe("Manisa İl Koordinatörü");
+  });
+
+  /* Ad bulunamazsa plaka kodu EKRANA ÇIKMAZ, unvan yalın basılır. */
+  it("ilin adı bilinmiyorsa unvanı yalın basar", () => {
+    expect(vitrinRolUnvani(koordinatorYap({ ilKodu: "45" }))).toBe(
+      "İl Koordinatörü",
+    );
+  });
+
+  it("sözlükte olmayan rolde kısa etikete düşer", () => {
+    expect(vitrinRolUnvani(danismanYap())).toBe("Danışman öğretmen");
+  });
+
+  it("rolsüz öğretmeni rol etiketiyle aynı cümleyle yazar", () => {
+    const rolsuz = rolsuzOgretmenYap();
+    expect(vitrinRolUnvani(rolsuz)).toBe(kullaniciRolEtiketi(rolsuz));
   });
 });

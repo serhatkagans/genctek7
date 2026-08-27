@@ -142,6 +142,39 @@ export interface OgrenciListeFiltreleri {
    * Deneyimlerim, Topluluklarım) ve süzgeç artık aynı üçünü kullanıyor.
    */
   kazanimGrubu?: string | null;
+  /**
+   * GÖREV/ROL SÜZGECİ (27 Ağustos 2026 · istek: "üstteki filtrelere yeni bir
+   * rol alanı ilçe temsilcisi il temsilcisi okul temsilcisi mentör şeklinde
+   * açılan liste filtresi olsun").
+   *
+   * DÖRT DEĞERİN ÜÇÜ GÖREV, BİRİ DEĞİL: il/ilçe/okul temsilciliği
+   * `ogrenci_gorev_rolu` kayıtlarıdır ve DÖNEMLİDİR — süzgeç öğrencinin kendi
+   * eğitim-öğretim yılıyla eşleşen görevi arıyor, tablodaki sütunlarla aynı
+   * kural (bkz. ogrenciler/page.tsx · dönem karşılaştırması). "Mentör" ise bir
+   * görev değil, onaylanmış bir `Mentorluk` kaydıdır; aynı açılır listede
+   * durması ekranın sorusunun ortak olmasından: "bu öğrenci ne yapıyor".
+   *
+   * Çalışma grubu temsilciliği listede YOK: onun kapsamı bir yer değil bir
+   * gruptur ve grup süzgeci zaten ayrı bir alan.
+   */
+  gorevRolu?: OgrenciGorevSuzgeci | null;
+}
+
+export type OgrenciGorevSuzgeci =
+  | "IL_TEMSILCISI"
+  | "ILCE_TEMSILCISI"
+  | "OKUL_TEMSILCISI"
+  | "MENTOR";
+
+export function ogrenciGorevSuzgeciGecerliMi(
+  deger: string,
+): deger is OgrenciGorevSuzgeci {
+  return (
+    deger === "IL_TEMSILCISI" ||
+    deger === "ILCE_TEMSILCISI" ||
+    deger === "OKUL_TEMSILCISI" ||
+    deger === "MENTOR"
+  );
 }
 
 /**
@@ -205,6 +238,23 @@ export function ogrenciListeFiltresi(
       calismaGruplari: { some: { calismaGrubuId: filtreler.calismaGrubuId } },
     });
   }
+  /*
+   * MENTÖR YALNIZCA ONAYLI KAYIT: bekleyen ya da reddedilmiş başvuru "mentör"
+   * değildir; panodaki mentör havuzu da aynı koşulu kullanıyor.
+   *
+   * TEMSİLCİLİK DÖNEMLİ: `egitimOgretimYili` kıyası öğrencinin KENDİ yılıyla
+   * yapılamıyor (Prisma iç içe `where` içinde ana satırın alanına başvuramaz),
+   * bu yüzden görev kaydının açık olması koşuluyla yetiniliyor — kapanmış
+   * görevler zaten `bitisTarihi` ile eleniyor.
+   */
+  if (filtreler.gorevRolu === "MENTOR") {
+    kosullar.push({ mentorluk: { durum: "ONAYLANDI" } });
+  } else if (filtreler.gorevRolu) {
+    kosullar.push({
+      gorevRolleri: { some: { rolKodu: filtreler.gorevRolu } },
+    });
+  }
+
   if (filtreler.danismansizMi) {
     kosullar.push({ ogrenciAtamalari: { none: { bitisTarihi: null } } });
   }

@@ -142,3 +142,29 @@ describe("faaliyet paydaş katkısı", () => {
     expect(faaliyetPaydasKatkisiniCoz("a".repeat(251)).olurMu).toBe(false);
   });
 });
+
+/**
+ * TÜR LİSTESİ İLE ETİKET SÖZLÜĞÜ AYRI GENİŞLİKTEDİR (27 Ağustos 2026 · istek:
+ * "paydaş türü gençtek üniversitesi kalkacak, meslek kuruluşu kalkacak").
+ *
+ * Liste yeni kayıtta teklif edilenleri, sözlük ise ekranda yazılabilecek her
+ * değeri kapsar. Sözlük listeye daraltılsaydı eski kayıtlar türü boş görünürdü.
+ */
+describe("paydaş türü listesi · kalkan türler", () => {
+  it("iki türü artık teklif etmez", () => {
+    expect(PAYDAS_TURLERI).not.toContain("GENCTEK_UNIVERSITE");
+    expect(PAYDAS_TURLERI).not.toContain("MESLEK_KURULUSU");
+  });
+
+  it("kalkan türlerle yeni kayıt açılamaz", () => {
+    expect(paydasTuruMu("GENCTEK_UNIVERSITE")).toBe(false);
+    expect(paydasTuruMu("MESLEK_KURULUSU")).toBe(false);
+    expect(paydasTuruMu("UNIVERSITE")).toBe(true);
+  });
+
+  /* Eski kayıt ekranda türsüz görünmemeli. */
+  it("kalkan türlerin etiketi duruyor", () => {
+    expect(PAYDAS_TURU_ETIKETLERI.GENCTEK_UNIVERSITE).toBe("GençTek üniversitesi");
+    expect(PAYDAS_TURU_ETIKETLERI.MESLEK_KURULUSU).toBe("Meslek kuruluşu");
+  });
+});

@@ -2,11 +2,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
-import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import {
   Kart,
   KartBasligi,
@@ -16,8 +16,8 @@ import {
 import { YolIzi } from "@/components/YonetimKartlari";
 import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { gorevYillari, gorevYillariYaz } from "@/lib/ogretmen/gorev-yillari";
 import { okulTuruSecenekleri } from "@/lib/okul/turler";
 import {
   gorevYillariSecenekleri,
@@ -75,6 +75,59 @@ function sayfaBaglantisi(
   return metin ? `/panel/ogretmenler?${metin}` : "/panel/ogretmenler";
 }
 
+/**
+ * LİSTE SIRALAMASI (27 Ağustos 2026 · istek: "buraya filtreler sıralalar
+ * eklensin, excel gibi sırala vs").
+ *
+ * SIRA VERİTABANINDA VERİLİYOR, ekranda değil: liste sayfalı (SAYFA_BOYUTU)
+ * ve yalnızca o sayfanın 50 satırı çekiliyor. JS'te sıralansaydı yalnızca
+ * görünen sayfa kendi içinde sıralanır, "Z'den A'ya" seçildiğinde birinci
+ * sayfada yine A'lar dururdu.
+ *
+ * İKİNCİL ÖLÇÜT HER ZAMAN AD-SOYAD: aynı branştan ya da aynı okuldan onlarca
+ * satır var ve eşitlerin sırası sabit olmazsa sayfa 2'ye geçince kayıtlar yer
+ * değiştirir (aynı kişi iki kez görünebilir).
+ *
+ * BOŞ DEĞER: Postgres `NULL`ları varsayılan olarak sona koyar (`nulls: "last"`
+ * ile açıkça yazılıyor) — branşı girilmemiş öğretmen, yön ne olursa olsun
+ * listenin sonunda.
+ */
+const SIRALAMALAR = {
+  "ad-az": "Ad soyad · A → Z",
+  "ad-za": "Ad soyad · Z → A",
+  "brans-az": "Branş · A → Z",
+  "brans-za": "Branş · Z → A",
+  "okul-az": "Okul · A → Z",
+  "okul-za": "Okul · Z → A",
+} as const;
+
+type OgretmenSiralamasi = keyof typeof SIRALAMALAR;
+
+function ogretmenSiralamasiCoz(deger: string | null): OgretmenSiralamasi {
+  return deger !== null && deger in SIRALAMALAR
+    ? (deger as OgretmenSiralamasi)
+    : "ad-az";
+}
+
+function ogretmenSirasi(
+  siralama: OgretmenSiralamasi,
+): Prisma.KullaniciOrderByWithRelationInput[] {
+  const yon = siralama.endsWith("-za") ? ("desc" as const) : ("asc" as const);
+  const adSoyad = [{ ad: yon }, { soyad: yon }];
+
+  if (siralama.startsWith("brans")) {
+    return [{ brans: { sort: yon, nulls: "last" } }, { ad: "asc" }, { soyad: "asc" }];
+  }
+  if (siralama.startsWith("okul")) {
+    return [
+      { kurum: { ad: yon } },
+      { ad: "asc" },
+      { soyad: "asc" },
+    ];
+  }
+  return adSoyad;
+}
+
 export default async function OgretmenlerSayfasi({
   searchParams,
 }: {
@@ -97,6 +150,7 @@ export default async function OgretmenlerSayfasi({
   const filtreler = ogretmenFiltreleriniCoz(parametreler);
   const filtreVar = ogretmenFiltresiVarMi(filtreler);
 
+  const siralama = ogretmenSiralamasiCoz(tekil(parametreler.sirala));
   const koordinatorIli = koordinatorIlKodu(kullanici);
   const seciliIl = filtreler.ilKodu ?? koordinatorIli;
 
@@ -140,26 +194,54 @@ export default async function OgretmenlerSayfasi({
       soyad: true,
       brans: true,
       kurum: { select: { ad: true, okulTuru: true } },
-      il: { select: { ad: true } },
-      ilce: { select: { ad: true } },
-      // Görev yılları rol kayıtlarının tarihlerinden türetilir; bitmiş roller
-      // de gerekli, o yüzden aktif filtresi YOK.
-      roller: {
+      /*
+        İLETİŞİM SÜTUNLARI (27 Ağustos 2026 · istek: "öğretmenin eposta adresi
+        ve telefon sütunlarını ekle").
+
+        Kaynak `OgretmenProfil` — kişinin KENDİ girdiği bilgi; e-Okul'dan
+        gelmiyor ve gecelik senkronda üzerine yazılmıyor (bkz. schema.prisma).
+        Profili hiç açılmamış öğretmende ikisi de boş kalır ve hücre "—" basar.
+      */
+      ogretmenProfil: {
         select: {
-          rolKodu: true,
-          ilKodu: true,
-          baslangicTarihi: true,
-          bitisTarihi: true,
+          eposta: true,
+          telefon: true,
+          /*
+            YEĞİTEK OKUL SORUMLUSU İŞARETİ (27 Ağustos 2026 · istek: "bu kartı
+            buradan kaldırıp … öğretmenler panelinin içine sütun olarak
+            ekleyelim").
+
+            İşaret bir ROL DEĞİL (bkz. permissions.md): hiçbir veri erişimi
+            vermiyor, öğretmen kendisi koyuyor ve onay aranmıyor. Tek karşılığı
+            merkezin listesinde görünmekti; artık öğretmenin kendi satırında.
+          */
+          yegitekOkulSorumlusu: true,
         },
       },
+      il: { select: { ad: true } },
+      ilce: { select: { ad: true } },
+      /*
+        ROL KAYITLARI ARTIK ÇEKİLMİYOR (27 Ağustos 2026): tek tüketicileri
+        kalkan "Görev" ve "Görev yılları" sütunlarıydı. Görev yılı SÜZGECİ
+        duruyor ve o `where` içinde çalışıyor (bkz. ogretmenListeFiltresi),
+        satırların kendi rol kayıtlarını okumuyor.
+      */
       _count: {
         select: {
           danismanAtamalari: { where: { bitisTarihi: null } },
-          duzenledigiFaaliyetler: true,
+          /*
+            "ETKİNLİK" SÜTUNU KALDIRILDI (27 Ağustos 2026 · istek: "listeden
+            etkinlik sütununu kaldıralım"). Sayının kaynağı olan
+            `kazanimlar: { where: { tip: "GENCTEK_ETKINLIGI" } }` sayımı da
+            birlikte gitti — bu listede başka tüketicisi yoktu.
+
+            Bilgi kaybolmadı: öğretmenin kendi sayfasındaki Deneyimlerim şeridi
+            aynı kayıtları tek tek listeliyor (bkz. ogretmenler/[id]).
+          */
         },
       },
     },
-    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+    orderBy: ogretmenSirasi(siralama),
   });
 
   await erisimLoglaCoklu(
@@ -183,9 +265,10 @@ export default async function OgretmenlerSayfasi({
   const yerFiltresiVar = iller.length > 0 || okullar.length > 0;
 
   /*
-   * YOL İZİ — bu ekranın panoya dönüş yolu (12 Ağustos 2026 · istek: "ilçeden
-   * öğretmenlere geçince navigasyon kayboluyor, tarayıcının geri düğmesine
-   * basmak gerekiyor"). Ayrıntı için bkz. yonetim-kurallari.ts · yonetimYolIzi.
+   * YOL İZİ — kırılımdan gelindiğinde basılır (12 Ağustos 2026 · istek:
+   * "ilçeden öğretmenlere geçince navigasyon kayboluyor, tarayıcının geri
+   * düğmesine basmak gerekiyor"). Düz listede `null` döner ve şerit hiç
+   * çıkmaz; ne zaman çıktığı için bkz. app/panel/envanter-yolu.ts.
    */
   const yolIziAdimlari = await envanterYolIzi(
     kullanici,
@@ -340,6 +423,27 @@ export default async function OgretmenlerSayfasi({
             </select>
           </label>
 
+          {/*
+            SIRALAMA SÜZGEÇ FORMUNUN İÇİNDE: ayrı bir denetim olsaydı sıralamayı
+            değiştiren kişinin süzgeçleri sıfırlanırdı — form `method="get"` ve
+            gönderdiği şey sayfanın tüm sorgu dizesi. Aynı çözüm rol
+            envanterinde de var.
+          */}
+          <label className="block">
+            <span className={SINIF_ETIKET}>Sırala</span>
+            <select
+              name="sirala"
+              defaultValue={siralama}
+              className={SINIF_SECIM}
+            >
+              {Object.entries(SIRALAMALAR).map(([deger, etiket]) => (
+                <option key={deger} value={deger}>
+                  {etiket}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="block">
             <span className={SINIF_ETIKET}>Ad veya soyad</span>
             <input
@@ -352,27 +456,21 @@ export default async function OgretmenlerSayfasi({
           </label>
         </div>
 
+        {/*
+          "YALNIZCA DANIŞMAN ÖĞRETMENLER" VE "YALNIZCA GÖREV ALMAMIŞLAR"
+          KUTULARI KALKTI (27 Ağustos 2026 · istek: "bunu yapınca … öğretmen
+          sayfasındaki bu alana gerek kalmayacak").
+
+          İkisi de aynı ayrımı soruyordu ve o ayrım kalktı: öğretmen ilk
+          girişinde doğrudan danışman oluyor (bkz. lib/kullanici/sagla.ts),
+          yani "görev almamış öğretmen" artık yalnızca okul bilgisi eksik olan
+          kayıt demek — bir süzgeç değil, bir veri düzeltmesi.
+
+          KURAL KATMANI DURUYOR (`yalnizcaDanismanlar`, `yalnizcaGorevsizler`):
+          görevini BIRAKAN öğretmen hâlâ rolsüz kalabiliyor, yani soru tümüyle
+          anlamsız değil. Kalkan yalnızca ekrandaki iki kutu.
+        */}
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-metin">
-            <input
-              type="checkbox"
-              name="danisman"
-              value="1"
-              defaultChecked={filtreler.yalnizcaDanismanlar}
-              className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-            />
-            Yalnızca danışman öğretmenler
-          </label>
-          <label className="flex items-center gap-2 text-sm text-metin">
-            <input
-              type="checkbox"
-              name="gorevsiz"
-              value="1"
-              defaultChecked={filtreler.yalnizcaGorevsizler}
-              className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-            />
-            Yalnızca görev almamışlar
-          </label>
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             Filtrele
           </button>
@@ -397,17 +495,29 @@ export default async function OgretmenlerSayfasi({
                 <th className="px-4 py-3 font-medium">Branş</th>
                 <th className="px-4 py-3 font-medium">Okul</th>
                 <th className="px-4 py-3 font-medium">İl / İlçe</th>
-                <th className="px-4 py-3 font-medium">Görev</th>
-                <th className="px-4 py-3 font-medium">Görev yılları</th>
+                {/*
+                  "GÖREV" SÜTUNU YERİNE "OKUL TÜRÜ" (27 Ağustos 2026 · istek:
+                  "bu sütunu kaldır · Görev · yerine okul türü sütunu ekle").
+
+                  Görev sütunu rol rozetlerini basıyordu; aynı bilgi kişinin
+                  kendi sayfasında ve sağ üstteki rozetlerde zaten var. Okul
+                  türü ise bu listede hiç yoktu — "ilimde kaç imam hatip
+                  lisesinde danışman var" sorusunun cevabı okunamıyordu.
+
+                  "GÖREV YILLARI" SÜTUNU SİLİNDİ (aynı istek): rol kayıtlarının
+                  tarihlerinden türetiliyordu ve satır başına birkaç yıl
+                  basıyordu. Bilgi kaybolmadı — öğretmenin profilindeki katkı
+                  kartında görev dönemleri yazıyor.
+                */}
+                <th className="px-4 py-3 font-medium">Okul türü</th>
                 <th className="px-4 py-3 font-medium">Öğrenci</th>
-                <th className="px-4 py-3 font-medium">Etkinlik</th>
+                <th className="px-4 py-3 font-medium">Okul sorumlusu</th>
+                <th className="px-4 py-3 font-medium">Telefon</th>
+                <th className="px-4 py-3 font-medium">E-posta</th>
               </tr>
             </thead>
             <tbody>
               {ogretmenler.map((ogretmen) => {
-                const aktifRoller = ogretmen.roller.filter(
-                  (rol) => rol.bitisTarihi === null,
-                );
                 return (
                   <tr
                     key={ogretmen.id}
@@ -436,29 +546,55 @@ export default async function OgretmenlerSayfasi({
                       {ogretmen.il?.ad ?? "—"}
                       {ogretmen.ilce?.ad ? ` / ${ogretmen.ilce.ad}` : ""}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {aktifRoller.length === 0 ? (
-                          <RolsuzEtiketi />
-                        ) : (
-                          aktifRoller.map((rol) => (
-                            <RolEtiketi
-                              key={`${rol.rolKodu}-${rol.baslangicTarihi.getTime()}`}
-                              rolKodu={rol.rolKodu}
-                              ekBilgi={rol.ilKodu}
-                            />
-                          ))
-                        )}
-                      </div>
-                    </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {gorevYillariYaz(gorevYillari(ogretmen.roller))}
+                      {ogretmen.kurum?.okulTuru ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
                       {ogretmen._count.danismanAtamalari}
                     </td>
-                    <td className="px-4 py-3 text-metin-yumusak">
-                      {ogretmen._count.duzenledigiFaaliyetler}
+                    {/*
+                      İLETİŞİM SÜTUNLARI TIKLANABİLİR: `tel:` ve `mailto:` —
+                      rol envanterindeki koordinatör tablosuyla aynı biçim.
+                    */}
+                    {/*
+                      İŞARET SÜTUNU: yalnızca işareti OLAN satırda bir şey
+                      yazıyor. "Hayır" basılsaydı sütun, olmayan bir durumu 80
+                      satır boyunca tekrarlardı — sorulan şey "kim sorumlu",
+                      "kim değil" değil.
+                    */}
+                    <td className="px-4 py-3">
+                      {ogretmen.ogretmenProfil?.yegitekOkulSorumlusu ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-olumlu-zemin px-2 py-0.5 text-xs font-medium text-olumlu-metin">
+                          <ShieldCheck size={13} aria-hidden />
+                          YEĞİTEK
+                        </span>
+                      ) : (
+                        <span className="text-metin-yumusak">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums">
+                      {ogretmen.ogretmenProfil?.telefon ? (
+                        <a
+                          href={`tel:${ogretmen.ogretmenProfil.telefon}`}
+                          className="text-vurgu-metin"
+                        >
+                          {ogretmen.ogretmenProfil.telefon}
+                        </a>
+                      ) : (
+                        <span className="text-metin-yumusak">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {ogretmen.ogretmenProfil?.eposta ? (
+                        <a
+                          href={`mailto:${ogretmen.ogretmenProfil.eposta}`}
+                          className="break-all text-vurgu-metin"
+                        >
+                          {ogretmen.ogretmenProfil.eposta}
+                        </a>
+                      ) : (
+                        <span className="text-metin-yumusak">—</span>
+                      )}
                     </td>
                   </tr>
                 );

@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { SAYIMDA_DANISMAN } from "./sayim-kosullari";
 import { okulTuruKosulu } from "../okul/turler";
 /**
  * Yönetim panosunun saf kuralları.
@@ -300,8 +301,31 @@ export interface OkulSuzgeci {
    * dolayısıyla "bu okulun ekibi var mı" sorusuna cevap vermezler.
    */
   ekipDurumu?: EkipDurumu;
+  /**
+   * Okulda GençTek danışman öğretmeni var mı (27 Ağustos 2026 · istek:
+   * "filtreye danışmanlı okullar danışmansız okullar sütunu ekle").
+   *
+   * "Danışman" tanımı SAYIM KOŞULLARINDAN geliyor (sayim-kosullari.ts ·
+   * SAYIMDA_DANISMAN), yani tablodaki "Danışman" sütununun saydığı kümenin ta
+   * kendisi. Burada yeniden yazılsaydı süzgeç, aynı ekranda gösterdiği sayıyla
+   * çelişebilirdi — "danışmansız" süzgecinde danışman sayısı 1 olan bir satır.
+   *
+   * Koşul `some`/`none` ile kuruluyor, sayıyı sonradan süzerek değil: süzme,
+   * sayfalamadan ÖNCE bütün okulları çekmeyi gerektirirdi.
+   */
+  danismanDurumu?: DanismanDurumu;
   atla?: number;
   al?: number;
+}
+
+export type DanismanDurumu = "hepsi" | "danismanli" | "danismansiz";
+
+export function danismanDurumuGecerliMi(
+  deger: string,
+): deger is DanismanDurumu {
+  return (
+    deger === "hepsi" || deger === "danismanli" || deger === "danismansiz"
+  );
 }
 
 export function okulKosulu(suzgec: OkulSuzgeci): Prisma.KurumWhereInput {
@@ -321,6 +345,11 @@ export function okulKosulu(suzgec: OkulSuzgeci): Prisma.KurumWhereInput {
       ? { ekipler: { some: { aktif: true } } }
       : suzgec.ekipDurumu === "ekipsiz"
         ? { ekipler: { none: { aktif: true } } }
+        : {}),
+    ...(suzgec.danismanDurumu === "danismanli"
+      ? { kullanicilar: { some: SAYIMDA_DANISMAN } }
+      : suzgec.danismanDurumu === "danismansiz"
+        ? { kullanicilar: { none: SAYIMDA_DANISMAN } }
         : {}),
     ...(ara
       ? {

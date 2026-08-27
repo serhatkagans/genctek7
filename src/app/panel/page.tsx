@@ -1,14 +1,11 @@
 import {
   ArrowRight,
-  ArrowRightLeft,
   Award,
   BadgeCheck,
-  BarChart3,
   Camera,
   CalendarClock,
   CalendarDays,
   CheckSquare,
-  ClipboardCheck,
   Compass,
   FileText,
   GraduationCap,
@@ -19,7 +16,6 @@ import {
   Mail,
   MapPin,
   Pencil,
-  Send,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -94,11 +90,6 @@ import { ekipSayimiGetir } from "@/lib/ekip/veri";
 import { hakkindaKaydetEylemi } from "./profil/hakkinda-eylemi";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import { uygulamaYolu } from "@/lib/ortam";
-import {
-  bekleyenIsleriGetir,
-  faaliyetKatilimSayisi,
-  merkezIstatistikleriniGetir,
-} from "@/lib/rapor/istatistik";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
 import {
@@ -111,7 +102,11 @@ import {
   ogretmenKazanimlariGetir,
 } from "@/lib/kazanim/getir";
 import { katkiVerisiGetir } from "@/lib/ogrenci/katki";
-import { kullaniciRolEtiketi } from "@/lib/yetki/etiketler";
+import {
+  kullaniciRolEtiketi,
+  vitrinRolUnvani,
+} from "@/lib/yetki/etiketler";
+import { rolIlAdlariniGetir } from "@/lib/yetki/rol-il-adlari";
 import { tarihSaatYaz } from "@/lib/tarih";
 import { tarihYaz } from "@/lib/tarih";
 import {
@@ -135,52 +130,6 @@ import {
 import { danismanlikIsaretiEylemi } from "./ogrenciler/eylemler";
 
 export const dynamic = "force-dynamic";
-
-/**
- * SAYIM KARTI — "Dikkat gerektirenler" ve "Ekosistem sayıları" ızgaraları.
- *
- * ARTIK ÖLÇÜM KARTININ KENDİSİ (20 Ağustos 2026 · istek: "paneldeki Dikkat
- * gerektirenler bu ve Ekosistem sayıları bu kartların görünümünü güzel yap
- * etkinlik kartlarının görünümüne benzet").
- *
- * Önce sol kenarda ince renkli bir şeritle denenmişti; panelin üstündeki
- * ölçüm kartları poster bandıyla açılırken bu iki ızgara hâlâ ayrı bir dil
- * konuşuyordu ve sayfa iki kart görünümü taşıyordu. Sarmalayıcı duruyor
- * çünkü çağıranların sözlüğü farklı: burada `deger` bir SAYI, `alt` bir alt
- * satır — çağrı yerlerinde `String(...)` sarmalları açmak on üç kartın
- * hepsinde gürültü olurdu.
- *
- * TON BİLGİ TAŞIR: `uyari` yalnızca sıfırdan büyük bekleyen işte yanar.
- * Sıfır olan kart sönük ama görünür kalır — kaybolan kart "böyle bir ölçüt
- * yok" izlenimi verirdi, oysa sıfır iyi haberdir.
- */
-function SayimKarti({
-  etiket,
-  deger,
-  alt,
-  Ikon,
-  ton = "notr",
-  yol,
-}: {
-  etiket: string;
-  deger: number;
-  alt: string;
-  Ikon: React.ComponentType<{ size?: number; className?: string }>;
-  ton?: "uyari" | "notr";
-  /** Verilirse kart, ilgili ekrana giden bir bağlantı olur. */
-  yol?: string;
-}) {
-  return (
-    <OlcumKarti
-      baslik={etiket}
-      deger={String(deger)}
-      aciklama={alt}
-      Ikon={Ikon}
-      ton={ton}
-      yol={yol}
-    />
-  );
-}
 
 /**
  * Panelim'den yapılan işlemlerin geri bildirimi.
@@ -640,28 +589,11 @@ export default async function PanelSayfasi({
    * Öğrenciye de gösterilmez: onun muhatabı danışman öğretmenidir.
    */
   /*
-   * Merkez istatistikleri ülke geneli sayımdır ve yalnızca proje yöneticisine
-   * gösterilir; başka rollerde sorgu hiç çalıştırılmaz.
+   * MERKEZİN ÜÇ SORGUSU BURADAN KALKTI (27 Ağustos 2026): ekosistem sayımı,
+   * etkinlik katılımı ve bekleyen işler. Kartları başka ekranlara taşındı ya
+   * da tümüyle kaldırıldı (aşağıdaki notlara bakın); sorgular kalsaydı her
+   * panel açılışında sonucu hiçbir yere basılmayan sayımlar çalışırdı.
    */
-  const merkezIstatistik = projeYoneticisiMi(kullanici)
-    ? await merkezIstatistikleriniGetir(kullanici.egitimOgretimYili)
-    : null;
-  const katilim = projeYoneticisiMi(kullanici)
-    ? await faaliyetKatilimSayisi()
-    : null;
-  /*
-   * Boşluklar sayımdan AYRI çekiliyor ve ekranda ayrı gösteriliyor: "kaç
-   * öğrenci var" ile "kaç öğrenci danışmansız" farklı sorular. Tek listede
-   * olsalardı acil olanlar sayım kalabalığında kaybolurdu.
-   */
-  /*
-   * BÖLÜM ARTIK KARAR VERENDE DE VAR (13 Ağustos 2026 · inceleme bulgusu):
-   * danışman ve il koordinatörü kendi kapsamlarındaki bekleyen işleri görüyor.
-   * Hangi satırın hangi rolde basılacağını kural katmanı belirliyor
-   * (bkz. lib/rapor/istatistik.ts · bekleyenIsleriGetir); ekran yalnızca
-   * `null` gelen satırı atlıyor. Merkezin gördüğü altı satır değişmedi.
-   */
-  const bosluklar = await bekleyenIsleriGetir(kullanici);
 
   /*
    * "İl koordinatörüm" kartı, ilinde kime bağlı olduğunu bilmesi gereken okul
@@ -748,10 +680,6 @@ export default async function PanelSayfasi({
       [];
   const acikFaaliyetSayisi = seritKayitlari.length;
 
-  const onayBekleyenSayisi = projeYoneticisiMi(kullanici)
-    ? await prisma.faaliyet.count({ where: { onayDurumu: "BEKLIYOR" } })
-    : 0;
-
   /*
    * KOORDİNATÖRÜN ONAY KUYRUĞU SAYIMI BURADAN KALKTI (26 Ağustos 2026).
    * Saydığı iki kart da başka ekranlara taşındı (yukarıdaki nota bakın);
@@ -824,6 +752,9 @@ export default async function PanelSayfasi({
   const yolculuk = await yolculugumuGetir(kullanici);
 
   const rolsuzMu = kullanici.roller.length === 0;
+
+  /* Vitrindeki unvan ilin ADIYLA yazılıyor; plaka kodu ekrana çıkmaz. */
+  const rolIlAdlari = await rolIlAdlariniGetir(kullanici);
 
   return (
     <div className="space-y-8">
@@ -1022,8 +953,20 @@ export default async function PanelSayfasi({
         }
         altBaslik={
           <>
+            {/*
+              VİTRİNDE KURUMSAL UNVAN (27 Ağustos 2026 · istekler: "proje
+              yöneticisi bunu genç bilişim ekosistemi koordinatörlüğü olsun /
+              yeğitek … bannera" · "koordinatör için bannera da yazalım / il
+              koordinatörü diye").
+
+              Kısa rol etiketi ("Proje yöneticisi", "İl koordinatörü") burada
+              bir kimlik cümlesi kurmuyordu: biri kurumun adını hiç anmıyor,
+              öbürü hangi ilin koordinatörü olduğunu söylemiyordu. Etiketin
+              kendisi DEĞİŞMEDİ — tablolarda, rozetlerde ve CSV'lerde yine kısa
+              hâli geçiyor (bkz. etiketler.ts · VITRIN_ROL_UNVANLARI).
+            */}
             <p className="text-sm font-semibold text-vitrin-metin-yumusak">
-              {kullaniciRolEtiketi(kullanici)}
+              {vitrinRolUnvani(kullanici, rolIlAdlari)}
             </p>
             {/*
               Okul satırı yalnızca okul kaydı olanda: dış kullanıcının (mezun,
@@ -1086,52 +1029,29 @@ export default async function PanelSayfasi({
       )}
 
       {/*
-        GÖREV ALMAMIŞ ÖĞRETMENİN TEK KAPISI (12 Ağustos 2026 · istek: "görevi
-        işaretle deyince bir şey değişmiyor, öğretmen hâlâ görev almadı
-        görünüyor").
+        "GÖREVİ İŞARETLE" KARTI KALKTI (27 Ağustos 2026 · istek: "bu onay var
+        buna gerek yok, sisteme giriş yapınca direk danışman olsun").
 
-        Düğme, sayfanın kendisine inen bir çıpaya (`#danismanligim`) bakıyordu;
-        o bölüm 7 Ağustos'ta Öğrencilerim ekranına taşındı, çıpa geride kaldı ve
-        tıklamanın hiçbir karşılığı olmadı. Taşındığı ekran da 11 Ağustos'ta
-        kapandı (bkz. ogrenciEnvanteriGorebilirMi): görev almamış öğretmen artık
-        Öğrencilerim'i açamıyor ve menüsünde sekmesi de yok — yani işareti
-        koyabileceği hiçbir yer kalmamıştı.
+        Kart, rolsüz öğretmene tek bir düğme gösteriyordu ve kimse o düğmeyi
+        reddetmiyordu — herkesin geçtiği boş bir kapıydı. Rol artık ilk girişte
+        veriliyor (bkz. lib/kullanici/sagla.ts), yani bu ekranı gören rolsüz
+        öğretmen kalmıyor.
 
-        Bu yüzden FORMUN KENDİSİ buraya alındı, bağlantı değil: görevi olmayan
-        öğretmenin gördüğü tek ekran Panelim ve işaret onun için bir adım değil,
-        sistemi kullanmaya başlama koşulu. Eylem Öğrencilerim ekranındakiyle
-        aynı (`danismanlikIsaretiEylemi`), yani kural tek yerde; görev alındıktan
-        sonra o ekran zaten açılıyor ve kullanıcı oraya yönleniyor.
+        GERİYE TEK DURUM KALDI: okul bilgisi olmayan öğretmen. Ona rol
+        verilemiyor (danışmanlık bir okula bağlanır) ve yapacağı şey de bir
+        tıklama değil, kayıt düzeltmesi — o yüzden düğme değil açıklama
+        basılıyor.
       */}
-      {rolsuzMu && (
+      {rolsuzMu && kullanici.kurumKodu === null && (
         <div className="rounded-kart border border-uyari-cizgi bg-uyari-zemin p-6">
           <h2 className="font-semibold text-uyari-metin">
-            GençTek danışman öğretmenliği
+            Okul bilginiz görünmüyor
           </h2>
           <p className="mt-2 text-uyari-metin">
-            Sisteme giriş yaptınız ancak henüz danışman öğretmen görevi
-            almadınız. Okulunuzdaki öğrencilerin danışman seçim listesinde
-            görünmek için bu görevi işaretlemeniz gerekiyor. Onay süreci yoktur.
+            Danışman öğretmen görevi okulunuza bağlanıyor; kaydınızda okul
+            bilgisi olmadığı için görev tanımlanamadı. Okul kaydınız
+            tamamlandığında görev kendiliğinden açılır.
           </p>
-          {/*
-            KURUM KODU OLMAYANA DÜĞME BASILMAZ: kural katmanı okulsuz kullanıcıyı
-            reddediyor (bkz. danismanlikDurumunuDegistir) ve basılan düğmenin
-            hata vermesi, hiç basılmamasından daha kötü. Bu kişinin işi kayıt
-            düzeltmesidir, tıklama değil.
-          */}
-          {kullanici.kurumKodu === null ? (
-            <p className="mt-4 text-sm text-uyari-metin">
-              Kaydınızda okul bilgisi görünmüyor; görevi işaretleyebilmek için
-              okul kaydınızın tamamlanması gerekiyor.
-            </p>
-          ) : (
-            <form action={danismanlikIsaretiEylemi} className="mt-4">
-              <input type="hidden" name="gorevAlmakIstiyor" value="evet" />
-              <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                Görevi işaretle
-              </button>
-            </form>
-          )}
         </div>
       )}
 
@@ -1399,53 +1319,24 @@ export default async function PanelSayfasi({
           kalıyor; ilin işleri ilin panosunda.
         */}
 
-        {projeYoneticisiMi(kullanici) && (
-          <>
-            <OlcumKarti
-              baslik="Kayıtlı öğrenciler"
-              Ikon={Users}
-              deger={String(kapsamdakiOgrenciSayisi)}
-              yol="/panel/ogrenciler"
-            />
-            {/*
-              ONAY KUYRUĞU (11 Ağustos 2026 · istek: "öğrenci etkinlik açtığında
-              proje yöneticisi her durumda onay verebilsin, öğrencinin ilinde
-              koordinatör olmayabilir").
+        {/*
+          MERKEZİN ÜÇ ÖLÇÜM KARTI BURADAN KALKTI (27 Ağustos 2026 · istekler:
+          "proje yöneticisinden bu kart kalksın · Kayıtlı öğrenciler" · "onay
+          bekleyen etkinlikler kartı etkinlikler bölümüne gidecek" · "etkinlik
+          katılımı kart olarak gitsin").
 
-              KART İKİ YERİNDEN BİRDEN YANLIŞTI: başlığı "ulusal" diyordu ama
-              sayı ülke genelindeki BÜTÜN bekleyen etkinlikleri sayıyor, buna
-              karşılık bağlantı `?kapsam=ULUSAL` listesine götürüyordu. Yani
-              koordinatörsüz bir ilde açılmış okul içi öğrenci etkinliği kartta
-              sayılıyor ama tıklanınca açılan listede HİÇ görünmüyordu; merkez
-              onaylamaya yetkili olduğu kaydı ancak doğrudan bağlantısını
-              bilirse açabiliyordu. Yetki hep vardı (`faaliyetOnaylayabilirMi`
-              proje yöneticisine koşulsuz evet der), eksik olan ona giden yoldu.
+          Koordinatörün kartlarında bir tur önce (26 Ağustos) verilen kararın
+          aynısı, bu kez merkez için: sayı bir listenin uzunluğuydu ve o
+          listeler başka ekranlarda duruyor.
 
-              Başlık ve bağlantı artık sayının kendisiyle aynı şeyi söylüyor.
-            */}
-            <OlcumKarti
-              baslik="Onay bekleyen etkinlik"
-              ton="uyari"
-              Ikon={ClipboardCheck}
-              deger={String(onayBekleyenSayisi)}
-              yol="/panel/etkinlikler?onay=bekleyen"
-            />
-            {katilim && (
-              <OlcumKarti
-                baslik="Etkinlik katılımı"
-                Ikon={Send}
-                deger={String(katilim.toplamKatilim)}
-                /*
-                 * Toplam ve tekil AYRI sorulardır: ilki programın yükünü,
-                 * ikincisi kaç farklı kişiye ulaşıldığını söyler. Tek sayı
-                 * gösterilseydi "400 katılım" ile "120 öğrenciye ulaştık"
-                 * birbirine karışırdı.
-                 */
-                aciklama={`${katilim.tekilKatilimci} farklı kişi · seçilmiş başvurular`}
-              />
-            )}
-          </>
-        )}
+            · "Kayıtlı öğrenciler" → Yönetim Paneli'ndeki Öğrenciler kartı aynı
+              listeyi süzgeçleriyle açıyor; buradaki sayaç onun kopyasıydı,
+            · "Onay bekleyen etkinlik" ve "Etkinlik katılımı" → Etkinlikler
+              ekranı (bkz. etkinlikler/page.tsx · merkez ölçüm şeridi).
+
+          Merkezin profil sayfası böylece kendi kaydına ait bir sayfa kalıyor;
+          ülkenin işleri kendi ekranlarında.
+        */}
 
         {/*
           ÜÇ ETKİNLİK KARTI KALKTI (20 Ağustos 2026 · istek: "panelde etkinlik
@@ -1616,101 +1507,23 @@ export default async function PanelSayfasi({
         bekleyen iş → takvim → bildirimler. Katlanır bölümler kişinin kendi
         kaydını düzenlediği yer ve hiçbirinde bekleyen bir iş yok.
       */}
-      {bosluklar && (
-        /*
-          BAŞLIK KALKTI (26 Ağustos 2026 · istek: "profil sayfasında bu yazıyı
-          kaldır Dikkat gerektirenler"). Kartların kendisi kalıyor: her biri
-          zaten neyin beklediğini ("Danışmansız öğrenci") ve kaç tane olduğunu
-          söylüyor; üstlerindeki uyarı başlığı bunu ikinci kez söylüyordu.
+      {/*
+        "DİKKAT GEREKTİRENLER" IZGARASI TÜMÜYLE KALKTI (27 Ağustos 2026 ·
+        istekler: "ikinci etkinlik kartı kalksın · Onay bekleyen etkinlik" ·
+        "bu kart kalksın · Bekleyen il dışı başvuru").
 
-          `aria-label` başlığın yerini tutuyor — bölüm ekran okuyucuda adsız
-          bir yığın hâline gelmesin.
-        */
-        <section aria-label="Dikkat gerektirenler">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              /*
-                "Danışmansız öğrenci" KARTI KALKTI (26 Ağustos 2026 · istek:
-                "Dikkat gerektirenler · Danışmansız öğrenci · 0 · Aktif danışman
-                ataması yok bunu kaldır").
+        Izgara 13 Ağustos'ta altı satırla açılmıştı; satırlar tur tur kendi
+        ekranlarına taşındı ve bu iki kart sonuncularıydı. İkisinin de karşılığı
+        bir tık ötede duruyor: bekleyen etkinlik onayı Etkinlikler ekranındaki
+        onay süzgecinde (koordinatörde ayrıca Yönetim Paneli'nde), il dışı
+        başvuru ise aynı ekrandaki "İl dışına giden başvurular" bölümünün kendi
+        başlığında sayılıyor.
 
-                Sayının karşılığı olan liste zaten yerinde ve kendi ekranında
-                süzülebiliyor: "Okulumdaki danışmansız öğrenciler" bölümü
-                Öğrencilerim ekranının başında duruyor (bkz.
-                ogrenciler/page.tsx). Danışmansız kalan öğrenci ayrıca sessiz
-                de değil — atama sona erdiğinde ilgili öğretmene ve
-                koordinatöre bildirim düşüyor (bkz. lib/danisman/atama.ts).
-                Kalkan yalnızca panodaki sayaç.
-              */
-              /*
-                "Raporsuz biten etkinlik" ETKİNLİKLER EKRANINA TAŞINDI
-                (26 Ağustos 2026 · istek: "bu kartı etkinlikler sayfasına
-                alalım"). Sayının karşılığı bir etkinlik listesiydi ve o
-                liste orada; kart burada dururken tıklayan kişi raporlar
-                ekranına düşüyor, aradığı etkinliği ayrıca süzmek zorunda
-                kalıyordu. Şimdi kart, kendi listesinin başında duruyor.
-              */
-              {
-                etiket: "Onay bekleyen etkinlik",
-                deger: bosluklar.bekleyenFaaliyetOnayi,
-                alt: "Öğrenci ve öğretmen önerileri dâhil",
-                yol: "/panel/etkinlikler",
-                Ikon: ClipboardCheck,
-              },
-              {
-                etiket: "Bekleyen il dışı başvuru",
-                deger: bosluklar.bekleyenIlDisiBasvuru,
-                alt: "Kaynak ilin kararını bekliyor",
-                yol: "/panel/etkinlikler#il-disi",
-                Ikon: ArrowRightLeft,
-              },
-              /*
-                "Bekleyen danışman talebi" KARTI KALKTI (26 Ağustos 2026 ·
-                istek: "bu kartı silelim ama danışmanlık başvurusu varsa
-                mutlaka bildirime düşsün, ya da danışmanlığı bırakırsa da
-                bildirim gelsin").
-
-                Bildirim ZATEN GİDİYOR ve kaldırılmadı: talep açıldığında
-                istenen öğretmene DANISMAN_TALEBI_GELDI, danışmanlık sona
-                erdiğinde ilgili öğretmene OGRENCI_DANISMANLIKTAN_AYRILDI
-                düşüyor (bkz. lib/danisman/talep.ts ve atama.ts). Kuyruğun
-                kendisi de yerinde: "Öğrencilerim" ekranının başında.
-                Kalkan yalnızca panodaki sayaç.
-              */              /*
-                "Bekleyen bağlantı isteği" satırı kalktı (21 Ağustos 2026 ·
-                istek: "bağlantılarımdan normal mesaj göndermeyi tamamen
-                kaldır"): karara bağlanacak bir istek akışı yok.
-              */
-              /*
-                "Belgesi eksik koordinatör" satırı kalktı (21 Ağustos 2026 ·
-                istek: "kvkk olmayacak yani sadece çerez politikası"): artık
-                onaylanacak bir taahhütname ya da gizlilik sözleşmesi yok.
-              */
-            ]
-              /*
-               * `null` = "bu rolde gösterilmez"; sıfırdan AYRI bir durumdur ve
-               * burada eleniyor. Sıfır aşağıda sönük ama görünür basılıyor —
-               * ikisi karıştırılırsa danışman, ilinin danışmansız öğrenci sayısı
-               * için "0" görür ve hiç kimsenin boşta olmadığını sanır.
-               */
-              .filter(
-                (satir): satir is typeof satir & { deger: number } =>
-                  satir.deger !== null,
-              )
-              .map((satir) => (
-                <SayimKarti
-                  key={satir.etiket}
-                  etiket={satir.etiket}
-                  deger={satir.deger}
-                  alt={satir.alt}
-                  Ikon={satir.Ikon}
-                  ton={satir.deger > 0 ? "uyari" : "notr"}
-                  yol={satir.yol}
-                />
-              ))}
-          </div>
-        </section>
-      )}
+        `bekleyenIsleriGetir` SORGUSU DA KALKTI: tek tüketicisi buydu, kalsaydı
+        her panel açılışında boşuna çalışırdı. Kural katmanı duruyor
+        (lib/rapor/istatistik.ts), yeniden bir kuyruk gerektiğinde oradan
+        okunur.
+      */}
 
       {/*
         EKOSİSTEM SAYILARI, DİĞER İKİ KART GRUBUNUN HEMEN ALTINDA (14 Ağustos
@@ -1723,73 +1536,19 @@ export default async function PanelSayfasi({
         katlanır düzenleme bölümünün ardındaydı. Üçü de aynı türden — okunmak
         için basılmış kart ızgaraları — ve şimdi arka arkaya duruyorlar.
       */}
-      {merkezIstatistik && (
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-baslik">
-            <BarChart3 size={18} className="text-vurgu-metin" aria-hidden />
-            Ekosistem sayıları
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                etiket: "Toplam öğrenci",
-                deger: merkezIstatistik.toplamOgrenci,
-                alt: "Aktif öğrenci rolü olan kayıtlar",
-                Ikon: Users,
-              },
-              {
-                etiket: "Çalışma grubuna kayıtlı",
-                deger: merkezIstatistik.calismaGrubunaKayitliOgrenci,
-                // Seçim değil ÖĞRENCİ sayılır: bir öğrenci birden çok grup
-                // seçebiliyor, satır sayılsaydı sayı şişerdi.
-                alt: "En az bir grup seçmiş öğrenci",
-                Ikon: Layers,
-              },
-              {
-                etiket: "Okul temsilcisi",
-                deger: merkezIstatistik.okulTemsilcisi,
-                alt: "Bu eğitim-öğretim yılı",
-                Ikon: UsersRound,
-              },
-              {
-                etiket: "İl temsilcisi",
-                deger: merkezIstatistik.ilTemsilcisi,
-                alt: "Bu eğitim-öğretim yılı",
-                Ikon: MapPin,
-              },
-              {
-                etiket: "İlçe temsilcisi",
-                deger: merkezIstatistik.ilceTemsilcisi,
-                alt: "Bu eğitim-öğretim yılı",
-                Ikon: MapPin,
-              },
-              {
-                etiket: "Danışman öğretmen",
-                deger: merkezIstatistik.danismanOgretmen,
-                alt: "Görevi süren danışmanlar",
-                Ikon: UserCheck,
-              },
-              {
-                etiket: "İl koordinatörü",
-                deger: merkezIstatistik.ilKoordinatoru,
-                alt:
-                  merkezIstatistik.koordinatorsuzIl > 0
-                    ? `${merkezIstatistik.koordinatorsuzIl} il boş`
-                    : "Tüm iller dolu",
-                Ikon: Compass,
-              },
-            ].map((satir) => (
-              <SayimKarti
-                key={satir.etiket}
-                etiket={satir.etiket}
-                deger={satir.deger}
-                alt={satir.alt}
-                Ikon={satir.Ikon}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {/*
+        "EKOSİSTEM SAYILARI" BÖLÜMÜ KALKTI (27 Ağustos 2026 · istek: "bu
+        başlıktaki tüm kartlar kalkacak · Ekosistem sayıları").
+
+        Yedi kart da ülke geneli sayımdı ve hiçbiri tıklanabilir değildi: panel
+        kişinin KENDİ kaydının sayfası, ülkenin sayıları ise yönetim ekranının
+        sorusu. Sayılar kaybolmadı — il/ilçe/okul kırılımı ve toplamları Yönetim
+        Paneli'nde duruyor (bkz. panel/yonetim/page.tsx · il özeti şeridi),
+        temsilci ve koordinatör sayıları ise İl koordinatörleri ile Öğrenciler
+        ekranlarının kendi listelerinde.
+
+        `merkezIstatistikleriniGetir` sorgusu da kalktı; tek tüketicisi buydu.
+      */}
 
       {/*
         HAKKIMDA — BÜTÜN KART IZGARALARININ ALTINDA VE SATIR İÇİ DÜZENLENİR

@@ -269,10 +269,16 @@ export type DanismanKararSonucu =
   | { olurMu: false; neden: string };
 
 /**
- * DANIŞMAN ÖĞRETMENİN KENDİ ÖĞRENCİSİ İÇİN MENTÖRLÜK KARARI (26 Ağustos 2026 ·
- * istek: "danışman öğretmen kendi öğrencilerinden mentör ise o da görünsün …
- * eğer öğrenci başvurduysa buradan onaylasın, mentör yap / mentörlüğü kaldır
- * butonu olsun").
+ * ÖĞRENCİ LİSTESİNDEN VERİLEN MENTÖRLÜK KARARI (26 Ağustos 2026 · istek:
+ * "danışman öğretmen kendi öğrencilerinden mentör ise o da görünsün … eğer
+ * öğrenci başvurduysa buradan onaylasın, mentör yap / mentörlüğü kaldır butonu
+ * olsun").
+ *
+ * ADI 27 Ağustos 2026'da `ogrenciMentorlukKarariGecerliMi`'den değişti: karar
+ * artık danışmanın tekelinde değil, il koordinatörü de veriyor (bkz.
+ * izinler.ts · ogrenciMentorluguneKararVerebilirMi). Kural KİMİN karar
+ * verdiğine hiç bakmıyor — "hangi kayda, hangi gerekçeyle" sorusunu
+ * cevaplıyor — ama adında bir rol taşıdığı sürece o rolün kuralı sanılırdı.
  *
  * ---------------------------------------------------------------------------
  * NİYE `mentorlukKarariGecerliMi` YETMEDİ
@@ -305,7 +311,7 @@ export type DanismanKararSonucu =
  * metninde gidiyor; gerekçesiz kaldırma, öğrenciye neyi düzeltip yeniden
  * başvuracağını söylemez (emsali: mentorlukKarariGecerliMi · ret gerekçesi).
  */
-export function danismanMentorlukKarariGecerliMi(
+export function ogrenciMentorlukKarariGecerliMi(
   girdi: DanismanKararGirdisi,
 ): DanismanKararSonucu {
   if (girdi.mevcutDurum === null) {

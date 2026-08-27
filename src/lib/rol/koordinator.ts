@@ -47,10 +47,27 @@ function benzersizlikIhlaliMi(hata: unknown): boolean {
 export type { KoordinatorAtamaSonucu };
 export { yenidenDagitilanOgrenciSayisi };
 
+/**
+ * Atama notunun azami uzunluğu; ekrandaki `maxLength` ile aynı sayı.
+ *
+ * KURAL KATMANINDA, EYLEM DOSYASINDA DEĞİL: `"use server"` işaretli bir dosya
+ * yalnızca async fonksiyon dışa aktarabiliyor (derleme hatası: "Only async
+ * functions are allowed to be exported in a use server file"), yani sabit
+ * oradan okunamıyordu. Yeri zaten burası — sütun `TEXT`, sınır bir ürün
+ * kararıdır.
+ */
+export const ACIKLAMA_AZAMI = 1000;
+
 export async function ilKoordinatoruAta(
   hedefKullaniciId: number,
   ilKodu: string,
   atayanKullaniciId: number,
+  /**
+   * Atamanın serbest metin notu (27 Ağustos 2026). Boş bırakılabilir ve boş
+   * geldiğinde `null` yazılır: "" ile null arasındaki fark ekranda "açıklama
+   * yok" ile "açıklama silinmiş" olarak okunurdu, oysa ikisi de aynı şey.
+   */
+  aciklama: string | null = null,
 ): Promise<KoordinatorAtamaSonucu> {
   const hedef = await prisma.kullanici.findUnique({
     where: { id: hedefKullaniciId },
@@ -118,6 +135,7 @@ export async function ilKoordinatoruAta(
           rolKodu: "IL_KOORDINATOR",
           ilKodu,
           atayanKullaniciId,
+          aciklama: aciklama?.trim() || null,
         },
       });
     });
@@ -274,4 +292,26 @@ export async function ilKoordinatoruOzeti(ilKodu: string): Promise<{
     eposta: rol.kullanici.ogretmenProfil?.eposta?.trim() || null,
     fotoVarMi: rol.kullanici.fotoDepolamaYolu !== null,
   };
+}
+
+/**
+ * Aktif il koordinatörlüğünün açıklamasını değiştirir (27 Ağustos 2026 · istek:
+ * "sonradan metni düzenleme de olsun").
+ *
+ * YALNIZCA AKTİF KAYIT: `bitisTarihi: null` koşulu `where` içinde. Geçmiş
+ * görevlerin notu olduğu gibi kalmalı — kapanmış bir atamanın gerekçesini
+ * sonradan değiştirmek, kaydın kendisini yeniden yazmak olurdu.
+ *
+ * BULUNAMAZSA `false` DÖNER, hata atmaz: görev bu arada kaldırılmış olabilir
+ * ve çağıran ekran bunu kullanıcıya kendi diliyle söylüyor.
+ */
+export async function ilKoordinatorAciklamasiniYaz(
+  kullaniciId: number,
+  aciklama: string | null,
+): Promise<boolean> {
+  const sonuc = await prisma.kullaniciRol.updateMany({
+    where: { kullaniciId, rolKodu: "IL_KOORDINATOR", bitisTarihi: null },
+    data: { aciklama: aciklama?.trim() || null },
+  });
+  return sonuc.count > 0;
 }

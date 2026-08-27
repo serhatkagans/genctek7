@@ -256,10 +256,32 @@ async function referansVeriUret(iller: { ilKodu: string; ad: string }[]) {
       create: { ilceKodu, ilKodu: il.ilKodu, ad: sec(ILCE_ADLARI) },
     });
 
+    /*
+     * OKUL ADINDA " (2)" SONEKİ YOK (27 Ağustos 2026 · istek: "kafa
+     * karıştırıcı o kısmı kaldırsak").
+     *
+     * Sonek AD ÇAKIŞMASINI DEĞİL, DÖNGÜ SIRASINI yazıyordu: ikinci okul,
+     * türü birinciden farklı olsa bile "(2)" alıyordu. Sonuç, 55 okulun
+     * 42'sinde hiçbir şey anlatmayan bir sayı ("Ağrı Bilim ve Sanat Merkezi"
+     * ile "Ağrı Anadolu İmam Hatip Lisesi (2)") ve ekranda "bu 2 ne" sorusuydu.
+     *
+     * ÇAKIŞMA ARTIK OLUŞMUYOR, sonekle örtülmüyor: ikinci okulun türü
+     * birinciyle aynı çıkarsa listedeki bir SONRAKİ tür alınıyor. Düzeltme
+     * fazladan rastgele sayı ÇEKMİYOR — tohumlanmış dizi kaymasın diye
+     * (dosya başlığı: "aynı tohum aynı veriyi üretir"), yoksa okul adlarını
+     * düzeltmek bütün öğrenci ve öğretmen kayıtlarını da yeniden dağıtırdı.
+     */
+    const ilinTurleri: string[] = [];
     for (let i = 0; i < 2; i += 1) {
       kurumKodu += 1;
-      const okulTuru = sec(OKUL_TURLERI);
-      const ad = `${il.ad} ${okulTuru}${i === 0 ? "" : ` (${i + 1})`}`;
+      const cekilen = sec(OKUL_TURLERI);
+      const okulTuru = ilinTurleri.includes(cekilen)
+        ? OKUL_TURLERI[
+            (OKUL_TURLERI.indexOf(cekilen) + 1) % OKUL_TURLERI.length
+          ]
+        : cekilen;
+      ilinTurleri.push(okulTuru);
+      const ad = `${il.ad} ${okulTuru}`;
       await prisma.kurum.upsert({
         where: { kurumKodu },
         update: { ad, ilKodu: il.ilKodu, ilceKodu, okulTuru, aktif: true },

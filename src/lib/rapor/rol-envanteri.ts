@@ -35,6 +35,20 @@ export interface IlKoordinatorDurumu {
     soyad: string;
     brans: string | null;
     atamaTarihi: Date;
+    /**
+     * İLETİŞİM BİLGİSİ (27 Ağustos 2026 · istek: "eposta ve telefon numarası
+     * sütunlarını ekleyelim").
+     *
+     * Kaynağı `OgretmenProfil` — kişinin KENDİ girdiği bilgi; e-Okul'dan
+     * gelmiyor ve senkronda üzerine yazılmıyor. Tablonun adı tarihsel, içeriği
+     * "öğrenci olmayan kullanıcının iletişim bilgisi" (bkz. schema.prisma).
+     * Dolayısıyla kayıt hiç açılmamışsa ikisi de `null` olur; ekran boş hücre
+     * basar, uydurma bir adres göstermez.
+     */
+    eposta: string | null;
+    telefon: string | null;
+    /** Atamanın serbest metin notu; bkz. schema.prisma · KullaniciRol.aciklama. */
+    aciklama: string | null;
   } | null;
   ogrenciSayisi: number;
   /**
@@ -71,7 +85,16 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
       select: {
         ilKodu: true,
         baslangicTarihi: true,
-        kullanici: { select: { id: true, ad: true, soyad: true, brans: true } },
+        aciklama: true,
+        kullanici: {
+          select: {
+            id: true,
+            ad: true,
+            soyad: true,
+            brans: true,
+            ogretmenProfil: { select: { eposta: true, telefon: true } },
+          },
+        },
       },
     }),
     prisma.kullanici.groupBy({
@@ -112,6 +135,9 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
             soyad: rol.kullanici.soyad,
             brans: rol.kullanici.brans,
             atamaTarihi: rol.baslangicTarihi,
+            eposta: rol.kullanici.ogretmenProfil?.eposta ?? null,
+            telefon: rol.kullanici.ogretmenProfil?.telefon ?? null,
+            aciklama: rol.aciklama,
           }
         : null,
       ogrenciSayisi: ogrenciHaritasi.get(il.ilKodu) ?? 0,
@@ -233,6 +259,9 @@ export interface KoordinatorAdayi {
   soyad: string;
   brans: string | null;
   kurumAdi: string | null;
+  /** Kişinin kendi girdiği iletişim bilgisi; bkz. IlKoordinatorDurumu. */
+  eposta: string | null;
+  telefon: string | null;
   /** Şu an danışman öğretmen mi? Atama yapılırsa öğrencileri dağıtılacak. */
   danismanMi: boolean;
   danismanliktakiOgrenciSayisi: number;
@@ -282,6 +311,10 @@ export async function koordinatorAdaylari(
       soyad: true,
       brans: true,
       kurum: { select: { ad: true } },
+      /* Aday listesi de iletişim sütunlarını basıyor (27 Ağustos 2026): atamayı
+         yapan kişi, aday hakkında ilin tablosunda göreceği bilgilerin aynısını
+         önce burada görüyor. */
+      ogretmenProfil: { select: { eposta: true, telefon: true } },
       roller: {
         where: { bitisTarihi: null, rolKodu: "DANISMAN" },
         select: { id: true },
@@ -298,6 +331,8 @@ export async function koordinatorAdaylari(
     soyad: ogretmen.soyad,
     brans: ogretmen.brans,
     kurumAdi: ogretmen.kurum?.ad ?? null,
+    eposta: ogretmen.ogretmenProfil?.eposta ?? null,
+    telefon: ogretmen.ogretmenProfil?.telefon ?? null,
     danismanMi: ogretmen.roller.length > 0,
     danismanliktakiOgrenciSayisi: ogretmen._count.danismanAtamalari,
   }));

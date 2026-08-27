@@ -934,14 +934,14 @@ function KazanimAlanlari({
               formdan çıkar ve yazdıkları giderdi.
             */}
             <span className="text-sm text-metin">
-              <span className="font-medium">Bu ürünü markette paylaş</span>{" "}
+              <span className="font-medium">Bu ürünü vitrinde paylaş</span>{" "}
               <Link
                 href="/panel/urunler"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-vurgu-metin underline underline-offset-2"
               >
-                GençTek Market
+                GençTek Vitrin
               </Link>
             </span>
           </label>

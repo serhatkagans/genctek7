@@ -52,8 +52,8 @@ export function UrunOnayKuyrugu({
   return (
     <Kart>
       <KartBasligi
-        baslik={`Markette yayım bekleyen ürünler (${urunler.length})`}
-        aciklama="Onaylanan ürün GençTek Market'te herkese görünür. Reddedilen ürün silinmez; sahibinde kalır ve gerekçe kendisine iletilir."
+        baslik={`Vitrinde yayım bekleyen ürünler (${urunler.length})`}
+        aciklama="Onaylanan ürün GençTek Vitrin'de herkese görünür. Reddedilen ürün silinmez; sahibinde kalır ve gerekçe kendisine iletilir."
         Ikon={Package}
       />
       {urunler.length === 0 ? (

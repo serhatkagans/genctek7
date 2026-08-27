@@ -1,9 +1,7 @@
 import {
   AlertTriangle,
-  Building2,
   MapPin,
   UserPlus,
-  UserX,
 } from "lucide-react";
 import {
   BilgiKutusu,
@@ -16,15 +14,16 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { uygulamaYolu } from "@/lib/ortam";
+import { ACIKLAMA_AZAMI } from "@/lib/rol/koordinator";
 import {
   ilKoordinatorDurumlari,
   koordinatorAdaylari,
   kurumDanismanDurumlari,
 } from "@/lib/rapor/rol-envanteri";
-import { tarihYaz } from "@/lib/tarih";
 import { rolEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import {
+  ilKoordinatorAciklamasiEylemi,
   ilKoordinatoruAtaEylemi,
   ilKoordinatoruKaldirEylemi,
 } from "./eylemler";
@@ -52,6 +51,46 @@ function tekil(deger: string | string[] | undefined): string | null {
   return kirpilmis ? kirpilmis : null;
 }
 
+/**
+ * LİSTE SIRALAMASI — 27 Ağustos 2026 · istekler: "liste harf sırası olsun ile
+ * göre" · "üste excel filtre gibi harfe göre sırala branşa göre sırala a dan z
+ * ye z den a ya sırala".
+ *
+ * ACİLİYET SIRASI KALKTI. 15 Ağustos'ta liste üç kademeye ayrılıyordu (önce
+ * öğrencisi olup koordinatörü olmayan iller, sonra diğer boş iller, sonra
+ * atanmışlar); gerekçesi "asıl iş öğrencili boş ildedir" idi ve o bulgu
+ * kaybolmadı — sayfanın başındaki kırmızı özet ile satırın kendi vurgusu
+ * duruyor. Değişen şey, sıranın artık KULLANICININ seçtiği bir şey olması:
+ * 81 ilden birini aramak için alfabetik sıra, "hangi branştan kaç koordinatör
+ * var" sorusu için branş sırası gerekiyordu ve ikisi de sabit bir sırayla
+ * yapılamıyordu.
+ *
+ * BOŞ DEĞER HER ZAMAN SONA: branşı ya da koordinatörü olmayan iller, yön ne
+ * olursa olsun listenin sonunda durur. Z→A seçildiğinde boşlar başa toplansaydı
+ * ekranın ilk ekranı bilgisiz satırlarla dolardı.
+ */
+const SIRALAMALAR = {
+  "il-az": "İl adı · A → Z",
+  "il-za": "İl adı · Z → A",
+  "brans-az": "Branş · A → Z",
+  "brans-za": "Branş · Z → A",
+} as const;
+
+type Siralama = keyof typeof SIRALAMALAR;
+
+function siralamaCoz(deger: string | null): Siralama {
+  return deger !== null && deger in SIRALAMALAR ? (deger as Siralama) : "il-az";
+}
+
+function karsilastir(a: string | null, b: string | null, tersMi: boolean): number {
+  /* Boş değer yönden bağımsız olarak sona; bkz. yukarıdaki not. */
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  const fark = a.localeCompare(b, "tr");
+  return tersMi ? -fark : fark;
+}
+
 export default async function RolEnvanteriSayfasi({
   searchParams,
 }: {
@@ -72,6 +111,7 @@ export default async function RolEnvanteriSayfasi({
 
   const parametreler = await searchParams;
   const secilenIl = tekil(parametreler.il);
+  const siralama = siralamaCoz(tekil(parametreler.sirala));
   const hata = tekil(parametreler.hata);
   const durum = tekil(parametreler.durum);
 
@@ -141,14 +181,20 @@ export default async function RolEnvanteriSayfasi({
         anlamı taşıyor (bir satır = bir il / bir okul). Tek dosyaya zorlanmaları
         okul satırlarında koordinatör sütununu boş bırakırdı.
       */}
+      {/*
+        OKUL KIRILIMI BAĞLANTISI KALKTI (27 Ağustos 2026 · istek: "buna gerek
+        yok · Okul kırılımını Excel indir"). Ekrandaki okul tablosuyla aynı
+        turda gitti; ikisi de aynı ikinci soruyu soruyordu.
+
+        UYARI — İL KIRILIMINDA İLÇE VE OKUL SÜTUNU YOKTUR: satırı bir İL'dir
+        (bkz. disa-aktar/route.ts · IL_SUTUNLARI). Okul bazlı döküm gerekirse
+        Okullar ekranının kendi CSV çıktısı alınır. Route'un `?kirilim=okul`
+        dalı SİLİNMEDİ; kalkan yalnızca buradaki kapı.
+      */}
       <p className="flex flex-wrap gap-6">
         <DisaAktarmaBagi
           yol="/panel/rol-envanteri/disa-aktar"
           etiket="İl kırılımını Excel indir"
-        />
-        <DisaAktarmaBagi
-          yol="/panel/rol-envanteri/disa-aktar?kirilim=okul"
-          etiket="Okul kırılımını Excel indir"
         />
       </p>
 
@@ -178,6 +224,10 @@ export default async function RolEnvanteriSayfasi({
         </BilgiKutusu>
       )}
 
+      {durum === "aciklama-kaydedildi" && (
+        <BilgiKutusu cesit="olumlu">Atama açıklaması kaydedildi.</BilgiKutusu>
+      )}
+
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       {atanmamisToplam > 0 && (
@@ -198,55 +248,102 @@ export default async function RolEnvanteriSayfasi({
       <Kart>
         <KartBasligi
           baslik="İl koordinatörü durumu"
-          aciklama="Sıra aciliyete göre: önce öğrencisi olup koordinatörü olmayan iller, sonra diğer boş iller, sonra atanmış olanlar."
+          aciklama="Sıralamayı aşağıdan seçebilirsiniz. Öğrencisi olup koordinatörü olmayan iller, sıra ne olursa olsun vurgulu kalır."
           Ikon={MapPin}
         />
 
+        {/*
+          SIRALAMA DENETİMİ (27 Ağustos 2026 · istek: "üste excel filtre gibi
+          harfe göre sırala branşa göre sırala a dan z ye z den a ya sırala").
+
+          `<form method="get">`: seçim adres çubuğuna yazılıyor, yani sıra
+          paylaşılabilir ve tarayıcının geri düğmesi çalışıyor. JavaScript'e
+          bağlı bir açılır liste, sunucuda basılan bu tabloyu yeniden
+          sıralayamazdı.
+
+          SEÇİLİ İL KORUNUYOR: aşağıdaki atama bölümü de aynı sorgu dizesinde
+          yaşıyor; gizli alan olmasaydı sıralamayı değiştiren kişinin açtığı
+          aday listesi kapanırdı.
+        */}
+        <form method="get" className="mb-4 flex flex-wrap items-end gap-3">
+          {secilenIl && <input type="hidden" name="il" value={secilenIl} />}
+          <label className="block">
+            <span className={SINIF_ETIKET}>Sırala</span>
+            <select
+              name="sirala"
+              defaultValue={siralama}
+              className="mt-1 rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+            >
+              {Object.entries(SIRALAMALAR).map(([deger, etiket]) => (
+                <option key={deger} value={deger}>
+                  {etiket}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={SINIF_IKINCIL_BUTON}>
+            Sırala
+          </button>
+        </form>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[42rem] border-collapse">
+          <table className="w-full min-w-[52rem] border-collapse">
             <thead>
               <tr className="border-b border-cizgi text-left">
+                {/*
+                  SIRA NUMARASI SÜTUNU (27 Ağustos 2026 · istek: "il sütununa
+                  1 2 3 4 gibi sayılar gelsin · plaka kodlarını kaldır").
+
+                  Numara EKRANDAKİ SIRANIN numarasıdır, ilin kimliği değil:
+                  sıralama değişince yeniden başlar. Plaka kodu kalktı çünkü o
+                  bir veritabanı anahtarı — aynı gerekçeyle 26 Ağustos'ta rol
+                  rozetinden de çıkarılmıştı. Kod hâlâ gerekiyorsa Excel
+                  çıktısının ilk sütunu.
+                */}
+                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET} w-12`}>#</th>
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İl</th>
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Koordinatör</th>
                 {/*
-                  ATANMA TARİHİ YERİNE ÖĞRETMEN SAYISI (11 Ağustos 2026 ·
-                  istek). Tarih, ekranın cevapladığı soruların hiçbirine
-                  girmiyordu: "hangi il boş", "nerede öğrenci danışmansız
-                  kalmış". İlin öğretmen sayısı ise atama kararının kendisine
-                  giriyor — koordinatör adayı o havuzdan çıkıyor.
-
-                  Tarih kaybolmadı: rol kayıtları geçmişli tutuluyor ve
-                  öğretmenin profilinde görev dönemleri yazıyor.
+                  BRANŞ KENDİ SÜTUNUNDA (27 Ağustos 2026 · istek: "isimle branş
+                  yan yana oraya yeni sütun ekleyip branşı ayır"). Adın yanına
+                  "· Bilişim Teknolojileri" diye yazıldığında ad sütunu satırdan
+                  satıra farklı uzunlukta oluyordu ve branşa göre sıralama da
+                  yapılamıyordu — göz, sütun olmayan bir alanı tarayamaz.
                 */}
-                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Öğretmen</th>
-                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Öğrenci</th>
+                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Branş</th>
+                {/*
+                  ÖĞRETMEN VE ÖĞRENCİ SÜTUNLARI KALKTI (27 Ağustos 2026 ·
+                  istekler: "öğretmen sütununu kaldıralım listeden" ·
+                  "öğrenciler sütununu da kaldıralım"). Sayılar Excel
+                  çıktısında ve Yönetim Paneli'nin il kırılımında duruyor.
+
+                  ATANMAMIŞ ÖĞRENCİ UYARISI KAYBOLMADI: öğrenci sütununun
+                  içinde bir rozetti, sayfanın başındaki kırmızı kutuda toplamı
+                  zaten yazıyor.
+                */}
+                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Telefon</th>
+                <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>E-posta</th>
                 <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İşlem</th>
               </tr>
             </thead>
             <tbody>
               {[...iller]
-                /*
-                 * SIRA ACİLİYETE GÖRE (15 Ağustos 2026).
-                 *
-                 * Önceki hâlde ölçüt tek bir soruydu: "koordinatörü var mı".
-                 * 81 ilin 28'i boş olduğu için listenin başı, aralarında hiçbir
-                 * fark olmayan 28 satırlık bir blok hâline geliyordu — ve o
-                 * bloğun çoğunda ÖĞRENCİ DE YOKTU. Koordinatörsüz ama kimsenin
-                 * bulunmadığı bir il bir iş değildir; kimse etkilenmiyor.
-                 * Asıl iş, öğrencisi olup koordinatörü olmayan ildedir ve o
-                 * satırlar alfabetik sırada 23 boş ilin arasında kayboluyordu.
-                 *
-                 * Üç kademe: (0) boş + öğrencisi var, (1) boş + kimse yok,
-                 * (2) atanmış. Kademe içinde alfabetik.
-                 */
                 .sort((a, b) => {
-                  const kademe = (il: (typeof iller)[number]) =>
-                    il.koordinator !== null ? 2 : il.ogrenciSayisi > 0 ? 0 : 1;
-                  const fark = kademe(a) - kademe(b);
-                  if (fark !== 0) return fark;
-                  return a.ilAdi.localeCompare(b.ilAdi, "tr");
+                  const tersMi = siralama.endsWith("-za");
+                  if (siralama.startsWith("brans")) {
+                    const fark = karsilastir(
+                      a.koordinator?.brans ?? null,
+                      b.koordinator?.brans ?? null,
+                      tersMi,
+                    );
+                    /* Aynı branşta ikincil ölçüt her zaman il adı: eşit
+                       satırların sırası her açılışta değişmesin. */
+                    if (fark !== 0) return fark;
+                    return a.ilAdi.localeCompare(b.ilAdi, "tr");
+                  }
+                  return karsilastir(a.ilAdi, b.ilAdi, tersMi);
                 })
-                .map((il) => {
+                .map((il, sira) => {
                   const bosMu = il.koordinator === null;
                   /*
                    * VURGU YALNIZCA İŞ ÇIKARAN SATIRDA. Eskiden 28 boş ilin
@@ -263,78 +360,123 @@ export default async function RolEnvanteriSayfasi({
                         acilMi ? "bg-uyari-zemin" : ""
                       }`}
                     >
+                      <td
+                        className={`${SINIF_HUCRE} tabular-nums text-metin-yumusak`}
+                      >
+                        {sira + 1}
+                      </td>
                       <td className={`${SINIF_HUCRE} font-medium text-metin`}>
                         {il.ilAdi}
-                        <span className="ml-1 text-metin-yumusak">
-                          ({il.ilKodu})
-                        </span>
                       </td>
+                      {/*
+                        BOŞ İLDE "ATANMADI" YAZMIYOR (27 Ağustos 2026 · istek:
+                        "koordinatör sütununda atanmadı kalksın sadece adı
+                        soyadı olsun o sütunda"). Boşluk zaten üç yerden
+                        okunuyor: satırın vurgusu, sayfa başındaki özet ve aynı
+                        satırın "Koordinatör ata" bağlantısı.
+                      */}
                       <td className={SINIF_HUCRE}>
                         {il.koordinator ? (
                           <span className="text-metin">
                             {il.koordinator.ad} {il.koordinator.soyad}
-                            {il.koordinator.brans && (
-                              <span className="text-metin-yumusak">
-                                {" "}
-                                · {il.koordinator.brans}
-                              </span>
-                            )}
                           </span>
                         ) : (
-                          /*
-                           * "Atanmadı" metni her boş ilde duruyor ama RENK
-                           * yalnızca acil olanda: kimsesiz bir ilin boşluğu
-                           * bilgi, öğrencili bir ilin boşluğu uyarı.
-                           */
-                          <span
-                            className={`inline-flex items-center gap-1.5 font-medium ${
-                              acilMi ? "text-uyari-metin" : "text-metin-yumusak"
-                            }`}
-                          >
-                            <UserX size={14} aria-hidden />
-                            Atanmadı
-                          </span>
+                          <span className="text-metin-yumusak">—</span>
                         )}
                       </td>
-                      {/*
-                        SIFIR "—" OLARAK YAZILIYOR. 81 satırın çoğunda iki
-                        sütun da sıfırdı; sayfa "0" ile dolunca gerçekten
-                        sayı olan hücreler görünmez oluyordu.
-                      */}
-                      <td
-                        className={`${SINIF_HUCRE} tabular-nums ${
-                          il.ogretmenSayisi > 0 ? "text-metin" : "text-metin-yumusak"
-                        }`}
-                      >
-                        {il.ogretmenSayisi > 0 ? il.ogretmenSayisi : "—"}
+                      <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
+                        {il.koordinator?.brans || "—"}
                       </td>
-                      <td
-                        className={`${SINIF_HUCRE} tabular-nums ${
-                          il.ogrenciSayisi > 0 ? "text-metin" : "text-metin-yumusak"
-                        }`}
-                      >
-                        {il.ogrenciSayisi > 0 ? il.ogrenciSayisi : "—"}
-                        {il.atanmamisOgrenciSayisi > 0 && (
-                          <span className="ml-1 font-medium text-hata-metin">
-                            ({il.atanmamisOgrenciSayisi} atanmamış)
-                          </span>
+                      {/*
+                        İLETİŞİM SÜTUNLARI TIKLANABİLİR: `tel:` ve `mailto:`
+                        bağlantıları numarayı elle kopyalamayı gereksiz kılıyor.
+                        Bilgi kişinin KENDİ girdiği alandan geliyor (bkz.
+                        rol-envanteri.ts); hiç girilmemişse hücre "—" basıyor.
+                      */}
+                      <td className={`${SINIF_HUCRE} tabular-nums`}>
+                        {il.koordinator?.telefon ? (
+                          <a
+                            href={`tel:${il.koordinator.telefon}`}
+                            className="text-vurgu-metin"
+                          >
+                            {il.koordinator.telefon}
+                          </a>
+                        ) : (
+                          <span className="text-metin-yumusak">—</span>
+                        )}
+                      </td>
+                      <td className={SINIF_HUCRE}>
+                        {il.koordinator?.eposta ? (
+                          <a
+                            href={`mailto:${il.koordinator.eposta}`}
+                            className="break-all text-vurgu-metin"
+                          >
+                            {il.koordinator.eposta}
+                          </a>
+                        ) : (
+                          <span className="text-metin-yumusak">—</span>
                         )}
                       </td>
                       <td className={SINIF_HUCRE}>
                         {il.koordinator ? (
-                          <form action={ilKoordinatoruKaldirEylemi}>
-                            <input
-                              type="hidden"
-                              name="kullaniciId"
-                              value={il.koordinator.kullaniciId}
-                            />
-                            <button
-                              type="submit"
-                              className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin"
-                            >
-                              Görevi kaldır
-                            </button>
-                          </form>
+                          <div className="space-y-2">
+                            <form action={ilKoordinatoruKaldirEylemi}>
+                              <input
+                                type="hidden"
+                                name="kullaniciId"
+                                value={il.koordinator.kullaniciId}
+                              />
+                              <button
+                                type="submit"
+                                className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin"
+                              >
+                                Görevi kaldır
+                              </button>
+                            </form>
+                            {/*
+                              AÇIKLAMAYI SONRADAN DÜZENLEME (27 Ağustos 2026 ·
+                              istek: "sonradan metni düzenleme de olsun").
+
+                              `<details>` içinde ve satır içinde: aynı desende
+                              öğrenci listesindeki "Mentörlüğü kaldır" formu var
+                              — her satırda açık duran bir metin kutusu, 81
+                              satırlık tabloyu okunamaz hâle getirirdi.
+
+                              ÖZETİN METNİ NOTUN VARLIĞINI SÖYLÜYOR: açmadan da
+                              "not var mı" görülebilsin.
+                            */}
+                            <details>
+                              <summary className="cursor-pointer text-xs font-medium text-vurgu-metin">
+                                {il.koordinator.aciklama
+                                  ? "Açıklamayı düzenle"
+                                  : "Açıklama ekle"}
+                              </summary>
+                              <form
+                                action={ilKoordinatorAciklamasiEylemi}
+                                className="mt-2 space-y-2"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="kullaniciId"
+                                  value={il.koordinator.kullaniciId}
+                                />
+                                <textarea
+                                  name="aciklama"
+                                  rows={3}
+                                  maxLength={ACIKLAMA_AZAMI}
+                                  defaultValue={il.koordinator.aciklama ?? ""}
+                                  placeholder="Atamanın gerekçesi, görev kapsamı ya da not"
+                                  className="w-full min-w-[16rem] rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+                                />
+                                <button
+                                  type="submit"
+                                  className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin"
+                                >
+                                  Kaydet
+                                </button>
+                              </form>
+                            </details>
+                          </div>
                         ) : (
                           <a
                             href={uygulamaYolu(
@@ -405,144 +547,162 @@ export default async function RolEnvanteriSayfasi({
                 giriş yapmış olması gerekir.
               </p>
             ) : (
-              <ul className="space-y-2">
-                {adaylar.map((aday) => (
-                  <li
-                    key={aday.kullaniciId}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-kart border border-cizgi px-4 py-3"
-                  >
-                    <div>
-                      <p className="font-medium text-metin">
-                        {aday.ad} {aday.soyad}
-                      </p>
-                      <p className="text-sm text-metin-yumusak">
-                        {[aday.brans, aday.kurumAdi].filter(Boolean).join(" · ") ||
-                          "—"}
-                      </p>
-                      {aday.danismanMi && (
-                        <p className="mt-1 text-sm font-medium text-uyari-metin">
-                          Danışman öğretmen ·{" "}
-                          {aday.danismanliktakiOgrenciSayisi} öğrenci yeniden
-                          dağıtılacak
-                        </p>
-                      )}
-                    </div>
-                    <form action={ilKoordinatoruAtaEylemi}>
-                      <input
-                        type="hidden"
-                        name="kullaniciId"
-                        value={aday.kullaniciId}
-                      />
-                      <input
-                        type="hidden"
-                        name="ilKodu"
-                        value={secilenIlBilgisi.ilKodu}
-                      />
-                      <button
-                        type="submit"
-                        disabled={secilenIlBilgisi.koordinator !== null}
-                        className={`${SINIF_BIRINCIL_BUTON} disabled:opacity-40`}
+              /*
+                ADAYLAR ARTIK ÜSTTEKİYLE AYNI BİÇİMDE BİR TABLO (27 Ağustos 2026 ·
+                istek: "listele butonuna basınca alta öğretmen listesi çıksın
+                aynı bu şekilde liste çıksın altta oradan seçsin o ildekileri,
+                iki ayrı listeye gerek yok").
+
+                Önce yan yana dizilmiş kutulardan (`<ul>`) oluşuyordu: aynı
+                ekranda iki farklı liste dili konuşuluyordu ve adayın branşı,
+                okulu, iletişim bilgisi tek satıra sıkışmış bir cümleydi.
+                Sütunlaşınca göz aşağı doğru tarayabiliyor ve üstteki ilin
+                tablosunda göreceği bilgilerin aynısını burada da aynı yerde
+                buluyor.
+              */
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[52rem] border-collapse">
+                  <thead>
+                    <tr className="border-b border-cizgi text-left">
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET} w-12`}>#</th>
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
+                        Ad soyad
+                      </th>
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Branş</th>
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Okul</th>
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
+                        Telefon
+                      </th>
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
+                        E-posta
+                      </th>
+                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adaylar.map((aday, sira) => (
+                      <tr
+                        key={aday.kullaniciId}
+                        className={`border-b border-cizgi last:border-0 ${
+                          aday.danismanMi ? "bg-uyari-zemin" : ""
+                        }`}
                       >
-                        Koordinatör yap
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
+                        <td
+                          className={`${SINIF_HUCRE} tabular-nums text-metin-yumusak`}
+                        >
+                          {sira + 1}
+                        </td>
+                        <td className={`${SINIF_HUCRE} font-medium text-metin`}>
+                          {aday.ad} {aday.soyad}
+                          {/*
+                            DANIŞMANLIK UYARISI ADIN ALTINDA KALIYOR: satırın
+                            sarı zemini "burada bir bedel var" diyor, sayı ise
+                            bedelin ne kadar olduğunu — kaç öğrencinin yeniden
+                            dağıtılacağını — söylüyor. Atama engellenmiyor
+                            (domain-rules.md Bölüm 3); yalnızca sonucu atamadan
+                            ÖNCE okunuyor.
+                          */}
+                          {aday.danismanMi && (
+                            <span className="mt-1 block text-xs font-medium text-uyari-metin">
+                              Danışman öğretmen ·{" "}
+                              {aday.danismanliktakiOgrenciSayisi} öğrenci yeniden
+                              dağıtılacak
+                            </span>
+                          )}
+                        </td>
+                        <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
+                          {aday.brans || "—"}
+                        </td>
+                        <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
+                          {aday.kurumAdi || "—"}
+                        </td>
+                        <td className={`${SINIF_HUCRE} tabular-nums`}>
+                          {aday.telefon ? (
+                            <a
+                              href={`tel:${aday.telefon}`}
+                              className="text-vurgu-metin"
+                            >
+                              {aday.telefon}
+                            </a>
+                          ) : (
+                            <span className="text-metin-yumusak">—</span>
+                          )}
+                        </td>
+                        <td className={SINIF_HUCRE}>
+                          {aday.eposta ? (
+                            <a
+                              href={`mailto:${aday.eposta}`}
+                              className="break-all text-vurgu-metin"
+                            >
+                              {aday.eposta}
+                            </a>
+                          ) : (
+                            <span className="text-metin-yumusak">—</span>
+                          )}
+                        </td>
+                        <td className={SINIF_HUCRE}>
+                          {/*
+                            AÇIKLAMA ATAMANIN KENDİ FORMUNDA (27 Ağustos 2026 ·
+                            istek: "koordinatör atarken açıklama yazılabilecek
+                            bir alan").
+
+                            Her adayın kendi formu var — tek ortak metin kutusu
+                            olsaydı hangi adaya yazıldığı belirsizleşirdi.
+                            Zorunlu değil: notu olmayan atama geçerli bir
+                            atamadır. Yazılmazsa sonradan da eklenebiliyor
+                            (üstteki tablo · "Açıklama ekle").
+                          */}
+                          <form
+                            action={ilKoordinatoruAtaEylemi}
+                            className="space-y-2"
+                          >
+                            <input
+                              type="hidden"
+                              name="kullaniciId"
+                              value={aday.kullaniciId}
+                            />
+                            <input
+                              type="hidden"
+                              name="ilKodu"
+                              value={secilenIlBilgisi.ilKodu}
+                            />
+                            <textarea
+                              name="aciklama"
+                              rows={2}
+                              maxLength={ACIKLAMA_AZAMI}
+                              placeholder="Açıklama (isteğe bağlı)"
+                              className="w-full min-w-[14rem] rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+                            />
+                            <button
+                              type="submit"
+                              disabled={secilenIlBilgisi.koordinator !== null}
+                              className={`${SINIF_BIRINCIL_BUTON} disabled:opacity-40`}
+                            >
+                              Koordinatör yap
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
       </Kart>
 
-      {/* --- Danışman öğretmen durumu --- */}
-      <Kart>
-        <KartBasligi
-          baslik="Danışman öğretmen durumu"
-          aciklama="Kurum bazında. Danışmansız okullar listenin başındadır; öğrencileri il koordinatörüne düşer."
-          Ikon={Building2}
-        />
+      {/*
+        "DANIŞMAN ÖĞRETMEN DURUMU" TABLOSU KALKTI (27 Ağustos 2026 · istek:
+        "bunu kaldıralım · Danışman öğretmen durumu").
 
-        {kurumlar.length === 0 ? (
-          <p className="text-metin-yumusak">
-            Sisteme kayıtlı öğrencisi veya danışmanı olan okul yok.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[46rem] border-collapse">
-              <thead>
-                <tr className="border-b border-cizgi text-left">
-                  <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Okul</th>
-                  <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İl / ilçe</th>
-                  <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Danışman</th>
-                  <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Öğrenci</th>
-                  <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
-                    Danışmansızsa öğrenciler kime bağlı
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {kurumlar.map((kurum) => {
-                  const danismansizMi = kurum.danismanSayisi === 0;
-                  const sahipsizMi = danismansizMi && !kurum.ilKoordinatoru;
-                  return (
-                    <tr
-                      key={kurum.kurumKodu}
-                      className={`border-b border-cizgi last:border-0 ${
-                        sahipsizMi
-                          ? "bg-hata-zemin"
-                          : danismansizMi
-                            ? "bg-uyari-zemin"
-                            : ""
-                      }`}
-                    >
-                      <td className={`${SINIF_HUCRE} font-medium text-metin`}>
-                        {kurum.kurumAdi}
-                      </td>
-                      <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                        {kurum.ilAdi} / {kurum.ilceAdi}
-                      </td>
-                      <td className={SINIF_HUCRE}>
-                        {danismansizMi ? (
-                          <span className="inline-flex items-center gap-1.5 font-medium text-uyari-metin">
-                            <UserX size={14} aria-hidden />
-                            Yok
-                          </span>
-                        ) : (
-                          <span className="text-metin">
-                            {kurum.danismanSayisi}
-                          </span>
-                        )}
-                      </td>
-                      <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                        {kurum.ogrenciSayisi}
-                      </td>
-                      <td className={SINIF_HUCRE}>
-                        {!danismansizMi ? (
-                          <span className="text-metin-yumusak">—</span>
-                        ) : kurum.ilKoordinatoru ? (
-                          <span className="text-metin">
-                            {kurum.ilKoordinatoru.ad}{" "}
-                            {kurum.ilKoordinatoru.soyad}
-                            <span className="text-metin-yumusak">
-                              {" "}
-                              · {kurum.ilAdi} il koordinatörü
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 font-medium text-hata-metin">
-                            <AlertTriangle size={14} aria-hidden />
-                            Kimseye — ilin koordinatörü de yok
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Kart>
+        Bu ekranın sorusu "hangi il koordinatörsüz"; okul kırılımı ikinci bir
+        soruydu ve kendi ekranı var: Okullar (/panel/okullar) aynı listeyi
+        süzgeçleriyle veriyor, danışmansız okullar ise Okul eksikleri raporunda
+        (bkz. lib/rapor/okul-eksikleri.ts). Sayfanın başındaki "N okul
+        danışmansız" özeti yerinde duruyor, yani bulgu kaybolmuyor —
+        kalkan yalnızca aynı ekrandaki ikinci tablo.
+      */}
     </div>
   );
 }

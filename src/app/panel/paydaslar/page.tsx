@@ -7,7 +7,6 @@ import {
   Phone,
   Plus,
   User,
-  UserPlus,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,16 +21,18 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { bekleyenBasvuruSayisi } from "@/lib/dis-kimlik/basvuru";
+import type { OnayDurumu } from "@/generated/prisma/enums";
+import { OnayDurumuRozeti } from "@/components/FaaliyetRozetleri";
 import {
+  PAYDAS_RET_GEREKCESI_ASGARI,
   PAYDAS_TURLERI,
   PAYDAS_TURU_ETIKETLERI,
 } from "@/lib/paydas/kurallar";
 import {
-  disBasvuruYonetebilirMi,
   koordinatorIlKodu,
   paydasEkleyebilirMi,
   paydasGorebilirMi,
+  paydasOnaylayabilirMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { paydasListeFiltresi } from "@/lib/yetki/kapsam";
@@ -40,7 +41,7 @@ import {
   type SorguParametreleri,
   sorguMetni,
 } from "../ogrenciler/filtreler";
-import { paydasEkleEylemi } from "./eylemler";
+import { paydasEkleEylemi, paydasOnayEylemi } from "./eylemler";
 import { paydasFiltreleriniCoz, paydasFiltresiVarMi } from "./filtreler";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,98 @@ const DURUM_MESAJLARI: Record<string, string> = {
   guncellendi: "Paydaş kaydı güncellendi.",
   pasif: "Paydaş pasife alındı; geçmiş etkinlik bağlantıları korunuyor.",
   aktif: "Paydaş yeniden aktifleştirildi.",
+  "paydas-onaylandi": "Paydaş kaydı onaylandı.",
+  "paydas-reddedildi": "Paydaş kaydı reddedildi; gerekçe kayda yazıldı.",
 };
+
+/**
+ * PAYDAŞ ONAY HÜCRESİ (27 Ağustos 2026 · istek: "proje yöneticisi bu listeden
+ * en son sütunda onay veya red versin").
+ *
+ * DURUM HERKESE, DÜĞME MERKEZE. Rozet bir bilgi: kaydı açan koordinatör
+ * kararın ne olduğunu görmeli ve reddedildiyse gerekçesini okumalı, yoksa neyi
+ * düzeltip yeniden sunacağını bilemez.
+ *
+ * RET GEREKÇESİ `details` İÇİNDE AÇILIYOR — aynı desende rol envanterindeki
+ * atama açıklaması ve öğrenci listesindeki "Mentörlüğü kaldır" formu var: her
+ * satırda açık duran bir metin kutusu tabloyu okunamaz hâle getirirdi.
+ *
+ * ONAYLI KAYITTA DA DÜĞME KALIR ("Reddet"): karar geri alınabilir olmalı —
+ * yanlışlıkla onaylanmış bir kurumu kayıttan düşürmenin başka yolu, kaydı
+ * pasife almaktır ve o başka bir şey söyler ("iş birliği bitti").
+ */
+function PaydasOnayHucresi({
+  paydas,
+  kararVerebilir,
+}: {
+  paydas: {
+    id: number;
+    onayDurumu: OnayDurumu;
+    retGerekcesi: string | null;
+  };
+  kararVerebilir: boolean;
+}) {
+  const rozet = <OnayDurumuRozeti durum={paydas.onayDurumu} />;
+
+  const gerekce =
+    paydas.onayDurumu === "REDDEDILDI" && paydas.retGerekcesi ? (
+      <p className="mt-1 text-xs text-hata-metin">{paydas.retGerekcesi}</p>
+    ) : null;
+
+  if (!kararVerebilir) {
+    return (
+      <div className="min-w-[8rem]">
+        {rozet}
+        {gerekce}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-[10rem] space-y-2">
+      {rozet}
+      {gerekce}
+      {paydas.onayDurumu !== "ONAYLANDI" && (
+        <form action={paydasOnayEylemi}>
+          <input type="hidden" name="id" value={paydas.id} />
+          <input type="hidden" name="karar" value="ONAYLA" />
+          <button
+            type="submit"
+            className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin transition hover:bg-zemin"
+          >
+            Onayla
+          </button>
+        </form>
+      )}
+      {paydas.onayDurumu !== "REDDEDILDI" && (
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-vurgu-metin">
+            Reddet
+          </summary>
+          <form action={paydasOnayEylemi} className="mt-2 space-y-2">
+            <input type="hidden" name="id" value={paydas.id} />
+            <input type="hidden" name="karar" value="REDDET" />
+            <textarea
+              name="gerekce"
+              rows={2}
+              required
+              minLength={PAYDAS_RET_GEREKCESI_ASGARI}
+              maxLength={500}
+              placeholder="Ret gerekçesi"
+              className="w-full rounded-md border border-cizgi bg-kart px-2 py-1 text-xs text-metin outline-none focus:border-vurgu"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-cizgi px-2.5 py-1 text-xs font-medium text-metin-yumusak transition hover:bg-zemin hover:text-hata-metin"
+            >
+              Reddet
+            </button>
+          </form>
+        </details>
+      )}
+    </div>
+  );
+}
 
 export default async function PaydaslarSayfasi({
   searchParams,
@@ -103,6 +195,8 @@ export default async function PaydaslarSayfasi({
    */
   const kayitAcabilir = paydasEkleyebilirMi(kullanici);
   const ekleyebilir = kayitAcabilir;
+  /* Onay kapısı eklemeden AYRI: kaydı koordinatör açar, kararı merkez verir. */
+  const onaylayabilir = paydasOnaylayabilirMi(kullanici);
 
   const [paydaslar, iller, turDagilimi] = await Promise.all([
     prisma.paydas.findMany({
@@ -117,8 +211,20 @@ export default async function PaydaslarSayfasi({
         telefon: true,
         isBirligiAlani: true,
         aktif: true,
-        il: { select: { ad: true } },
-        _count: { select: { faaliyetler: true } },
+        /*
+          KAYDEDEN VE ONUN İLİ (27 Ağustos 2026): "İl" sütunu artık paydaşın
+          kendi ilini değil, kaydı giren kişinin ilini yazıyor (bkz. tablo
+          başlığındaki not). Paydaşın kendi ili sorguda hâlâ kullanılıyor —
+          kapsam süzgeci ve ad tekilliği ona bakıyor — yalnızca ekrana
+          basılmıyor.
+        */
+        ekleyen: {
+          select: { ad: true, soyad: true, il: { select: { ad: true } } },
+        },
+        /* Merkezin kararı ve gerekçesi (27 Ağustos 2026); gerekçe kaydı açan
+           koordinatöre de gösteriliyor — neyi düzelteceğini bilmeli. */
+        onayDurumu: true,
+        retGerekcesi: true,
       },
     }),
     /*
@@ -141,12 +247,9 @@ export default async function PaydaslarSayfasi({
   ]);
 
   /*
-   * Dış giriş başvurularının bekleyen sayısı — girişin altında yazıyor.
-   * Yalnızca kuyruğun sahibine sorulur; başkasına sayı da göstermiyoruz.
+   * Dış giriş başvurusu SAYIMI KALKTI (27 Ağustos 2026): tek tüketicisi
+   * buradaki karttı ve kart silindi (aşağıdaki nota bakın).
    */
-  const bekleyenDisBasvuru = disBasvuruYonetebilirMi(kullanici)
-    ? await bekleyenBasvuruSayisi()
-    : 0;
 
   await erisimLoglaCoklu(
     paydaslar.map((paydas) => ({
@@ -175,7 +278,10 @@ export default async function PaydaslarSayfasi({
            zaten sol menüde duruyor. */
         geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
         baslik="Paydaşlar"
-        aciklama={`İş birliği yapılabilecek kurum ve kuruluşlar · ${kapsamAciklamasi} · ${paydaslar.length} kayıt`}
+        /* "yapılabilecek" → "yapılacak" (27 Ağustos 2026 · istek). Kayıt zaten
+           açılmış bir iş birliğini anlatıyor; kip, listeyi bir olasılıklar
+           listesi gibi okutuyordu. */
+        aciklama={`İş birliği yapılacak kurum ve kuruluşlar · ${kapsamAciklamasi} · ${paydaslar.length} kayıt`}
       />
 
       {durum && DURUM_MESAJLARI[durum] && (
@@ -184,38 +290,15 @@ export default async function PaydaslarSayfasi({
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       {/*
-        DIŞ GİRİŞ BAŞVURULARI BU EKRANIN İÇİNDE (11 Ağustos 2026 · istek: "dış
-        giriş başvuruları sayfası paydaşların içine gelecek"). Sekmesi kalktı,
-        sayfası ve yetkisi durduğu yerde.
+        DIŞ GİRİŞ BAŞVURULARI GİRİŞİ KALKTI (27 Ağustos 2026 · istek:
+        "silelim · Dış giriş başvuruları").
 
-        Buraya yakışıyor çünkü aynı işin iki ucu: bu ekran paydaş KURUMU
-        envantere alıyor, o ekran o kurumu temsil eden KİŞİYİ sisteme alıyor.
-
-        Bekleyen sayısı rakamla yazılıyor: girişin tıklanmaya değip değmediğini
-        söylemeyen bir bağlantı, kuyruğun sessizce birikmesi demek — koordinatör
-        panosunda aynı ders alınmıştı.
+        EKRAN DURUYOR (/panel/dis-basvurular) ve yetkisi değişmedi
+        (`disBasvuruYonetebilirMi`); kalkan yalnızca buradaki kapı. Sekmesi 11
+        Ağustos'ta kalkmış ve bu kart onun yerine konmuştu — yani ekranın şu an
+        menüde bir girişi yok, adresi bilinerek açılıyor. Kuyruğa yeniden bir
+        kapı gerekirse yeri Yönetim Paneli'nin kart listesidir.
       */}
-      {disBasvuruYonetebilirMi(kullanici) && (
-        <Link
-          href="/panel/dis-basvurular"
-          className="flex items-start gap-3 rounded-kart border border-cizgi bg-kart p-5 shadow-kart transition hover:border-vurgu hover:shadow-yuksek"
-        >
-          <UserPlus
-            size={20}
-            className="mt-0.5 shrink-0 text-vurgu-metin"
-            aria-hidden
-          />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-baslik">Dış giriş başvuruları</p>
-            <p className="mt-0.5 text-sm text-metin-yumusak">
-              Mezun, paydaş temsilcisi ve mentörlerin sisteme giriş başvuruları
-              {bekleyenDisBasvuru > 0
-                ? ` · ${bekleyenDisBasvuru} başvuru kararınızı bekliyor`
-                : " · bekleyen başvuru yok"}
-            </p>
-          </div>
-        </Link>
-      )}
 
       {turDagilimi.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -294,17 +377,16 @@ export default async function PaydaslarSayfasi({
           </label>
         </div>
 
+        {/*
+          "PASİF KAYITLAR DA GÖRÜNSÜN" KUTUSU KALKTI (27 Ağustos 2026 · istek:
+          "kaldır · Pasif kayıtlar da görünsün").
+
+          KURAL KATMANI DURUYOR (`pasifleriDeGoster`): pasife alma işlemi
+          yerinde ve satır, pasifken listede "pasif" rozetiyle görünmeye devam
+          ediyor — kutu işaretlenmese de kayıt kaybolmuyor. Kalkan yalnızca
+          ekrandaki kutu.
+        */}
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-metin">
-            <input
-              type="checkbox"
-              name="pasif"
-              value="1"
-              defaultChecked={filtreler.pasifleriDeGoster}
-              className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
-            />
-            Pasif kayıtlar da görünsün
-          </label>
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             Filtrele
           </button>
@@ -329,10 +411,52 @@ export default async function PaydaslarSayfasi({
               <tr>
                 <th className="px-4 py-3 font-medium">Kurum</th>
                 <th className="px-4 py-3 font-medium">Tür</th>
+                {/*
+                  İL SÜTUNU ARTIK KAYDEDENİN İLİNİ YAZIYOR (27 Ağustos 2026 ·
+                  istek: "il sütunu paydaşı kim kaydettiyse sisteme onun ili
+                  görünsün").
+
+                  DİKKAT — KAPSAM SÜZGECİ HÂLÂ PAYDAŞIN KENDİ İLİNE BAKIYOR
+                  (`paydas.ilKodu`, koordinatörün listesi ve ad tekilliği o
+                  sütun üzerinden kuruluyor). İkisi ayrışabilir: Manisa
+                  koordinatörünün kaydettiği İstanbul merkezli bir üniversite
+                  listede "Manisa" yazar. İstenen okuma bu — kaydın sahibi,
+                  kurumun adresi değil.
+                */}
                 <th className="px-4 py-3 font-medium">İl</th>
+                {/*
+                  KAYDEDEN (27 Ağustos 2026 · istek: "paydaş kaydını kimin
+                  girdiği görülsün"). Alan zaten vardı (`ekleyenKullaniciId`) ve
+                  yetki kararında kullanılıyordu (bkz. paydasYonetebilirMi);
+                  ekranda görünmüyordu.
+                */}
+                <th className="px-4 py-3 font-medium">Kaydeden</th>
+                {/*
+                  İRTİBAT KİŞİSİ KENDİ SÜTUNUNDA (27 Ağustos 2026 · istek:
+                  "listeye paydaştaki yetkili kişisi eklensin"). İletişim
+                  sütununun içinde, telefon ve e-postanın üstünde küçük bir
+                  satırdı; kurumun santralı yerine gerçek muhatabı arayan kişi
+                  onu üç satırlık bir bloğun içinden okumak zorundaydı.
+                */}
+                <th className="px-4 py-3 font-medium">İrtibat kişisi</th>
                 <th className="px-4 py-3 font-medium">İletişim</th>
+                {/*
+                  "ETKİNLİK" SÜTUNU SİLİNDİ (aynı istek): paydaşın kaç
+                  etkinliğe bağlandığını sayıyordu. Sayı paydaşın kendi
+                  sayfasında duruyor ve listenin sorusu "kiminle iş birliği
+                  var", "kaç kez kullanıldı" değil.
+                */}
                 <th className="px-4 py-3 font-medium">İş birliği alanı</th>
-                <th className="px-4 py-3 font-medium">Etkinlik</th>
+                {/*
+                  ONAY EN SON SÜTUNDA (27 Ağustos 2026 · istek: "proje
+                  yöneticisi bu listeden en son sütunda onay veya red versin").
+
+                  DURUM HERKESE, DÜĞME MERKEZE: kaydı açan koordinatör kararın
+                  ne olduğunu görmeli — reddedildiyse gerekçesiyle birlikte,
+                  yoksa neyi düzelteceğini bilemez. Karar yetkisi ise yalnızca
+                  merkezde (bkz. izinler.ts · paydasOnaylayabilirMi).
+                */}
+                <th className="px-4 py-3 font-medium">Onay</th>
               </tr>
             </thead>
             <tbody>
@@ -358,16 +482,23 @@ export default async function PaydaslarSayfasi({
                     {PAYDAS_TURU_ETIKETLERI[paydas.tur]}
                   </td>
                   <td className="px-4 py-3 text-metin-yumusak">
-                    {paydas.il.ad}
+                    {paydas.ekleyen.il?.ad ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-metin-yumusak">
+                    {paydas.ekleyen.ad} {paydas.ekleyen.soyad}
+                  </td>
+                  <td className="px-4 py-3 text-metin-yumusak">
+                    {paydas.yetkiliKisi ? (
+                      <span className="flex items-center gap-1.5">
+                        <User size={13} aria-hidden />
+                        {paydas.yetkiliKisi}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-3 text-metin-yumusak">
                     <div className="space-y-0.5">
-                      {paydas.yetkiliKisi && (
-                        <span className="flex items-center gap-1.5">
-                          <User size={13} aria-hidden />
-                          {paydas.yetkiliKisi}
-                        </span>
-                      )}
                       {paydas.telefon && (
                         <span className="flex items-center gap-1.5">
                           <Phone size={13} aria-hidden />
@@ -385,8 +516,11 @@ export default async function PaydaslarSayfasi({
                   <td className="max-w-xs px-4 py-3 text-metin-yumusak">
                     <span className="line-clamp-2">{paydas.isBirligiAlani}</span>
                   </td>
-                  <td className="px-4 py-3 text-metin-yumusak">
-                    {paydas._count.faaliyetler}
+                  <td className="px-4 py-3">
+                    <PaydasOnayHucresi
+                      paydas={paydas}
+                      kararVerebilir={onaylayabilir}
+                    />
                   </td>
                 </tr>
               ))}
@@ -460,7 +594,12 @@ export default async function PaydaslarSayfasi({
               </label>
 
               <label className="block">
-                <span className={SINIF_ETIKET}>Yetkili kişi</span>
+                {/* "Yetkili kişi" → "İrtibat kişisi" (27 Ağustos 2026 · istek:
+    "yeni paydaş oluştururken yetkili kişi bu alan irtibat kişisi
+    olsun"). Alan adı şemada `yetkiliKisi` kaldı; değişen etiket.
+    "Yetkili", kurumu temsil etme yetkisi gibi okunuyordu — oysa
+    istenen şey santral yerine aranacak gerçek muhatap. */}
+                <span className={SINIF_ETIKET}>İrtibat kişisi</span>
                 <input
                   type="text"
                   name="yetkiliKisi"
@@ -515,7 +654,7 @@ export default async function PaydaslarSayfasi({
             </div>
 
             <p className="text-sm text-metin-yumusak">
-              Yetkili kişi, e-posta ve telefondan en az birini girin.
+              İrtibat kişisi, e-posta ve telefondan en az birini girin.
             </p>
 
             <button type="submit" className={SINIF_BIRINCIL_BUTON}>

@@ -48,6 +48,7 @@ import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciListeFiltresi as ogrenciListesiFiltresi } from "@/lib/yetki/kapsam";
 import {
   danismanMi,
+  ogrenciMentorluguneKararVerebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
   ogrenciEnvanteriGorebilirMi,
@@ -439,9 +440,12 @@ function DanismanlikHucresi({
  * öğrencilerinden mentör ise o da görünsün … eğer öğrenci başvurduysa buradan
  * onaylasın, mentör yap / mentörlüğü kaldır butonu olsun").
  *
- * DURUM HERKESE, DÜĞME YALNIZCA DANIŞMANINA. Rozet bir bilgidir; koordinatör
- * ve merkez de ilindeki mentörleri listeden görebilmeli. Karar ise öğrenciyi
- * tanıyan kişinin: `kendiOgrencisi` false ise hücre yalnızca durumu yazıyor.
+ * DURUM HERKESE, DÜĞME KARAR SAHİBİNE. Rozet bir bilgidir; merkez de ilindeki
+ * mentörleri listeden görebilmeli. Karar öğrenciyi tanıyana ait: danışmanı ve
+ * 27 Ağustos 2026'dan beri ilinin koordinatörü (istek: "il koordinatörü de
+ * öğrencinin mentörlük başvurusunu onaylayabilsin"). Kimin karar verdiğini bu
+ * bileşen değil izinler.ts · ogrenciMentorluguneKararVerebilirMi söylüyor;
+ * `kararVerebilir` false ise hücre yalnızca durumu yazıyor.
  *
  * ROZET RENKLERİ ORTAK SÖZLÜKTEN (MENTORLUK_DURUM_SINIFLARI): aynı durum,
  * panodaki "Mentörlüğüm" kartında ve merkezin onay kuyruğunda da aynı renkte
@@ -452,7 +456,7 @@ function DanismanlikHucresi({
  * çalışma grubu ve konu seçimiyle kurulan bir kayıttır (bkz.
  * mentorlukKabulEdilirMi); danışmanın boş bir kayıt açması, havuzda uzmanlık
  * satırı boş bir mentör kartı demek olurdu. Gerekçesi kural katmanında
- * (danismanMentorlukKarariGecerliMi) ve eylem oradan da reddediyor — hücre
+ * (ogrenciMentorlukKarariGecerliMi) ve eylem oradan da reddediyor — hücre
  * yalnızca teklif etmiyor.
  *
  * KALDIRMA GEREKÇE İSTER ve `details` içinde açılıyor — aynı tablodaki
@@ -462,12 +466,12 @@ function DanismanlikHucresi({
 function MentorlukHucresi({
   ogrenciId,
   durum,
-  kendiOgrencisi,
+  kararVerebilir,
   donusYolu,
 }: {
   ogrenciId: number;
   durum: MentorlukDurumu | null;
-  kendiOgrencisi: boolean;
+  kararVerebilir: boolean;
   donusYolu: string;
 }) {
   const rozet =
@@ -479,7 +483,7 @@ function MentorlukHucresi({
       </span>
     );
 
-  if (!kendiOgrencisi) {
+  if (!kararVerebilir) {
     return rozet ?? <span className="text-metin-yumusak">—</span>;
   }
 
@@ -851,9 +855,10 @@ export default async function OgrencilerSayfasi({
   const yerFiltresiVar = iller.length > 0 || okullar.length > 0;
 
   /*
-   * YOL İZİ — bu ekranın panoya dönüş yolu (12 Ağustos 2026 · istek: "ilçeden
-   * öğrencilere geçince navigasyon kayboluyor, tarayıcının geri düğmesine
-   * basmak gerekiyor"). Ayrıntı için bkz. yonetim-kurallari.ts · yonetimYolIzi.
+   * YOL İZİ — kırılımdan gelindiğinde basılır (12 Ağustos 2026 · istek:
+   * "ilçeden öğrencilere geçince navigasyon kayboluyor, tarayıcının geri
+   * düğmesine basmak gerekiyor"). Düz listede `null` döner ve şerit hiç
+   * çıkmaz; ne zaman çıktığı için bkz. app/panel/envanter-yolu.ts.
    */
   const yolIziAdimlari = await envanterYolIzi(
     kullanici,
@@ -1284,6 +1289,35 @@ export default async function OgrencilerSayfasi({
             </select>
           </label>
 
+          {/*
+            GÖREV/ROL SÜZGECİ (27 Ağustos 2026 · istek: "üstteki filtrelere yeni
+            bir rol alanı ilçe temsilcisi il temsilcisi okul temsilcisi mentör
+            şeklinde açılan liste filtresi olsun").
+
+            Dördün üçü bir GÖREV kaydı, "Mentör" ise onaylanmış bir mentörlük —
+            ayrımın gerekçesi kapsam katmanında (kapsam.ts · gorevRolu). Tek
+            listede durmaları ekranın sorusunun ortak olmasından: "bu öğrenci ne
+            yapıyor".
+
+            Çalışma grubu temsilciliği burada YOK: kapsamı bir yer değil bir
+            grup ve bir alt satırdaki "Çalışma grubu" süzgeci zaten o ekseni
+            veriyor.
+          */}
+          <label className="block">
+            <span className={SINIF_ETIKET}>Görev / rol</span>
+            <select
+              name="gorev"
+              defaultValue={filtreler.gorevRolu ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm öğrenciler</option>
+              <option value="IL_TEMSILCISI">İl temsilcisi</option>
+              <option value="ILCE_TEMSILCISI">İlçe temsilcisi</option>
+              <option value="OKUL_TEMSILCISI">Okul temsilcisi</option>
+              <option value="MENTOR">Mentör</option>
+            </select>
+          </label>
+
           <label className="block">
             <span className={SINIF_ETIKET}>Çalışma grubu</span>
             <select
@@ -1439,8 +1473,32 @@ export default async function OgrencilerSayfasi({
                 <th className="px-4 py-3 font-medium">Sınıf</th>
                 <th className="px-4 py-3 font-medium">Okul</th>
                 <th className="px-4 py-3 font-medium">İl / İlçe</th>
-                <th className="px-4 py-3 font-medium">Roller</th>
-                <th className="px-4 py-3 font-medium">Çalışma grupları</th>
+                {/*
+                  "ROLLER" SÜTUNU KALKTI (27 Ağustos 2026 · istek: "bu sütunu
+                  kaldır · Roller").
+
+                  Sütun görev rozetlerini basıyordu (İl/İlçe/Okul Temsilcisi,
+                  Çalışma Grubu Yöneticisi) ve üçü zaten kendi sütunlarında
+                  atanıp gösteriliyor — aynı bilgi satırda iki kez duruyordu.
+                  Öğrencinin "OGRENCI" rolü ise herkeste aynı, bir ayrım
+                  taşımıyor.
+                */}
+                {/*
+                  BAŞLIK "ÇALIŞMA GRUBU TEMSİLCİSİ" (27 Ağustos 2026 · istek:
+                  "bu sütunun adı Çalışma grupları · Çalışma grubu temsilcisi
+                  olsun").
+
+                  ÜYELİK LİSTESİ DE KALKTI: sütun eskiden önce öğrencinin üye
+                  olduğu grupları ("Oyun Tasarımı, Siber Güvenlik") yazıyor,
+                  altına temsilcilik kutusunu koyuyordu. Yeni ad yalnızca
+                  ikincisini vaat ediyor ve istek de "nerenin temsilcisi olduğu
+                  görünsün, detaya gerek yok" diyor. Üyelikler kaybolmadı:
+                  öğrencinin kendi sayfasında duruyor ve üstteki "Çalışma
+                  grubu" süzgeci hâlâ gruba göre listeyi daraltıyor.
+                */}
+                <th className="px-4 py-3 font-medium">
+                  Çalışma grubu temsilcisi
+                </th>
                 {/*
                   MENTÖRLÜK, ÇALIŞMA GRUPLARININ HEMEN YANINDA (26 Ağustos 2026 ·
                   istek: "Çalışma grupları bu sutunun yanına mentörlük durumu
@@ -1506,34 +1564,6 @@ export default async function OgrencilerSayfasi({
                       {ogrenci.ilce?.ad ? ` / ${ogrenci.ilce.ad}` : ""}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {gorevler.length === 0 ? (
-                        "—"
-                      ) : (
-                        <span className="flex flex-wrap gap-1.5">
-                          {gorevler.map((gorev) => (
-                            <span
-                              key={gorev.rolKodu}
-                              className="rounded-full bg-rol-ogrenci-zemin px-2 py-0.5 text-xs text-rol-ogrenci-metin"
-                            >
-                              {gorevRolAdi(gorev)}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-metin-yumusak">
-                      {ogrenci.calismaGruplari.length === 0
-                        ? "—"
-                        : ogrenci.calismaGruplari
-                            .map((secim) => secim.calismaGrubu.ad)
-                            .join(", ")}
-                      {/*
-                        TEMSİLCİLİK ÜYELİKLERİN ALTINDA: üstteki satır "hangi
-                        gruplarda çalışıyor", alttaki "hangi grubun temsilcisi".
-                        İkincisi birincisinin bir alt kümesi değil — üye
-                        olmadığı bir grubun temsilcisi de olabilir — ama aynı
-                        soruyu tamamlıyor.
-                      */}
                       <CalismaGrubuTemsilciligi
                         ogrenci={{ ...ogrenci, gorevRolleri: gorevler }}
                         kullanici={kullanici}
@@ -1545,11 +1575,12 @@ export default async function OgrencilerSayfasi({
                       <MentorlukHucresi
                         ogrenciId={ogrenci.id}
                         durum={ogrenci.mentorluk?.durum ?? null}
-                        kendiOgrencisi={
-                          danismanlikYonetebilir &&
+                        kararVerebilir={ogrenciMentorluguneKararVerebilirMi(
+                          kullanici,
+                          ogrenci,
                           ogrenci.ogrenciAtamalari[0]?.danismanKullaniciId ===
-                            kullanici.id
-                        }
+                            kullanici.id,
+                        )}
                         donusYolu={donusYolu}
                       />
                     </td>

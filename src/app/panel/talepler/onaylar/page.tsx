@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GorevBasvuruKuyrugu } from "@/components/GorevBasvuruKuyrugu";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
-import { UrunOnayKuyrugu } from "@/components/UrunOnayKuyrugu";
 import {
   BilgiKutusu,
   Kart,
@@ -26,7 +25,6 @@ import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import {
   gencTekGoreviYonetebilirMi,
   panoIlaniOnaylayabilirMi,
-  urunMarketOnayiVerebilirMi,
 } from "@/lib/yetki/izinler";
 import { IlanDuzenlemeFormu } from "../formlar";
 import { talepKararEylemi, talepSilEylemi } from "../eylemler";
@@ -62,8 +60,6 @@ const DURUM_MESAJLARI: Record<string, string> = {
    * GençTek görev kararı da bu ekrandan verilebiliyor (26 Ağustos 2026);
    * sonucu okunacak yer de burası olmalı.
    */
-  "urun-karari":
-    "Ürün karara bağlandı; sahibine bildirim gönderildi.",
   "karar-verildi":
     "Görev başvurusu karara bağlandı; başvurana bildirim gönderildi.",
 };
@@ -196,12 +192,18 @@ export default async function PanoIlanOnaylariSayfasi({
   const { durum, hata } = await searchParams;
   const simdi = new Date();
 
-  const [
-    bekleyenler,
-    yayindakiler,
-    bekleyenGorevBasvurulari,
-    bekleyenUrunler,
-  ] =
+  /*
+   * ÜRÜN ONAY KUYRUĞU BU EKRANDAN KALKTI (27 Ağustos 2026 · istek: "öğrenci
+   * market bölümünden bir ürün girdiğinde onun onayı proje yöneticisinin market
+   * sayfasına gitsin").
+   *
+   * 26 Ağustos'ta buraya konmuştu ve gerekçesi "kuyruk merkezin öbür onay
+   * işlerinin yanında dursun" idi. Karşı gerekçe daha güçlü çıktı: karar
+   * VİTRİNİN kendisine bakılarak veriliyor — "bu ürün ülke geneline açık bir
+   * vitrinde durmalı mı" sorusunun cevabı, vitrinin nasıl göründüğünü gören
+   * kişide. Kuyruk artık /panel/urunler ekranının başında.
+   */
+  const [bekleyenler, yayindakiler, bekleyenGorevBasvurulari] =
     await Promise.all([
       prisma.talep.findMany({
         where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
@@ -260,38 +262,10 @@ export default async function PanoIlanOnaylariSayfasi({
             },
           })
         : Promise.resolve([]),
-      /*
-       * MARKETTE YAYIM BEKLEYEN ÜRÜNLER (26 Ağustos 2026). Vitrin onaydan
-       * geçmiyordu: paylaş işaretini koyan herkesin ürünü ülke geneline açık
-       * markete çıkıyordu. Kuyruk merkezin öbür onay işlerinin yanında.
-       */
-      urunMarketOnayiVerebilirMi(kullanici)
-        ? prisma.kullaniciKazanim.findMany({
-            where: { tip: "URUN", marketOnayDurumu: "BEKLIYOR" },
-            orderBy: { olusturmaTarihi: "asc" },
-            select: {
-              id: true,
-              baslik: true,
-              aciklama: true,
-              gelistirenEkip: true,
-              olusturmaTarihi: true,
-              kullanici: {
-                select: {
-                  ad: true,
-                  soyad: true,
-                  kurum: { select: { ad: true } },
-                  il: { select: { ad: true } },
-                },
-              },
-            },
-          })
-        : Promise.resolve([]),
     ]);
 
   const bekleyenToplam =
-    bekleyenler.length +
-    bekleyenGorevBasvurulari.length +
-    bekleyenUrunler.length;
+    bekleyenler.length + bekleyenGorevBasvurulari.length;
 
   return (
     <div className="space-y-6">
@@ -311,9 +285,6 @@ export default async function PanoIlanOnaylariSayfasi({
                   : null,
                 bekleyenGorevBasvurulari.length > 0
                   ? `${bekleyenGorevBasvurulari.length} görev başvurusu`
-                  : null,
-                bekleyenUrunler.length > 0
-                  ? `${bekleyenUrunler.length} ürün`
                   : null,
               ]
                 .filter(Boolean)
@@ -352,10 +323,6 @@ export default async function PanoIlanOnaylariSayfasi({
         üzerinde çalışılan bir metin; görev başvurusu ise tek hamlede biten
         bir karar. Kısa iş üstte duruyor.
       */}
-      {urunMarketOnayiVerebilirMi(kullanici) && (
-        <UrunOnayKuyrugu urunler={bekleyenUrunler} />
-      )}
-
       {gencTekGoreviYonetebilirMi(kullanici) && (
         <GorevBasvuruKuyrugu
           basvurular={bekleyenGorevBasvurulari}

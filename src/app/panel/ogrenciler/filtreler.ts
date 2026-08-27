@@ -1,4 +1,7 @@
-import type { OgrenciListeFiltreleri } from "@/lib/yetki/kapsam";
+import {
+  ogrenciGorevSuzgeciGecerliMi,
+  type OgrenciListeFiltreleri,
+} from "@/lib/yetki/kapsam";
 
 /**
  * Öğrenci listesi filtrelerinin adres çubuğundan okunması.
@@ -54,6 +57,10 @@ export function ogrenciFiltreleriniCoz(
     ara: tekil(parametreler.ara),
     danismansizMi: tekil(parametreler.danismansiz) === "1",
     kazanimGrubu: tekil(parametreler.kazanim),
+    gorevRolu: (() => {
+      const deger = tekil(parametreler.gorev);
+      return deger && ogrenciGorevSuzgeciGecerliMi(deger) ? deger : null;
+    })(),
   };
 }
 

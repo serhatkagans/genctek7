@@ -8,22 +8,40 @@ import type { PaydasTuru } from "@/generated/prisma/enums";
  */
 
 /*
- * Sıra ekrandaki açılır listenin sırasıdır ve rastgele değildir: GençTek
- * protokollü üniversite ile mezun paydaşlar en üstte, çünkü ilin en sık
- * eklediği ve aradığı kayıtlar bunlar.
+ * Sıra ekrandaki açılır listenin sırasıdır ve rastgele değildir: mezun
+ * paydaşlar en üstte, çünkü ilin en sık eklediği ve aradığı kayıtlar bunlar.
+ *
+ * "GENÇTEK ÜNİVERSİTESİ" VE "MESLEK KURULUŞU" LİSTEDEN ÇIKTI (27 Ağustos 2026 ·
+ * istek: "paydaş türü gençtek üniversitesi kalkacak, meslek kuruluşu
+ * kalkacak").
+ *
+ * GençTek üniversitesi, `UNIVERSITE`den yalnızca "protokolü var mı" sorusuyla
+ * ayrılıyordu; protokol bir tür değil bir ilişki durumudur ve iş birliği alanı
+ * alanında zaten yazılıyor. Meslek kuruluşu ise pratikte STK ile aynı kapıya
+ * çıkıyordu.
+ *
+ * ENUM DEĞERLERİ SİLİNMEDİ ve etiketleri aşağıda DURUYOR: veritabanında bu
+ * türde açılmış eski kayıtlar olabilir ve etiket kalkarsa o satırlar ekranda
+ * boş tür gösterirdi. Kalkan yalnızca yeni kayıt açarken ve süzgeçte teklif
+ * edilen seçenekler — `paydasTuruMu` da bu listeye baktığı için eski türle
+ * yeni kayıt AÇILAMAZ.
  */
 export const PAYDAS_TURLERI: PaydasTuru[] = [
-  "GENCTEK_UNIVERSITE",
   "MEZUN",
   "UNIVERSITE",
   "OZEL_SEKTOR",
   "STK",
   "KAMU_KURUMU",
-  "MESLEK_KURULUSU",
   "BELEDIYE",
   "DIGER",
 ];
 
+/*
+ * ETİKET SÖZLÜĞÜ TÜM ENUM DEĞERLERİNİ KAPSAR — `PAYDAS_TURLERI`den daha
+ * geniştir. Listeden çıkarılan iki tür (GENCTEK_UNIVERSITE, MESLEK_KURULUSU)
+ * burada kalmalı: eski kayıtlar hâlâ o değeri taşıyor olabilir ve `Record`
+ * eksik kalırsa ekran `undefined` basar.
+ */
 export const PAYDAS_TURU_ETIKETLERI: Record<PaydasTuru, string> = {
   GENCTEK_UNIVERSITE: "GençTek üniversitesi",
   MEZUN: "Mezun",
@@ -35,6 +53,9 @@ export const PAYDAS_TURU_ETIKETLERI: Record<PaydasTuru, string> = {
   BELEDIYE: "Belediye",
   DIGER: "Diğer",
 };
+
+/** Ret gerekçesinin asgari uzunluğu; ekrandaki `minLength` ile aynı sayı. */
+export const PAYDAS_RET_GEREKCESI_ASGARI = 10;
 
 export function paydasTuruMu(deger: string): deger is PaydasTuru {
   return (PAYDAS_TURLERI as string[]).includes(deger);

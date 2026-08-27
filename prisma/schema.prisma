@@ -479,6 +479,7 @@ model Kullanici {
   gizledigiMesajlar           Mesaj[]          @relation("MesajGizleyen")
   yazismaOkumalari            YazismaOkuma[]
   urunMarketKararlari         KullaniciKazanim[] @relation("UrunMarketKararVeren")
+  paydasOnaylari              Paydas[]           @relation("PaydasOnaylayan")
 
   ogrenciAtamalari  DanismanAtama[] @relation("AtamaOgrencisi")
   danismanAtamalari DanismanAtama[] @relation("AtamaDanismani")
@@ -577,6 +578,18 @@ model KullaniciRol {
   baslangicTarihi   DateTime  @default(now()) @map("baslangic_tarihi") @db.Timestamptz(6)
   bitisTarihi       DateTime? @map("bitis_tarihi") @db.Timestamptz(6)
   atayanKullaniciId Int?      @map("atayan_kullanici_id")
+  /// Atamanın serbest metin açıklaması (27 Ağustos 2026 · istek: "koordinatör
+  /// atarken açıklama yazılabilecek bir alan, sonradan metni düzenleme de
+  /// olsun").
+  ///
+  /// GÖREV KAYDININ KENDİSİNDE, kişinin profilinde değil: aynı öğretmen iki
+  /// ayrı dönemde iki ayrı ile atanabiliyor ve not "bu atama neden yapıldı"
+  /// sorusunun cevabı. Profilde tutulsaydı ikinci atama birincinin notunu
+  /// silerdi.
+  ///
+  /// Görev kaldırıldığında da DURUR: kayıt geçmişli tutuluyor (bitisTarihi ile
+  /// kapanıyor, silinmiyor) ve notu okunmaya devam ediyor.
+  aciklama          String?   @db.Text
 
   kullanici Kullanici  @relation("RolSahibi", fields: [kullaniciId], references: [id])
   atayan    Kullanici? @relation("RolAtayan", fields: [atayanKullaniciId], references: [id])
@@ -1731,11 +1744,29 @@ model Paydas {
   notlar             String?    @db.Text
   aktif              Boolean    @default(true)
   ekleyenKullaniciId Int        @map("ekleyen_kullanici_id")
+  /// MERKEZİN ONAYI (27 Ağustos 2026 · istek: "proje yöneticisi bu listeden en
+  /// son sütunda onay veya red versin").
+  ///
+  /// Kaydı il koordinatörü açıyor, kararı merkez veriyor — etkinlik onayıyla
+  /// aynı desen ve aynı enum (`OnayDurumu`). Ayrı bir enum açılsaydı iki ekran
+  /// aynı üç durumu iki farklı sözlükle yazardı.
+  ///
+  /// `ONAY_GEREKMEZ` bu alanda KULLANILMAZ: her paydaş kaydı karara tabi.
+  /// Varsayılan `BEKLIYOR`; merkezin kendi açtığı kayıt da kuyruğa düşer ve
+  /// kendi onayını kendisi verir — "kimse kendi işini onaylamaz" kuralı burada
+  /// aranmıyor, çünkü kuyruğun üstünde başka bir merci yok.
+  onayDurumu         OnayDurumu @default(BEKLIYOR) @map("onay_durumu")
+  onayVerenKullaniciId Int?     @map("onay_veren_kullanici_id")
+  onayTarihi         DateTime?  @map("onay_tarihi") @db.Timestamptz(6)
+  /// Ret gerekçesi; kaydı açan koordinatör neyi düzeltip yeniden sunacağını
+  /// bilmeli (emsali: faaliyet ve mentörlük ret gerekçeleri).
+  retGerekcesi       String?    @map("ret_gerekcesi") @db.Text
   olusturmaTarihi    DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
   guncellemeTarihi   DateTime   @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
 
-  il      Il        @relation(fields: [ilKodu], references: [ilKodu])
-  ekleyen Kullanici @relation("PaydasEkleyen", fields: [ekleyenKullaniciId], references: [id])
+  il        Il         @relation(fields: [ilKodu], references: [ilKodu])
+  ekleyen   Kullanici  @relation("PaydasEkleyen", fields: [ekleyenKullaniciId], references: [id])
+  onayVeren Kullanici? @relation("PaydasOnaylayan", fields: [onayVerenKullaniciId], references: [id])
 
   faaliyetler         FaaliyetPaydas[]
   /// Bu kurumu temsilen sisteme giriş isteyen kişiler. Aynı kurumdan birden
@@ -1744,6 +1775,8 @@ model Paydas {
 
   @@index([ilKodu, aktif])
   @@index([tur])
+  /// Merkezin kuyruğu: bekleyen kayıtlar tek sorguda.
+  @@index([onayDurumu])
   @@map("paydas")
 }
 

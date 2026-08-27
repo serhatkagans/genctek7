@@ -113,3 +113,40 @@ describe("okulKosulu · ekip sekmeleri (Aşama 5)", () => {
     expect(kosul.ekipler).toEqual({ none: { aktif: true } });
   });
 });
+
+/**
+ * Danışman süzgeci (27 Ağustos 2026 · istek: "filtreye danışmanlı okullar
+ * danışmansız okullar sütunu ekle").
+ *
+ * Koşulun `some`/`none` ile kurulması sınanıyor: sayıya bakıp sonradan süzmek,
+ * sayfalamadan önce bütün okulları çekmek demekti.
+ */
+describe("okulKosulu · danışman durumu", () => {
+  it("varsayılanda okulları danışmana göre daraltmaz", () => {
+    expect(okulKosulu(suzgec()).kullanicilar).toBeUndefined();
+    expect(
+      okulKosulu(suzgec({ danismanDurumu: "hepsi" })).kullanicilar,
+    ).toBeUndefined();
+  });
+
+  it("danışmanlı okulda `some` kurar", () => {
+    const kosul = okulKosulu(suzgec({ danismanDurumu: "danismanli" }));
+    expect(kosul.kullanicilar).toEqual({ some: expect.any(Object) });
+  });
+
+  it("danışmansız okulda `none` kurar", () => {
+    const kosul = okulKosulu(suzgec({ danismanDurumu: "danismansiz" }));
+    expect(kosul.kullanicilar).toEqual({ none: expect.any(Object) });
+  });
+
+  /* Süzgeç ile tablodaki "Danışman" sütunu aynı kümeyi saymalı. */
+  it("danışman tanımını sayım koşulundan alır", () => {
+    const kosul = okulKosulu(suzgec({ danismanDurumu: "danismanli" }));
+    expect(kosul.kullanicilar).toEqual({
+      some: {
+        aktif: true,
+        roller: { some: { rolKodu: "DANISMAN", bitisTarihi: null } },
+      },
+    });
+  });
+});

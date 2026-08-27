@@ -32,7 +32,15 @@ const IL_SUTUNLARI: readonly XlsxSutun[] = [
   { baslik: "İl", genislik: 18 },
   { baslik: "İl koordinatörü", genislik: 24 },
   { baslik: "Branş", genislik: 22 },
-  { baslik: "Atama tarihi", genislik: 14 },
+  /*
+    "ATAMA TARİHİ" SÜTUNU KALKTI (27 Ağustos 2026 · istek: "exceldeki atama
+    tarihini sütununu silelim"). Ekrandaki karşılığı 11 Ağustos'ta zaten
+    kalkmış, yerini ilin öğretmen sayısı almıştı; çıktı o turda geride kalmış
+    ve tek başına tarihi taşımaya devam ediyordu.
+
+    TARİH KAYBOLMADI: rol kayıtları geçmişli tutuluyor (kullanici_rol ·
+    baslangicTarihi) ve öğretmenin profilinde görev dönemleri yazıyor.
+  */
   { baslik: "Öğretmen", genislik: 11 },
   { baslik: "Öğrenci", genislik: 10 },
   { baslik: "Atanmamış öğrenci", genislik: 16 },
@@ -113,7 +121,6 @@ export async function GET(istek: Request) {
         ? `${il.koordinator.ad} ${il.koordinator.soyad}`
         : "Koordinatör atanmamış",
       il.koordinator?.brans ?? "",
-      il.koordinator?.atamaTarihi ?? null,
       il.ogretmenSayisi,
       il.ogrenciSayisi,
       il.atanmamisOgrenciSayisi,

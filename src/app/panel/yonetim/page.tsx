@@ -1,5 +1,4 @@
 import {
-  BadgeCheck,
   Bug,
   Compass,
   GraduationCap,
@@ -51,11 +50,9 @@ import {
   hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
-  mentorlukOnaylayabilirMi,
   ogrenciEnvanteriGorebilirMi,
   ogretmenEnvanteriGorebilirMi,
   panoIlaniOnaylayabilirMi,
-  urunMarketOnayiVerebilirMi,
   paydasGorebilirMi,
   projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
@@ -137,33 +134,26 @@ export default async function YonetimSayfasi({
    * Sayı `count`, liste değil: kart yalnızca kaç iş beklediğini söylüyor,
    * kimin beklediğini kuyruğun kendi ekranı gösteriyor.
    */
-  const [
-    bekleyenGorevBasvurusu,
-    bekleyenMentorluk,
-    bekleyenIlan,
-    bekleyenUrun,
-  ] =
+  /*
+   * MENTÖRLÜK SAYIMI BURADAN KALKTI (27 Ağustos 2026): kartı panoya taşındı ve
+   * sayıyı orada kendi kartı yapıyor. Görev başvurusu sayımı DURUYOR, çünkü
+   * aşağıdaki "Onay kuyruğu" kartı birleşik ekrana gidiyor ve rozeti o ekranın
+   * gösterdiği her şeyi saymalı.
+   */
+  const [bekleyenGorevBasvurusu, bekleyenIlan] =
     await Promise.all([
       gencTekGoreviYonetebilirMi(kullanici)
         ? prisma.gencTekGorevBasvurusu.count({
             where: { onayDurumu: "BEKLIYOR" },
           })
         : Promise.resolve(0),
-      mentorlukOnaylayabilirMi(kullanici)
-        // Mentörlükte alan adı `durum` (bkz. model Mentorluk · MentorlukDurumu).
-        ? prisma.mentorluk.count({ where: { durum: "BEKLIYOR" } })
-        : Promise.resolve(0),
       panoIlaniOnaylayabilirMi(kullanici)
         ? prisma.talep.count({
             where: { onayDurumu: "BEKLIYOR", kapatildiMi: false },
           })
         : Promise.resolve(0),
-      /* Markette yayım bekleyen ürünler de aynı kuyrukta (26 Ağustos 2026). */
-      urunMarketOnayiVerebilirMi(kullanici)
-        ? prisma.kullaniciKazanim.count({
-            where: { tip: "URUN", marketOnayDurumu: "BEKLIYOR" },
-          })
-        : Promise.resolve(0),
+      /* Ürün sayımı 27 Ağustos 2026'da kalktı: kuyruk GençTek Vitrin
+         ekranına taşındı ve orada kendi başlığında sayılıyor. */
     ]);
   /*
    * EKOSİSTEM SAYILARI (26 Ağustos 2026 · istek: "o özete mentör sayıları
@@ -240,10 +230,37 @@ export default async function YonetimSayfasi({
   return (
     <div className="space-y-6">
       <SayfaBasligi
+        /*
+          "PROFİL" GERİ BAĞLANTISI KALKTI (27 Ağustos 2026 · istek: "üstteki
+          profil navigasyonunu kaldır bu sayfadaki").
+
+          Bağlantı `SayfaBasligi`'nın VARSAYILANIYDI (bkz. components/ui.tsx ·
+          `geri = { yol: "/panel", etiket: "Profil" }`), bu sayfa onu hiç
+          geçmediği için basılıyordu. Varsayılanın gerekçesi "menüde karşılığı
+          olmayan kartlara inen kullanıcı geri dönemiyor"du; Yönetim Paneli o
+          ekranlardan biri DEĞİL — sol menüde kendi satırı var ve Profil de
+          menünün ilk satırı, yani bağlantı hiçbir yeni yol açmıyordu.
+
+          Buradan açılan kartlar geri bağlantısını korur ve "/panel/yonetim"
+          gösterir: onların üst basamağı bu ekrandır. Değişen yalnızca panonun
+          kendi tepesi.
+        */
+        geri={null}
         baslik="Yönetim Paneli"
+        /*
+          MERKEZİN AÇIKLAMA CÜMLESİ KALKTI (27 Ağustos 2026 · istek: "yönetim
+          panelinden bu açıklamayı sil"). Cümlenin ilk yarısını yanındaki
+          "Ülke geneli" rozeti zaten söylüyordu, ikinci yarısı ("bir ile
+          tıklayarak…") ise aşağıdaki il kartlarının kendisiyle öğreniliyor.
+
+          KOORDİNATÖRÜNKİ DURUYOR ve bilerek: onun panosunda kırılım ilçe
+          düzeyinde başlıyor, yani tıklanacak basamak bir tane ve cümle o tek
+          basamağı adlandırıyor. İstek de yalnızca merkezin gördüğü satırı
+          gösteriyordu.
+        */
         aciklama={
           merkezMi
-            ? "Ülke genelindeki kırılım ve yönetim ekranları. Bir ile tıklayarak ilçelerine, ilçeye tıklayarak okullarına inebilirsiniz."
+            ? undefined
             : `${il?.ad ?? "İliniz"} ilindeki ilçeler ve yönetim ekranları. Bir ilçeye tıklayarak okullarını görebilirsiniz.`
         }
         rozet={
@@ -281,13 +298,48 @@ export default async function YonetimSayfasi({
         hepsini hak etmek anlamına gelmiyor (bkz. yonetimPanosuGorebilirMi).
       */}
       <Kart>
-        <KartBasligi
-          baslik="Yönetim ekranları"
-          aciklama="Üst menüden kaldırılan yönetim sekmeleri burada."
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/*
+          KART BAŞLIĞI KALKTI (27 Ağustos 2026 · istek: "bunu da sil ·
+          Yönetim ekranları · Üst menüden kaldırılan yönetim sekmeleri
+          burada."). Kartların her biri zaten nereye götürdüğünü adıyla ve
+          açıklamasıyla söylüyor; üstlerindeki başlık bunu bir kez daha
+          söylüyordu. Alt açıklama ise sekmelerin bir zamanlar üst menüde
+          durduğunu anlatıyordu — bugünün kullanıcısı için bir bilgi değil.
+
+          Emsali aynı ay panelde yapıldı: "Dikkat gerektirenler" başlığı da
+          kartların üstünden kalkmış, `aria-label` ile yerini korumuştu.
+        */}
+        <div
+          aria-label="Yönetim ekranları"
+          className="grid gap-3 sm:grid-cols-2"
+        >
           {/*
-            İLK DÖRT KART: OKULLAR · ÖĞRETMENLER · ÖĞRENCİLER · PAYDAŞLAR
+            İL KOORDİNATÖRLERİ EN BAŞTA (27 Ağustos 2026 · istek: "yönetim
+            panelinde kart listesinin başına il koordinatörleri kartı
+            gelsin").
+
+            Kart = eski "Rol/Atama Envanteri" (11 Ağustos 2026 · istek:
+            "yönetim paneline bir de koordinatörler sayfası gelecek, rol atama
+            envanteri koordinatör kartına gelecek"); adı bu turda "İl
+            koordinatörleri" oldu, adresi ve yetkisi aynı kaldı.
+
+            SIRANIN GEREKÇESİ, aşağıdaki dört kartınkiyle aynı mantığın bir üst
+            basamağı: kapsam genişten dara iniyor. Merkez için ilin muhatabı
+            okuldan da önce gelir — bir ilde işi olan kişinin ilk sorusu
+            "orada kim var" olur. Kart YALNIZCA MERKEZDE basılıyor
+            (`rolEnvanteriGorebilirMi`), yani koordinatörün panosu eskisi gibi
+            Okullar kartıyla açılıyor.
+          */}
+          {rolEnvanteriGorebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="İl koordinatörleri"
+              aciklama="İl koordinatörü atamaları, boş iller ve rol geçmişi"
+              Ikon={UserCog}
+              yol="/panel/rol-envanteri"
+            />
+          )}
+          {/*
+            SONRAKİ DÖRT KART: OKULLAR · ÖĞRETMENLER · ÖĞRENCİLER · PAYDAŞLAR
             (26 Ağustos 2026 · istekler: "il koordinatörünün yönetim panelinde
             ilk kart okullar olsun" · "kartlarda 2. sırada öğretmenler kartı
             olsun" · "3. sırada öğrenciler olsun" · "4. kart paydaşlar olsun").
@@ -383,47 +435,23 @@ export default async function YonetimSayfasi({
             kapısı kalktı.
           */}
           {/*
-            KOORDİNATÖRLER = eski "Rol/Atama Envanteri" (11 Ağustos 2026 ·
-            istek: "yönetim paneline bir de koordinatörler sayfası gelecek, rol
-            atama envanteri koordinatör kartına gelecek").
-
-            Ekran zaten hangi ilde kimin koordinatör olduğunu, hangi ilin boş
-            kaldığını gösteriyordu; adı yaptığı işi söylemiyordu. Sekmesi kalktı,
-            adresi ve yetkisi aynı kaldı — yalnızca merkeze açık.
-          */}
-          {rolEnvanteriGorebilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="Koordinatörler"
-              aciklama="İl koordinatörü atamaları, boş iller ve rol geçmişi"
-              Ikon={UserCog}
-              yol="/panel/rol-envanteri"
-            />
-          )}
-          {/*
             GENÇTEK GÖREVLERİ (21 Ağustos 2026 · istek: "yönetim panelinde yeni
             kart gençtek görevlerini görebilsin"). Mentörlük kartının yanında:
             ikisi de merkezin karara bağladığı başvuru kuyruğu.
           */}
-          {gencTekGoreviYonetebilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="GençTek Görevleri"
-              aciklama="Görev ilanları, gelen başvurular ve kararları"
-              Ikon={BadgeCheck}
-              yol="/panel/genctek-gorevleri"
-              bekleyen={bekleyenGorevBasvurusu}
-              ton="uyari"
-            />
-          )}
-          {mentorlukOnaylayabilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="Mentörler"
-              aciklama="Mentör başvuruları ve karara bağlanan mentörler"
-              Ikon={Compass}
-              yol="/panel/mentorluk"
-              bekleyen={bekleyenMentorluk}
-              ton="uyari"
-            />
-          )}
+          {/*
+            "MENTÖRLER" VE "GENÇTEK GÖREVLERİ" KARTLARI PANOYA TAŞINDI
+            (27 Ağustos 2026 · istek: "panodaki onay kuyruğu kartını
+            çoklayalım · birinde mentör onayları, gençtek görevi onayları ·
+            mentör onayları zaten yönetim panelinde var, buraya taşınacak o
+            kart").
+
+            İkisi de bir BAŞVURUNUN karara bağlanması ve panonun kimliği zaten
+            bu. Buradaki gerekçe "merkezin onay işleri tek panoda toplansın"
+            idi; o pano artık /panel/talepler. Ekranlar ve yetkileri değişmedi
+            (`mentorlukOnaylayabilirMi`, `gencTekGoreviYonetebilirMi`); kalkan
+            yalnızca bu iki kapı.
+          */}
           {/*
             PANO İLANLARI (14 Ağustos 2026 · istek: "panodaki öğrenci ilanları
             şimdilik proje yöneticilerine düşsün oradan onay versin").
@@ -436,7 +464,7 @@ export default async function YonetimSayfasi({
           {panoIlaniOnaylayabilirMi(kullanici) && (
             <KisayolKarti
               baslik="Onay kuyruğu"
-              aciklama="Onay bekleyen ilanlar, görev başvuruları ve market ürünleri"
+              aciklama="Onay bekleyen pano ilanları ve görev başvuruları"
               Ikon={Megaphone}
               yol="/panel/talepler/onaylar"
               /*
@@ -447,7 +475,7 @@ export default async function YonetimSayfasi({
                 ekranda toplamak istedi, görev ekranı ise ilan yönetimini
                 de taşıyor.
               */
-              bekleyen={bekleyenIlan + bekleyenGorevBasvurusu + bekleyenUrun}
+              bekleyen={bekleyenIlan + bekleyenGorevBasvurusu}
               ton="uyari"
             />
           )}
@@ -510,25 +538,23 @@ export default async function YonetimSayfasi({
             ileride başka bir rol girerse ekip kurma kapısı sessizce açılmasın.
           */}
           {/*
-            YEĞİTEK OKUL SORUMLULARI (13 Ağustos 2026 · istek: "proje
-            yöneticisinin yönetim panelinde de YEĞİTEK Okul Sorumlusu isminde
-            bir kart olsun ve oradan onların listesini görebilsin").
+            "YEĞİTEK OKUL SORUMLUSU" KARTI KALKTI (27 Ağustos 2026 · istek: "bu
+            kartı buradan kaldırıp … öğretmenler panelinin içine sütun olarak
+            ekleyelim").
 
-            Yalnızca merkezde: liste ülke geneli bir görünüm ve rol/atama
-            envanteriyle aynı kategoride. Koordinatör kartı görmüyor çünkü
-            ekranın kendisi de ona kapalı (bkz. okul-sorumlulari/page.tsx).
+            Kart 13 Ağustos'ta ayrı bir liste ekranına açılıyordu; işaret ise
+            bir öğretmenin özelliği — kendi satırında okunması gereken bir
+            sütun. Ayrı ekranda dururken "bu öğretmen sorumlu mu" sorusunun
+            cevabı öğretmen listesinde yoktu ve iki liste arasında ada göre
+            eşleştirme gerekiyordu.
+
+            EKRAN SİLİNMEDİ (/panel/okul-sorumlulari) ve yetkisi değişmedi;
+            kalkan yalnızca buradaki kapı — işaretin kendisi artık Öğretmenler
+            listesinin bir sütunu.
           */}
-          {rolEnvanteriGorebilirMi(kullanici) && (
-            <KisayolKarti
-              baslik="YEĞİTEK Okul Sorumlusu"
-              aciklama="Kendini okul sorumlusu olarak işaretlemiş danışman öğretmenlerin listesi"
-              Ikon={ShieldCheck}
-              yol="/panel/okul-sorumlulari"
-            />
-          )}
           {ekipYonetebilirMi(kullanici) && (
             <KisayolKarti
-              baslik="Ekiplerim"
+              baslik="Ekipler"
               aciklama="İlinizde kurduğunuz ekipler, üyeleri ve ekip sohbetleri"
               Ikon={UsersRound}
               yol="/panel/ekipler"

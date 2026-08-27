@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { BILDIRIM_KODLARI, bildirimGonder } from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
-import { danismanMentorlukKarariGecerliMi } from "@/lib/mentor/kurallar";
-import { danismanMi } from "@/lib/yetki/izinler";
+import { ogrenciMentorlukKarariGecerliMi } from "@/lib/mentor/kurallar";
+import { ogrenciMentorluguneKararVerebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
-import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
+import { BulunamadiHatasi } from "@/lib/yetki/tipler";
 
 /**
- * ÖĞRENCİNİN MENTÖRLÜĞÜNE DANIŞMANININ VERDİĞİ KARAR (26 Ağustos 2026).
+ * ÖĞRENCİNİN MENTÖRLÜĞÜNE ÖĞRENCİ LİSTESİNDEN VERİLEN KARAR (26 Ağustos 2026 ·
+ * danışman; 27 Ağustos 2026 · il koordinatörü).
  *
  * İSTEK: "danışman öğretmen kendi öğrencilerinden mentör ise o da görünsün,
  * Çalışma grupları bu sütunun yanına mentörlük durumu olsun; eğer öğrenci
@@ -32,18 +33,23 @@ import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
  * ada bakarak "bu öğrenci akranlarına yol gösterebilir mi" sorusunu
  * cevaplayamıyordu.
  *
+ * İL KOORDİNATÖRÜ DE KARAR VERİR (27 Ağustos 2026 · istek: "il koordinatörü de
+ * öğrencinin mentörlük başvurusunu onaylayabilsin"). Danışmanı olmayan
+ * öğrencinin başvurusu bu ekranda kimseye düğme basmıyordu ve merkezin ülke
+ * genelindeki kuyruğunda yalnızca bir ada dönüşüyordu. Kapının kime açıldığı
+ * tek yerde yazıyor: izinler.ts · ogrenciMentorluguneKararVerebilirMi.
+ *
  * MERKEZİN KUYRUĞU KAPANMADI: öğretmen, mezun ve paydaş başvuruları orada
  * karara bağlanmaya devam ediyor (mentorluk/eylemler.ts · mentorlukKararEylemi).
- * Danışmanı olmayan bir öğrencinin başvurusu da yine oraya düşer — bu ekran
- * yalnızca "kendi öğrencisi" olan satırda düğme basıyor.
  *
  * ---------------------------------------------------------------------------
  * YETKİ HER ÇAĞRIDA VERİTABANINDAN SORULUYOR
  * ---------------------------------------------------------------------------
- * `danismanMi` rol kontrolüdür ve "bu öğrencinin danışmanıyım" demek değildir;
- * ekranda düğmenin basılmamış olması da bir koruma değil (form gövdesine başka
- * bir öğrenci kimliği yazılabilir). Bu yüzden AKTİF ATAMA ayrıca sorgulanıyor —
- * emsali talep-eylemleri.ts · yetkiyiDogrula.
+ * Rol kontrolü ("danışmanım", "koordinatörüm") tek başına yetmez: hangi
+ * ÖĞRENCİ için yetkili olduğu ayrı bir sorudur ve ekranda düğmenin basılmamış
+ * olması bir koruma değildir (form gövdesine başka bir öğrenci kimliği
+ * yazılabilir). Bu yüzden aktif atama ve öğrencinin il kodu her çağrıda
+ * veritabanından okunuyor — emsali talep-eylemleri.ts · yetkiyiDogrula.
  */
 
 const YOL = "/panel/ogrenciler";
@@ -64,37 +70,48 @@ export async function ogrenciMentorluguKararEylemi(
   const kullanici = await oturumKullanicisiZorunlu();
   const donusYolu = donusYolunuCoz(veri);
 
-  if (!danismanMi(kullanici)) {
-    throw new YetkiHatasi("Öğrenci mentörlüğüne karar veremezsiniz.");
-  }
-
   const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
   if (!Number.isInteger(ogrenciId)) throw new BulunamadiHatasi();
 
   /*
-   * Öğrenci ve mentörlük kaydı TEK SORGUDA, aktif atama koşuluyla birlikte
-   * okunuyor. Atama koşulu `where` içinde: yetkisiz kayıt hiç dönmüyor ve
-   * 404 veriyor. 403 verilseydi "böyle bir öğrenci var" bilgisi sızardı
-   * (emsali: mentorluk/eylemler.ts · kapsam filtresi).
+   * KAPSAM ARTIK `where` DEĞİL, OKUNAN KAYDIN ÜZERİNDE SORULUYOR (27 Ağustos
+   * 2026). Eskiden aktif atama koşulu sorgunun içindeydi; iki karar sahibi
+   * olunca (danışman VE il koordinatörü) o koşul "ya atamam var ya da il
+   * kodum tutuyor" biçiminde `where`e yazılamaz oldu — yazılsaydı yetki
+   * kuralının yarısı sorguda, yarısı izinler.ts'te durur ve biri
+   * değiştirildiğinde öbürü sessizce geride kalırdı.
+   *
+   * Kayıt önce okunuyor, yetki sonra soruluyor; yetkisizde yine 404 dönüyor
+   * ki "böyle bir öğrenci var" bilgisi sızmasın (emsali: mentorluk/eylemler.ts
+   * · kapsam filtresi).
    */
-  const ogrenci = await prisma.kullanici.findFirst({
-    where: {
-      id: ogrenciId,
-      ogrenciAtamalari: {
-        some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
-      },
-    },
+  const ogrenci = await prisma.kullanici.findUnique({
+    where: { id: ogrenciId },
     select: {
       id: true,
       ad: true,
       soyad: true,
+      ilKodu: true,
       mentorluk: { select: { durum: true } },
+      ogrenciAtamalari: {
+        where: { bitisTarihi: null },
+        select: { danismanKullaniciId: true },
+      },
     },
   });
   if (!ogrenci) throw new BulunamadiHatasi();
 
+  const kendiOgrencisiMi = ogrenci.ogrenciAtamalari.some(
+    (atama) => atama.danismanKullaniciId === kullanici.id,
+  );
+  if (
+    !ogrenciMentorluguneKararVerebilirMi(kullanici, ogrenci, kendiOgrencisiMi)
+  ) {
+    throw new BulunamadiHatasi();
+  }
+
   const kaldiriliyor = String(veri.get("karar") ?? "") === "KALDIR";
-  const karar = danismanMentorlukKarariGecerliMi({
+  const karar = ogrenciMentorlukKarariGecerliMi({
     mevcutDurum: ogrenci.mentorluk?.durum ?? null,
     yeniDurum: kaldiriliyor ? "REDDEDILDI" : "ONAYLANDI",
     gerekce: String(veri.get("gerekce") ?? ""),

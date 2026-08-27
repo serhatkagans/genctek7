@@ -15,7 +15,7 @@ import { okulOzetleriniGetir } from "@/lib/rapor/yonetim-ozeti";
 import { okulKosulu } from "@/lib/rapor/yonetim-kurallari";
 import { yonetimPanosuGorebilirMi } from "@/lib/yetki/izinler";
 import type { SorguParametreleri } from "../../ogrenciler/filtreler";
-import { listeBasilsinMi, okulSuzgeciniCoz } from "../filtreler";
+import { okulSuzgeciniCoz } from "../filtreler";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +26,14 @@ export const dynamic = "force-dynamic";
  * `okulSuzgeciniCoz` içinde uygulanıyor, yani adres çubuğuna başka il kodu
  * yazarak o ilin dosyası alınamıyor.
  *
- * SÜZGEÇSİZ İNDİRME REDDEDİLİR (`listeBasilsinMi`). Ekran süzgeçsiz açılışta
- * liste basmıyor; rota bassaydı, ekranda gösterilmeyen ülke geneli listesi
- * adres çubuğundan alınabilirdi. Üst sınır zaten çoğu durumda devreye girerdi
- * ama sınır bir performans korkuluğu, kapsam kararı değil — ikisi ayrı ayrı
- * söylenmeli.
+ * SÜZGEÇSİZ İNDİRME ARTIK REDDEDİLMİYOR (27 Ağustos 2026). Kapı `listeBasilsinMi`
+ * idi ve gerekçesi "ekran süzgeçsiz açılışta liste basmıyor, rota da basmasın"
+ * idi; ekran artık basıyor (bkz. filtreler.ts) ve kapı, ekranda görülen listeyi
+ * indirilemez kılıyordu.
+ *
+ * KORKULUK YERİNDE: satır sayısı üst sınırı (`DISA_AKTARMA_UST_SINIRI`) hâlâ
+ * uygulanıyor. O bir performans korkuluğu, kapsam kararı değil — ikisi ayrı
+ * ayrı söylenmeli ve kalkan yalnızca kapsam kapısı.
  *
  * ERİŞİM KAYDI YAZILMIYOR: dosyada kişisel veri yok, okul başına sayı var
  * (yönetim panosu çıktısıyla aynı gerekçe).
@@ -60,13 +63,6 @@ export async function GET(istek: Request) {
     adres.searchParams.entries(),
   );
   const suzgec = okulSuzgeciniCoz(kullanici, parametreler);
-
-  if (!listeBasilsinMi(suzgec)) {
-    return new Response(
-      "Önce bir il seçin ya da arama yapın; ülke genelindeki okulların tamamı tek dosyada indirilemez.",
-      { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } },
-    );
-  }
 
   const [toplam, ustSinir] = await Promise.all([
     prisma.kurum.count({ where: okulKosulu(suzgec) }),
