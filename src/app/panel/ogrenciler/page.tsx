@@ -30,17 +30,22 @@ import { danismanligiBirakEylemi } from "./[id]/eylemler";
 import type { MentorlukDurumu } from "@/generated/prisma/enums";
 import {
   DANISMAN_KALDIRMA_GEREKCESI_ASGARI,
+  KALDIRMA_DUZEYI_ETIKETLERI,
+  kaldirmaTalebiOnayMercii,
   MENTORLUK_DURUM_ETIKETLERI,
   MENTORLUK_DURUM_SINIFLARI,
 } from "@/lib/mentor/kurallar";
 import { ogrenciyiDanismanligaAlEylemi } from "./eylemler";
-import { ogrenciMentorluguKararEylemi } from "./mentorluk-eylemleri";
+import {
+  mentorlukKaldirmaTalebiKararEylemi,
+  ogrenciMentorluguKararEylemi,
+} from "./mentorluk-eylemleri";
 import {
   danismanTalebiniOnaylaEylemi,
   danismanTalebiniReddetEylemi,
 } from "./talep-eylemleri";
 import { bekleyenTalepleriGetir } from "@/lib/danisman/talep";
-import { tarihSaatYaz } from "@/lib/tarih";
+import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import { prisma } from "@/lib/db";
 import { egitimOgretimYillariGetir } from "@/lib/rapor/secenekler";
@@ -48,6 +53,9 @@ import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import { ogrenciListeFiltresi as ogrenciListesiFiltresi } from "@/lib/yetki/kapsam";
 import {
   danismanMi,
+  mentorlukKaldirmaTalebiniOnaylayabilirMi,
+  type MentorlukKaldirmaYetkisi,
+  ogrenciMentorluguKaldirmaDuzeyi,
   ogrenciMentorluguneKararVerebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
@@ -463,15 +471,40 @@ function DanismanlikHucresi({
  * "Danışmanlığı bırak" hücresiyle bilerek aynı biçim: satır içinde duran bir
  * metin kutusu, tablo genişliğini altı öğrencide bir kaydırırdı.
  */
+/**
+ * Hücrenin okuduğu kaldırma talebi — YALNIZCA BEKLEYENİ taşır.
+ *
+ * Karara bağlanmış talep ekranda hiç görünmüyor: kabul edildiyse mentörlük
+ * zaten kalkmış (rozet onu yazıyor), reddedildiyse mentörlük hiç kesintiye
+ * uğramamış. Geçmiş talepleri satırda taşımak, listeyi artık sonucu olmayan
+ * bir kayıt geçmişiyle doldururdu — kimin ne zaman ne istediği erişim
+ * kaydında duruyor.
+ */
+interface BekleyenKaldirmaTalebi {
+  gerekce: string;
+  istekTarihi: Date;
+  isteyenKullaniciId: number;
+  isteyenDuzeyi: "DANISMAN" | "IL_KOORDINATOR";
+  isteyen: { ad: string; soyad: string };
+}
+
 function MentorlukHucresi({
   ogrenciId,
   durum,
   kararVerebilir,
+  kaldirmaDuzeyi,
+  talep,
+  talebiKararaBaglayabilir,
   donusYolu,
 }: {
   ogrenciId: number;
   durum: MentorlukDurumu | null;
   kararVerebilir: boolean;
+  /** Kaldırma bu kişide hangi düzeyden yapılır; yetkisi yoksa null. */
+  kaldirmaDuzeyi: MentorlukKaldirmaYetkisi | null;
+  /** Karara bağlanmamış kaldırma talebi; yoksa null. */
+  talep: BekleyenKaldirmaTalebi | null;
+  talebiKararaBaglayabilir: boolean;
   donusYolu: string;
 }) {
   const rozet =
@@ -483,6 +516,82 @@ function MentorlukHucresi({
       </span>
     );
 
+  /*
+    BEKLEYEN TALEP HER ŞEYİN ÖNÜNE GEÇER ve durumu HERKESE yazılır — karar
+    mercii olmayan danışman da öğrencisinin mentörlüğünün askıda olduğunu
+    görmeli. Rozet hâlâ "Onaylandı" diyor çünkü öğrenci gerçekten mentör; alt
+    satır bunun neden yanıltıcı okunmaması gerektiğini söylüyor.
+  */
+  if (talep) {
+    return (
+      <div className="space-y-2">
+        {rozet}
+        <p className="text-xs text-uyari-metin">
+          Kaldırma talebi onay bekliyor ·{" "}
+          {kaldirmaTalebiOnayMercii(talep.isteyenDuzeyi)}
+        </p>
+        <p className="text-xs text-metin-yumusak">
+          {talep.isteyen.ad} {talep.isteyen.soyad} (
+          {KALDIRMA_DUZEYI_ETIKETLERI[talep.isteyenDuzeyi]}) ·{" "}
+          {tarihYaz(talep.istekTarihi)}
+          <br />
+          Gerekçe: {talep.gerekce}
+        </p>
+        {!talebiKararaBaglayabilir ? null : (
+          <div className="space-y-2">
+            {/*
+              ONAYDA GEREKÇE SORULMAZ: öğrenciye giden metin talebin kendi
+              gerekçesidir (bkz. mentorlukKaldirmaTalebiKararEylemi). İkinci
+              bir gerekçe kutusu, onaylayanın cümlesinin talebi açanınkinin
+              yerine geçmesi demekti.
+            */}
+            <form action={mentorlukKaldirmaTalebiKararEylemi}>
+              <input type="hidden" name="ogrenciId" value={ogrenciId} />
+              <input type="hidden" name="donusYolu" value={donusYolu} />
+              <input type="hidden" name="karar" value="ONAYLA" />
+              <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                Talebi onayla, mentörlüğü kaldır
+              </button>
+            </form>
+            <details>
+              <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
+                Talebi reddet
+              </summary>
+              <p className="mt-2 text-sm text-metin-yumusak">
+                Öğrenci mentör olarak kalır; gerekçeniz talebi açan kişiye
+                bildirim olarak iletilir.
+              </p>
+              <form
+                action={mentorlukKaldirmaTalebiKararEylemi}
+                className="mt-2 flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="ogrenciId" value={ogrenciId} />
+                <input type="hidden" name="donusYolu" value={donusYolu} />
+                <input type="hidden" name="karar" value="REDDET" />
+                <label className="block grow">
+                  <span className="text-sm font-medium text-metin">
+                    Ret gerekçesi
+                  </span>
+                  <input
+                    type="text"
+                    name="retGerekcesi"
+                    required
+                    maxLength={500}
+                    placeholder="Öğrenciyle görüştüm; mentörlüğe devam edecek."
+                    className={SINIF_SECIM}
+                  />
+                </label>
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  Reddet
+                </button>
+              </form>
+            </details>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!kararVerebilir) {
     return rozet ?? <span className="text-metin-yumusak">—</span>;
   }
@@ -491,21 +600,38 @@ function MentorlukHucresi({
     return <span className="text-metin-yumusak">Başvurmadı</span>;
   }
 
+  /*
+    AYNI DÜĞME, İKİ FARKLI SONUÇ (28 Ağustos 2026 · istek: "hiyerarşi olsun …
+    proje yöneticisine onay yok"). Merkezinki anında uygulanıyor,
+    danışmanınki ve koordinatörünki onaya gidiyor. Metin bunu ÖNCEDEN söyler:
+    onaya gideceğini basmadan öğrenmeyen öğretmen, kaldırdığını sanıp
+    öğrenciyi havuzda görmeye devam ederdi.
+  */
+  const talepDuzeyi =
+    kaldirmaDuzeyi === null || kaldirmaDuzeyi === "MERKEZ"
+      ? null
+      : kaldirmaDuzeyi;
+  const kaldirmaAciklamasi =
+    talepDuzeyi === null
+      ? "Öğrenci mentör havuzundan çıkar ve ilanlara cevap yazamaz; gerekçeniz ona bildirim olarak iletilir."
+      : `Talebiniz ${kaldirmaTalebiOnayMercii(talepDuzeyi)} onayına gider. Öğrenci karar verilene kadar mentör kalır; gerekçeniz onay mercine, onaylanırsa öğrenciye iletilir.`;
+
   return (
     <div className="space-y-2">
       {rozet}
       {durum === "ONAYLANDI" ? (
         <details>
           <summary className="cursor-pointer text-sm font-medium text-vurgu-metin">
-            Mentörlüğü kaldır
+            {talepDuzeyi
+              ? "Mentörlüğü kaldırmayı iste"
+              : "Mentörlüğü kaldır"}
           </summary>
           {/*
             Uyarı gerekçenin yanında: kaldırmanın sonucu, kararın verildiği
             yerde okunmalı (emsali DanismanlikHucresi).
           */}
           <p className="mt-2 text-sm text-metin-yumusak">
-            Öğrenci mentör havuzundan çıkar ve ilanlara cevap yazamaz;
-            gerekçeniz ona bildirim olarak iletilir.
+            {kaldirmaAciklamasi}
           </p>
           <form
             action={ogrenciMentorluguKararEylemi}
@@ -527,7 +653,7 @@ function MentorlukHucresi({
               />
             </label>
             <button type="submit" className={SINIF_IKINCIL_BUTON}>
-              Kaldır
+              {talepDuzeyi ? "Onaya gönder" : "Kaldır"}
             </button>
           </form>
         </details>
@@ -819,7 +945,28 @@ export default async function OgrencilerSayfasi({
         (Mentorluk.kullaniciId birincil anahtar), yani satır başına tek sorgu
         değil tek `join` — listede N+1 doğurmuyor.
       */
-      mentorluk: { select: { durum: true } },
+      mentorluk: {
+        select: {
+          durum: true,
+          /*
+            BEKLEYEN KALDIRMA TALEBİ (28 Ağustos 2026 · istek: "hiyerarşi
+            olsun"). Talep açıkken hücre ne "Mentörlüğü kaldır" ne de "Mentör
+            yap" düğmesi basıyor; onun yerine kararı bekleyen kişiye onay/ret
+            formu çıkıyor. Aynı `join` üzerinden geldiği için listeye ek sorgu
+            yükü getirmiyor.
+          */
+          kaldirmaTalebi: {
+            select: {
+              durum: true,
+              gerekce: true,
+              istekTarihi: true,
+              isteyenKullaniciId: true,
+              isteyenDuzeyi: true,
+              isteyen: { select: { ad: true, soyad: true } },
+            },
+          },
+        },
+      },
       ogrenciAtamalari: {
         where: { bitisTarihi: null },
         select: {
@@ -951,6 +1098,25 @@ export default async function OgrencilerSayfasi({
           bildirim olarak iletildi.
         </BilgiKutusu>
       )}
+      {gorevDurumu === "kaldirma-talebi-acildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Mentörlüğü kaldırma talebiniz onaya gönderildi. Öğrenci, karar
+          verilene kadar mentör olarak kalır; kararı verecek mercie bildirim
+          gitti.
+        </BilgiKutusu>
+      )}
+      {gorevDurumu === "kaldirma-talebi-onaylandi" && (
+        <BilgiKutusu cesit="olumlu">
+          Talep onaylandı ve mentörlük kaldırıldı. Öğrenciye talepteki gerekçe
+          bildirim olarak iletildi; talebi açan kişiye de karar bildirildi.
+        </BilgiKutusu>
+      )}
+      {gorevDurumu === "kaldirma-talebi-reddedildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Talep reddedildi. Öğrenci mentör olarak kaldı ve gerekçeniz talebi
+          açan kişiye iletildi; öğrenciye bildirim gitmedi.
+        </BilgiKutusu>
+      )}
       {/*
         TANINMAYAN `durum` DEĞERİ HAM BASILIYORDU: bilinen kodların listesi
         aşağıdaki dallarla birlikte büyümemiş, "talep-onaylandi" gibi kodlar
@@ -969,6 +1135,9 @@ export default async function OgrencilerSayfasi({
           "talep-reddedildi",
           "mentor-yapildi",
           "mentorluk-kaldirildi",
+          "kaldirma-talebi-acildi",
+          "kaldirma-talebi-onaylandi",
+          "kaldirma-talebi-reddedildi",
         ].includes(gorevDurumu) && (
           <BilgiKutusu cesit="olumlu">{gorevDurumu}</BilgiKutusu>
         )}
@@ -1534,6 +1703,19 @@ export default async function OgrencilerSayfasi({
                   (gorev) =>
                     gorev.egitimOgretimYili === ogrenci.egitimOgretimYili,
                 );
+                /*
+                  KARARA BAĞLANMIŞ TALEP HÜCREYE HİÇ GİRMEZ (28 Ağustos 2026):
+                  satır tek bir talep taşıyor ve o satır yeni talepte üzerine
+                  yazılıyor, yani eski kararlar burada birikmiyor. Süzme
+                  ekranda yapılıyor, sorguda değil — talep kaydı zaten birebir
+                  geliyor ve `where` koşulu, hücrenin okuduğu koşulla ayrışmaya
+                  açık ikinci bir yer olurdu.
+                */
+                const talepKaydi = ogrenci.mentorluk?.kaldirmaTalebi ?? null;
+                const bekleyenKaldirmaTalebi =
+                  talepKaydi && talepKaydi.durum === "BEKLIYOR"
+                    ? talepKaydi
+                    : null;
                 return (
                   <tr
                     key={ogrenci.id}
@@ -1581,6 +1763,21 @@ export default async function OgrencilerSayfasi({
                           ogrenci.ogrenciAtamalari[0]?.danismanKullaniciId ===
                             kullanici.id,
                         )}
+                        kaldirmaDuzeyi={ogrenciMentorluguKaldirmaDuzeyi(
+                          kullanici,
+                          ogrenci,
+                          ogrenci.ogrenciAtamalari[0]?.danismanKullaniciId ===
+                            kullanici.id,
+                        )}
+                        talep={bekleyenKaldirmaTalebi}
+                        talebiKararaBaglayabilir={
+                          bekleyenKaldirmaTalebi !== null &&
+                          mentorlukKaldirmaTalebiniOnaylayabilirMi(
+                            kullanici,
+                            bekleyenKaldirmaTalebi,
+                            ogrenci,
+                          )
+                        }
                         donusYolu={donusYolu}
                       />
                     </td>

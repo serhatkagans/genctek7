@@ -24,6 +24,7 @@ import {
   urunGorunurMu,
   urunVitrinDurumu,
 } from "@/lib/market/kurallar";
+import { gorselMi, kapakEkiSec } from "@/lib/kazanim/kapak";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -79,7 +80,7 @@ export default async function UrunDetaySayfasi({
         orderBy: { siraNo: "asc" },
       },
       ekler: {
-        select: { id: true, dosyaAdi: true, mimeTipi: true },
+        select: { id: true, dosyaAdi: true, mimeTipi: true, kapakMi: true },
         orderBy: { yuklenmeTarihi: "asc" },
       },
     },
@@ -123,10 +124,20 @@ export default async function UrunDetaySayfasi({
   }
 
   // Yalnızca görseller basılıyor; diğer belgeler bağlantı olarak veriliyor.
-  const gorseller = urun.ekler.filter((ek) => ek.mimeTipi.startsWith("image/"));
-  const digerEkler = urun.ekler.filter(
-    (ek) => !ek.mimeTipi.startsWith("image/"),
-  );
+  const tumGorseller = urun.ekler.filter((ek) => gorselMi(ek.mimeTipi));
+  const digerEkler = urun.ekler.filter((ek) => !gorselMi(ek.mimeTipi));
+
+  /*
+   * ÜRÜN GÖRSELİ (kapak) SAYFANIN BAŞINDA, tek başına (28 Ağustos 2026 ·
+   * istek). Vitrin kartında görünen görsel detayda da ilk görünmeli; kapak
+   * "destekleyici görseller" ızgarasının içinde ikinci sırada durursa,
+   * sahibinin kart için seçtiği görselin hangisi olduğu okunmaz.
+   *
+   * Kapak aşağıdaki ızgaradan ÇIKARILIR: aynı dosyayı iki kez basmak, ikinci
+   * bir görsel yüklenmiş izlenimi verirdi.
+   */
+  const kapak = kapakEkiSec(urun.ekler);
+  const gorseller = tumGorseller.filter((ek) => ek.id !== kapak?.id);
   const kume = sahipKumesi(urun.kullanici.roller.map((r) => r.rolKodu));
 
   return (
@@ -153,6 +164,25 @@ export default async function UrunDetaySayfasi({
         */
         geri={null}
       />
+
+      {/*
+        ÜRÜN GÖRSELİ · KAPAK. Başlığın hemen altında, tek başına: vitrin
+        kartında görünen görsel burada da ilk görünür.
+
+        `object-contain` ve sınırlı yükseklik — karttaki kırpma (`object-cover`)
+        ızgarada eşit kutular için gerekliydi, detayda ise görselin tamamı
+        görünmeli; sahibinin yüklediği afişin yazısını kesmek burada kayıp olur.
+      */}
+      {kapak && (
+        <Kart className="p-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={uygulamaYolu(`/panel/kazanim-ekleri/${kapak.id}`)}
+            alt={kapak.dosyaAdi}
+            className="max-h-[26rem] w-full rounded-kart bg-zemin object-contain"
+          />
+        </Kart>
+      )}
 
       {/*
         PAYLAŞIM ANAHTARI. Kutuyu işaretlemeden eklenen ürün, o hâliyle markete

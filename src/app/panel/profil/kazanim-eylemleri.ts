@@ -10,6 +10,7 @@ import {
 } from "@/lib/bildirim/gonder";
 import { cvKaydet, cvSil, cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import {
+  kazanimEkiKaydet,
   kazanimEkiSil,
   kazanimEkleriniKaydet,
   kazanimEkSinirlariniGetir,
@@ -20,8 +21,9 @@ import {
   kazanimTipiTanimi,
   kazanimTipininCapasi,
 } from "@/lib/kazanim/kurallar";
+import { urunPaylasimOnayAlanlari } from "@/lib/market/kurallar";
 import { bugununBasi, gunBasi } from "@/lib/tarih";
-import { ogrenciMi } from "@/lib/yetki/izinler";
+import { ogrenciMi, urunMarketOnayiVerebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import {
   BulunamadiHatasi,
@@ -160,6 +162,33 @@ function kazanimYollariniTazele(kullanici: OturumKullanicisi): void {
   );
 }
 
+/**
+ * Ürün görselini (vitrin kapağı) forma geldiyse kaydeder.
+ *
+ * BOŞ ALAN "KAPAĞI KALDIR" DEMEK DEĞİLDİR: dosya girdileri her gönderimde boş
+ * gelir ve kişi düzenleme formunu görsele dokunmadan kaydettiğinde kapağının
+ * silinmesi beklenmedik olurdu. Kapak kaldırmak, ekin kendisini silmektir
+ * (kayıt sayfasındaki belge listesi).
+ *
+ * Hata KAYDI GERİ ALMAZ; çağıran uyarıyı ekranda gösterir.
+ */
+async function urunKapaginiYaz(
+  veri: FormData,
+  kazanimId: number,
+): Promise<string | undefined> {
+  const gorsel = veri.get("urunGorseli");
+  if (!(gorsel instanceof File) || gorsel.size === 0) return undefined;
+
+  const sonuc = await kazanimEkiKaydet({
+    kazanimId,
+    dosya: gorsel,
+    sinirlar: await kazanimEkSinirlariniGetir(),
+    kapakMi: true,
+  });
+
+  return sonuc.olurMu ? undefined : `${gorsel.name}: ${sonuc.neden}`;
+}
+
 export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
 
@@ -267,18 +296,28 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
    */
   const onayaGirsin = karar.kayit.markettePaylasilsin === true;
 
+  /*
+   * KARARI ZATEN VEREBİLEN KİŞİNİN ÜRÜNÜ KUYRUĞA GİRMEZ (28 Ağustos 2026).
+   * Gerekçe kural katmanında: lib/market/kurallar.ts.
+   */
+  const onay = urunPaylasimOnayAlanlari({
+    sahipKullaniciId: kullanici.id,
+    kendiKararVerebilirMi: urunMarketOnayiVerebilirMi(kullanici),
+    simdi: new Date(),
+  });
+
   const kazanim = await prisma.kullaniciKazanim.create({
     data: {
       kullaniciId: kullanici.id,
       ...karar.kayit,
-      ...(onayaGirsin ? { marketOnayDurumu: "BEKLIYOR" as const } : {}),
+      ...(onayaGirsin ? onay.alanlar : {}),
       baglantilar: { create: karar.baglantilar },
     },
     select: { id: true },
   });
 
   /* Kuyruk sessiz değil: kararı verecek merkez uyarılıyor. */
-  if (onayaGirsin) {
+  if (onayaGirsin && onay.bildirimGerekliMi) {
     await projeYoneticilerineBildir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_URUN, {
       sahipAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
       urunAdi: karar.kayit.baslik,
@@ -304,6 +343,17 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
     });
     ekUyarisi = sonuc.uyari;
   }
+
+  /*
+   * ÜRÜN GÖRSELİ (vitrin kapağı) belgelerden SONRA yazılır ve kendi uyarısını
+   * belgelerinkinin ÖNÜNE geçirmez: iki alan da reddedilirse kullanıcı ilk
+   * hatayı okur, ikisini tek satıra yığmak mesajı okunmaz yapardı.
+   *
+   * Kapak reddedilse de kazanım kaydı geri ALINMAZ — belgelerdeki kuralın
+   * aynısı: kişi yazdığı metni kaybetmesin, görseli sonradan ekleyebilsin.
+   */
+  const kapakUyarisi = await urunKapaginiYaz(veri, kazanim.id);
+  ekUyarisi ??= kapakUyarisi;
 
   const sahip = ogrenciMi(kullanici) ? "OGRENCI" : "OGRETMEN";
   await erisimLogla({
@@ -546,6 +596,18 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
   const onayTazelensin =
     mevcut.tip === "URUN" && alanlar.markettePaylasilsin === true;
 
+  /*
+   * Tazeleme de aynı kapıdan geçer: içeriği değişen ürün yeniden kuyruğa
+   * girer, ama sahibi kararı zaten verebiliyorsa doğrudan yayımda kalır —
+   * yoksa proje yöneticisi kendi ürününün bir yazım hatasını düzelttiğinde
+   * ürünü vitrinden düşürüp kendi onayını beklemeye başlardı.
+   */
+  const onay = urunPaylasimOnayAlanlari({
+    sahipKullaniciId: kullanici.id,
+    kendiKararVerebilirMi: urunMarketOnayiVerebilirMi(kullanici),
+    simdi: new Date(),
+  });
+
   await prisma.$transaction([
     prisma.kazanimBaglanti.deleteMany({
       where: { kazanimId: mevcut.id },
@@ -554,21 +616,24 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
       where: { id: mevcut.id },
       data: {
         ...alanlar,
-        ...(onayTazelensin
-          ? {
-              marketOnayDurumu: "BEKLIYOR" as const,
-              marketRetGerekcesi: null,
-              marketKararVerenKullaniciId: null,
-              marketKararTarihi: null,
-            }
-          : {}),
+        ...(onayTazelensin ? onay.alanlar : {}),
         baglantilar: { create: karar.baglantilar },
       },
     }),
   ]);
 
+  /*
+   * Yeni ürün görseli seçildiyse kapak onunla değişir; alan boş bırakıldıysa
+   * mevcut kapak olduğu gibi kalır (bkz. urunKapaginiYaz).
+   */
+  const kapakUyarisi = await urunKapaginiYaz(veri, mevcut.id);
+
   /* Karar zaten bekliyorsa merkezi ikinci kez uyandırmaya gerek yok. */
-  if (onayTazelensin && mevcut.marketOnayDurumu !== "BEKLIYOR") {
+  if (
+    onayTazelensin &&
+    onay.bildirimGerekliMi &&
+    mevcut.marketOnayDurumu !== "BEKLIYOR"
+  ) {
     await projeYoneticilerineBildir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_URUN, {
       sahipAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
       urunAdi: karar.kayit.baslik,
@@ -585,6 +650,16 @@ export async function kazanimGuncelleEylemi(veri: FormData): Promise<void> {
   });
 
   kazanimYollariniTazele(kullanici);
+  if (kapakUyarisi) {
+    redirect(
+      kayitSayfasi(
+        mevcut.id,
+        `hata=${encodeURIComponent(
+          `Kayıt güncellendi ancak ürün görseli yüklenemedi — ${kapakUyarisi}`,
+        )}`,
+      ),
+    );
+  }
   redirect(kayitSayfasi(mevcut.id, "durum=kazanim-guncellendi"));
 }
 

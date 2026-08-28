@@ -228,6 +228,71 @@ export function urunMarketKarariGecerliMi(girdi: {
 }
 
 /**
+ * PAYLAŞIM AÇILDIĞINDA KAYDIN ALACAĞI ONAY ALANLARI (28 Ağustos 2026 · istek:
+ * "proje yöneticisinin açtığı market uygulaması neden onaya düşüyor").
+ *
+ * 26 Ağustos'ta konan kural, kapıyı PAYLAŞIM EYLEMİNE bağlamıştı ve sahibinin
+ * rolüne hiç bakmıyordu. Sonuç: kararı verecek kişi kendi ürününü paylaştığında
+ * kayıt `BEKLIYOR` doğuyor, kendi vitrininde kendi onayını bekliyor ve kendine
+ * "onay bekleyen ürün" bildirimi düşürüyordu. Kuralın kaynağı olan kişi kuralın
+ * kapsamına alınmamıştı.
+ *
+ * ARTIK: kararı zaten verebilen kişinin paylaşımı DOĞRUDAN YAYIMLANIR. Kararı
+ * "kendisi verdi" diye yazmak, alanı boş bırakmaktan daha dürüst — denetim
+ * kaydında ürünün kim tarafından yayımlandığı görünüyor ve `ONAY_GEREKMEZ`
+ * gibi geçmişten kalma bir durumla karışmıyor.
+ *
+ * BU BİR ÖZ-ONAYDIR ve kabul edilen budur: merkezin kendi ürününü kendi
+ * kuyruğuna sokmak, ikinci bir göz sağlamıyor — kuyruğu açan da kapatan da
+ * aynı kişi. Kazanılan tek şey bir tık, kaybedilen ise kuyruğun anlamı:
+ * "karar bekleyen ürünler" listesi gerçekten karar bekleyenleri göstermeli.
+ *
+ * `simdi` DIŞARIDAN GELİR: kural saf kalsın, testi saate bağlı olmasın.
+ */
+export interface UrunOnayAlanlari {
+  marketOnayDurumu: OnayDurumu;
+  marketKararVerenKullaniciId: number | null;
+  marketKararTarihi: Date | null;
+  marketRetGerekcesi: null;
+}
+
+export function urunPaylasimOnayAlanlari(girdi: {
+  /** Paylaşan kişinin kimliği. */
+  sahipKullaniciId: number;
+  /** Sahibi ürün market kararını verebiliyor mu (proje yöneticisi)? */
+  kendiKararVerebilirMi: boolean;
+  simdi: Date;
+}): { alanlar: UrunOnayAlanlari; bildirimGerekliMi: boolean } {
+  if (girdi.kendiKararVerebilirMi) {
+    return {
+      alanlar: {
+        marketOnayDurumu: "ONAYLANDI",
+        marketKararVerenKullaniciId: girdi.sahipKullaniciId,
+        marketKararTarihi: girdi.simdi,
+        marketRetGerekcesi: null,
+      },
+      /* Kendine "senin ürünün onay bekliyor" demenin bir alıcısı yok. */
+      bildirimGerekliMi: false,
+    };
+  }
+
+  /*
+   * Karar alanları TEMİZLENİR: daha önce reddedilmiş bir ürün yeniden
+   * paylaşıldığında eski gerekçe ve eski karar veren üstünde kalsaydı, kuyruğa
+   * bakan kişi kapanmış bir kararı okurdu.
+   */
+  return {
+    alanlar: {
+      marketOnayDurumu: "BEKLIYOR",
+      marketKararVerenKullaniciId: null,
+      marketKararTarihi: null,
+      marketRetGerekcesi: null,
+    },
+    bildirimGerekliMi: true,
+  };
+}
+
+/**
  * Süzgeci uygular.
  *
  * SQL'de değil burada, çünkü karar rol listesine bakıyor ve aynı kararın

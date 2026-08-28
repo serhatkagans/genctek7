@@ -72,6 +72,21 @@ enum MentorlukDurumu {
   BIRAKILDI
 }
 
+/// Mentörlük kaldırma talebini AÇANIN düzeyi — talebi kimin onaylayacağı
+/// buradan çıkar (28 Ağustos 2026).
+///
+///   · DANISMAN       → il koordinatörü ya da proje yöneticisi onaylar,
+///   · IL_KOORDINATOR → yalnızca proje yöneticisi onaylar.
+///
+/// `RolKodu` PAYLAŞILMADI: o enum'da öğrenci, mezun, paydaş gibi bu kapıdan
+/// hiç geçmeyecek değerler var ve paylaşılan enum, hiçbir zaman yazılmayacak
+/// hâlleri her karar noktasında ele almayı zorunlu kılardı (aynı gerekçe:
+/// MentorlukDurumu · OnayDurumu ayrımı).
+enum MentorlukKaldirmaDuzeyi {
+  DANISMAN
+  IL_KOORDINATOR
+}
+
 enum AtamaTipi {
   OGRENCI_SECTI
   OTOMATIK
@@ -468,15 +483,15 @@ model Kullanici {
   /// oysa açık rıza ondan da isteniyor.
   onaylar        KullaniciOnayi[]
 
-  onayladigiIlDisiBasvurular  Basvuru[]        @relation("BasvuruKaynakIlOnaylayan")
-  yazdigiRaporlar             FaaliyetRaporu[] @relation("RaporYazan")
-  actigiTalepler              Talep[]          @relation("TalepAcan")
-  kararVerdigiTalepler        Talep[]          @relation("TalepOnaylayan")
-  gonderdigiBaglantiIstekleri BaglantiIstegi[] @relation("BaglantiIsteyen")
-  aldigiBaglantiIstekleri     BaglantiIstegi[] @relation("BaglantiHedefi")
-  kararVerdigiBaglantilar     BaglantiIstegi[] @relation("BaglantiKararVeren")
-  yazdigiMesajlar             Mesaj[]          @relation("MesajYazan")
-  gizledigiMesajlar           Mesaj[]          @relation("MesajGizleyen")
+  onayladigiIlDisiBasvurular  Basvuru[]          @relation("BasvuruKaynakIlOnaylayan")
+  yazdigiRaporlar             FaaliyetRaporu[]   @relation("RaporYazan")
+  actigiTalepler              Talep[]            @relation("TalepAcan")
+  kararVerdigiTalepler        Talep[]            @relation("TalepOnaylayan")
+  gonderdigiBaglantiIstekleri BaglantiIstegi[]   @relation("BaglantiIsteyen")
+  aldigiBaglantiIstekleri     BaglantiIstegi[]   @relation("BaglantiHedefi")
+  kararVerdigiBaglantilar     BaglantiIstegi[]   @relation("BaglantiKararVeren")
+  yazdigiMesajlar             Mesaj[]            @relation("MesajYazan")
+  gizledigiMesajlar           Mesaj[]            @relation("MesajGizleyen")
   yazismaOkumalari            YazismaOkuma[]
   urunMarketKararlari         KullaniciKazanim[] @relation("UrunMarketKararVeren")
   paydasOnaylari              Paydas[]           @relation("PaydasOnaylayan")
@@ -499,6 +514,7 @@ model Kullanici {
   atadigiGorevler       OgrenciGorevRolu[]    @relation("GorevAtayan")
   kazanimlar            KullaniciKazanim[]
   hedefler              KullaniciHedefi[]
+  referanslar           KullaniciReferansi[]
   /// Algoritmam envanterleri. Hedefler gibi KİŞİYE ÖZELDİR: danışmanın ve
   /// koordinatörün sorgularında hiç görünmez.
   envanterUygulamalari  EnvanterUygulamasi[]
@@ -524,6 +540,11 @@ model Kullanici {
   /// Mentörlük kaydı — öğretmende de dış kullanıcıda da aynı tablo.
   mentorluk             Mentorluk?  @relation("MentorlukSahibi")
   kararVerdigiMentorluk Mentorluk[] @relation("MentorlukKararVeren")
+
+  /// Bir öğrencinin mentörlüğünün kaldırılması için açtığı / karara bağladığı
+  /// talepler (28 Ağustos 2026).
+  istedigiMentorlukKaldirmalari     MentorlukKaldirmaTalebi[] @relation("MentorlukKaldirmaIsteyen")
+  kararVerdigiMentorlukKaldirmalari MentorlukKaldirmaTalebi[] @relation("MentorlukKaldirmaKararVeren")
 
   gencTekGorevBasvurulari      GencTekGorevBasvurusu[] @relation("GencTekGorevBasvuranı")
   kararVerdigiGorevBasvurulari GencTekGorevBasvurusu[] @relation("GencTekGorevKararVeren")
@@ -738,12 +759,71 @@ model Mentorluk {
   /// başvururken neyi düzelteceğini söylemez.
   retGerekcesi          String?   @map("ret_gerekcesi") @db.Text
 
-  kullanici  Kullanici               @relation("MentorlukSahibi", fields: [kullaniciId], references: [id], onDelete: Cascade)
-  kararVeren Kullanici?              @relation("MentorlukKararVeren", fields: [kararVerenKullaniciId], references: [id])
-  gruplar    MentorlukCalismaGrubu[]
+  kullanici      Kullanici                @relation("MentorlukSahibi", fields: [kullaniciId], references: [id], onDelete: Cascade)
+  kararVeren     Kullanici?               @relation("MentorlukKararVeren", fields: [kararVerenKullaniciId], references: [id])
+  gruplar        MentorlukCalismaGrubu[]
+  /// Bekleyen ya da karara bağlanmış SON kaldırma talebi (28 Ağustos 2026).
+  kaldirmaTalebi MentorlukKaldirmaTalebi?
 
   @@index([durum])
   @@map("mentorluk")
+}
+
+/// Bir öğrencinin mentörlüğünün KALDIRILMASI için açılan talep (28 Ağustos
+/// 2026 · istek: "mentör olarak atanan öğrencinin danışman öğretmeni, il
+/// koordinatörü ve proje yöneticisi iptal edebilsin, hiyerarşi olsun:
+/// öğretmeninkini koordinatör ve proje yöneticisi, koordinatörünkini de proje
+/// yöneticisi onaylasın, proje yöneticisine onay yok").
+///
+/// ---------------------------------------------------------------------------
+/// NİYE AYRI TABLO
+/// ---------------------------------------------------------------------------
+/// `mentorluk` bir DURUM kaydıdır ("şu an mentör mü") ve kaldırma talebi
+/// süresince o durum DEĞİŞMEZ: öğrenci talep karara bağlanana kadar mentör
+/// kalır, havuzda görünür, ilanlara cevap yazar. Talep alanları (isteyen,
+/// gerekçe, düzey) o tabloya konsaydı kaldırılmış bir mentörlüğün satırında
+/// eski talebin izleri kalır, "kim kaldırdı" ile "kim istedi" tek satırda
+/// birbirine karışırdı.
+///
+/// ÖĞRENCİ BAŞINA TEK SATIR (birincil anahtar `mentorluk`a bakıyor): talep bir
+/// durumdur, geçmiş tablosu değil — `mentorluk`un kendi gerekçesiyle aynı
+/// desen. Yeni bir talep aynı satırı BEKLIYOR'a döndürür; bekleyen bir talep
+/// varken ikincisi açılamaz (bkz. lib/mentor/kurallar.ts).
+///
+/// ---------------------------------------------------------------------------
+/// `isteyen_duzeyi` NİYE SAKLANIYOR
+/// ---------------------------------------------------------------------------
+/// Talebi kimin onaylayabileceği, talebi AÇANIN düzeyinden çıkıyor. O düzey
+/// karar anında rolden yeniden hesaplansaydı, aradan geçen sürede danışmanlığı
+/// düşen ya da koordinatör olan bir öğretmenin talebi kendiliğinden başka bir
+/// onay kapısına taşınırdı. Talep açıldığı andaki düzeyiyle donuyor.
+///
+/// PROJE YÖNETİCİSİ BU TABLOYA HİÇ GİRMEZ: merkezin kaldırması onaya tabi
+/// değil, mentörlüğü doğrudan kapatıyor (bkz. ogrenciMentorluguKaldirmaDuzeyi).
+/// `MERKEZ` diye bir değer olsaydı, hiçbir zaman BEKLIYOR olmayacak satırlar
+/// için sürekli ele alınması gereken bir hâl doğardı.
+model MentorlukKaldirmaTalebi {
+  kullaniciId        Int                     @id @map("kullanici_id")
+  durum              OnayDurumu              @default(BEKLIYOR)
+  isteyenKullaniciId Int                     @map("isteyen_kullanici_id")
+  isteyenDuzeyi      MentorlukKaldirmaDuzeyi @map("isteyen_duzeyi")
+  /// Kaldırma gerekçesi — onaylandığında öğrenciye giden bildirimin metni
+  /// budur. Zorunlu ve en az on karakter (uygulama katmanında).
+  gerekce            String                  @db.Text
+  istekTarihi        DateTime                @default(now()) @map("istek_tarihi") @db.Timestamptz(6)
+
+  kararVerenKullaniciId Int?      @map("karar_veren_kullanici_id")
+  kararTarihi           DateTime? @map("karar_tarihi") @db.Timestamptz(6)
+  /// Talebin REDDİNİN gerekçesi — `gerekce` ile karıştırılmamalı: o, mentörlüğün
+  /// niye kaldırılmak istendiğini; bu, talebin niye kabul edilmediğini yazar.
+  retGerekcesi          String?   @map("ret_gerekcesi") @db.Text
+
+  mentorluk  Mentorluk  @relation(fields: [kullaniciId], references: [kullaniciId], onDelete: Cascade)
+  isteyen    Kullanici  @relation("MentorlukKaldirmaIsteyen", fields: [isteyenKullaniciId], references: [id])
+  kararVeren Kullanici? @relation("MentorlukKaldirmaKararVeren", fields: [kararVerenKullaniciId], references: [id])
+
+  @@index([durum])
+  @@map("mentorluk_kaldirma_talebi")
 }
 
 /// Mentörün hangi çalışma gruplarında mentörlük yapabildiği.
@@ -1225,19 +1305,19 @@ model OgrenciGorevRolu {
 /// `tip` alanı genişletilir — kategoriler mevcut değerlerle büyük ölçüde
 /// örtüşüyor (bkz. references/domain-rules.md Bölüm 13).
 model KullaniciKazanim {
-  id                      Int            @id @default(autoincrement())
-  kullaniciId             Int            @map("kullanici_id")
-  tip                     KazanimTipi
-  baslik                  String         @db.VarChar(250)
-  aciklama                String?        @db.Text
-  tarih                   DateTime?      @db.Timestamptz(6)
-  baglantiUrl             String?        @map("baglanti_url") @db.Text
+  id                          Int            @id @default(autoincrement())
+  kullaniciId                 Int            @map("kullanici_id")
+  tip                         KazanimTipi
+  baslik                      String         @db.VarChar(250)
+  aciklama                    String?        @db.Text
+  tarih                       DateTime?      @db.Timestamptz(6)
+  baglantiUrl                 String?        @map("baglanti_url") @db.Text
   /// Yarışma derecesi ("Türkiye 1.si", "Bölge 3.sü"). Serbest metindir: derece
   /// adlandırması yarışmadan yarışmaya değişiyor, sabit liste tutulmuyor.
   /// Yalnızca tip=YARISMA_DERECESI kayıtlarında anlamlıdır.
-  derece                  String?        @db.VarChar(120)
+  derece                      String?        @db.VarChar(120)
   /// Etkinliği/yarışmayı düzenleyen kurum ya da kuruluş.
-  duzenleyen              String?        @map("duzenleyen") @db.VarChar(200)
+  duzenleyen                  String?        @map("duzenleyen") @db.VarChar(200)
   /// Kayıt adı bilinen bir GençTek programından geliyorsa o programa işaret
   /// eder; "Diğer" seçilip serbest metin yazıldığında boş kalır.
   ///
@@ -1245,18 +1325,18 @@ model KullaniciKazanim {
   /// pasife alındığında ya da adı değiştiğinde öğrencinin geçmiş kaydı
   /// okunamaz hâle gelmemeli. Bağlantı, aynı programa ait kayıtları
   /// gruplayabilmek için tutulur.
-  temelEtkinlikProgramiId Int?           @map("temel_etkinlik_programi_id")
+  temelEtkinlikProgramiId     Int?           @map("temel_etkinlik_programi_id")
   /// Yüz yüze / online / karma. Ürün kayıtlarında anlamsızdır, boş kalır.
-  katilimBicimi           KatilimBicimi? @map("katilim_bicimi")
+  katilimBicimi               KatilimBicimi? @map("katilim_bicimi")
   /// Eğitimin/etkinliğin kime yönelik olduğu ("9. sınıflar", "veliler").
   /// Serbest metindir: sabit bir liste, akran eğitiminin çeşitliliğini taşımaz.
-  hedefKitle              String?        @map("hedef_kitle") @db.VarChar(200)
+  hedefKitle                  String?        @map("hedef_kitle") @db.VarChar(200)
   /// Ürünü geliştiren ekip. Yalnızca tip=URUN kayıtlarında anlamlıdır.
-  gelistirenEkip          String?        @map("gelistiren_ekip") @db.VarChar(250)
+  gelistirenEkip              String?        @map("gelistiren_ekip") @db.VarChar(250)
   /// "Bu ürünü markette paylaş". Varsayılan false: paylaşım bir TERCİHTİR,
   /// açık gelmesi kullanıcının istemeden vitrine çıkması demek olurdu.
   /// GençTek Market (I maddesi) bu bayrağı okuyacak.
-  markettePaylasilsin     Boolean        @default(false) @map("markette_paylasilsin")
+  markettePaylasilsin         Boolean        @default(false) @map("markette_paylasilsin")
   /// Market vitrinine çıkış ONAYA BAĞLI (26 Ağustos 2026 · istek: "markette
   /// paylaşılmadı yerine onay bekliyor yazsın ve proje yöneticisine gitsin
   /// onaya, öğretmen için de").
@@ -1268,19 +1348,19 @@ model KullaniciKazanim {
   /// VARSAYILAN `ONAY_GEREKMEZ`: bu sütun eklenmeden önce paylaşılmış ürünler
   /// vitrindeydi ve geriye dönük onaya sokmak, kimseye haber vermeden
   /// marketi boşaltmak olurdu. Yeni paylaşımlar `BEKLIYOR` ile açılıyor.
-  marketOnayDurumu        OnayDurumu     @default(ONAY_GEREKMEZ) @map("market_onay_durumu")
-  marketKararVerenKullaniciId Int?       @map("market_karar_veren_kullanici_id")
-  marketKararTarihi       DateTime?      @map("market_karar_tarihi") @db.Timestamptz(6)
+  marketOnayDurumu            OnayDurumu     @default(ONAY_GEREKMEZ) @map("market_onay_durumu")
+  marketKararVerenKullaniciId Int?           @map("market_karar_veren_kullanici_id")
+  marketKararTarihi           DateTime?      @map("market_karar_tarihi") @db.Timestamptz(6)
   /// Rette ZORUNLU (uygulama katmanında): gerekçesiz ret, sahibine neyi
   /// düzelteceğini söylemez.
-  marketRetGerekcesi      String?        @map("market_ret_gerekcesi") @db.Text
+  marketRetGerekcesi          String?        @map("market_ret_gerekcesi") @db.Text
   /// Market vitrin sayaçları (I). Yalnızca tip=URUN kayıtlarında anlamlıdır.
   ///
   /// Ürün detayı her açıldığında artar — SAHİBİ AÇTIĞINDA ARTMAZ, yoksa kişi
   /// kendi sayfasını yenileyerek sayacı şişirebilirdi. Tekilleştirme yoktur:
   /// aynı kişi iki kez bakarsa iki sayılır (vitrin sayacı, denetim kaydı
   /// değil — kim neye baktı bilgisi erişim logunda).
-  goruntulenmeSayisi      Int            @default(0) @map("goruntulenme_sayisi")
+  goruntulenmeSayisi          Int            @default(0) @map("goruntulenme_sayisi")
   /// "İNDİRİLME" DEĞİL, bağlantıya gidilme sayısı — ve bu bilinçli.
   ///
   /// İstek "indirilme sayıları görüntülenecek" diyor ama ürünlerde dosya
@@ -1288,10 +1368,10 @@ model KullaniciKazanim {
   /// bir dosya olmadığı için sayılabilecek en yakın olay, kullanıcının ürünün
   /// deposuna/canlı sürümüne gitmesidir. Dosya yükleme açılırsa gerçek indirme
   /// AYRI bir sütun olur; bu sayaç anlamını korur (→ S22).
-  baglantiTiklamasi       Int            @default(0) @map("baglanti_tiklamasi")
+  baglantiTiklamasi           Int            @default(0) @map("baglanti_tiklamasi")
   /// Kaydın girildiği an. Kullanıcının girdiği `tarih` boş olabildiği için
   /// listeleme sırası buradan kurulur.
-  olusturmaTarihi         DateTime       @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi             DateTime       @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   kullanici             Kullanici              @relation(fields: [kullaniciId], references: [id])
   marketKararVeren      Kullanici?             @relation("UrunMarketKararVeren", fields: [marketKararVerenKullaniciId], references: [id])
@@ -1336,6 +1416,22 @@ model KazanimEk {
   depolamaYolu   String   @map("depolama_yolu") @db.Text
   mimeTipi       String   @map("mime_tipi") @db.VarChar(100)
   boyutBayt      BigInt   @map("boyut_bayt")
+  /// Ürünün VİTRİN KAPAĞI (28 Ağustos 2026 · istek: "vitrine ürün eklerken bir
+  /// tane ürün görseli ekleyebilelim").
+  ///
+  /// Kapak AYRI BİR SÜTUN/TABLO DEĞİL, var olan ekin işaretlenmesidir: ayrı bir
+  /// "urun_gorseli" alanı açılsaydı aynı dosya iki yerde yaşar, kapak silinip
+  /// ek listesinde kalabilirdi. Bayrak ekin üzerinde durduğu için ek silinince
+  /// kapak da kendiliğinden düşer.
+  ///
+  /// Kazanım başına EN FAZLA BİR ek işaretlidir; teklik uygulama katmanında
+  /// korunur (bkz. lib/kazanim/ek.ts · kazanimEkiKaydet). Yalnızca görsel
+  /// tipli ekler işaretlenebilir — kapak yerine pdf basmak kırık kart demekti.
+  ///
+  /// İşaretli ek yoksa vitrin kartı EN ESKİ GÖRSEL EKİ kapak sayar: bu sütun
+  /// açılmadan önce girilmiş ürünlerin görselleri vardı ve hepsini kapaksız
+  /// bırakmak, var olan veriyi görmezden gelmek olurdu.
+  kapakMi        Boolean  @default(false) @map("kapak_mi")
   yuklenmeTarihi DateTime @default(now()) @map("yuklenme_tarihi") @db.Timestamptz(6)
 
   kazanim KullaniciKazanim @relation(fields: [kazanimId], references: [id], onDelete: Cascade)
@@ -1373,6 +1469,56 @@ model KullaniciHedefi {
 
   @@index([kullaniciId])
   @@map("kullanici_hedefi")
+}
+
+/// REFERANSLARIM (28 Ağustos 2026 · istek: "Öğrenciler için profile
+/// referanslar bölümü ekleyelim. Referans için ad soyad telefon kurum
+/// eposta").
+///
+/// Öğrencinin, kendisi hakkında görüşüne başvurulabilecek kişileri yazdığı
+/// liste — bir CV'nin "referanslar" bölümünün karşılığı.
+///
+/// ---------------------------------------------------------------------------
+/// SATIRIN İÇİ ÜÇÜNCÜ BİR KİŞİNİN KİŞİSEL VERİSİDİR
+/// ---------------------------------------------------------------------------
+/// Buradaki telefon ve e-posta öğrencinin değil, referans gösterilen KİŞİNİN
+/// bilgisi ve o kişi sistemde hiç bulunmayabilir. Bu yüzden kayıt, `hedefler`
+/// gibi KİŞİYE ÖZEL tutuluyor: yalnızca sahibi görüyor ve yalnızca kendi
+/// ürettiği özgeçmişe giriyor (bkz. lib/ozgecmis/veri.ts). Danışmanın,
+/// koordinatörün ve merkezin öğrenci ekranlarında görünmüyor — görünseydi
+/// sistem, izni alınmamış üçüncü kişilerin iletişim bilgilerinden oluşan,
+/// il çapında süzülebilen bir rehbere dönüşürdü. Kazanım kayıtlarından
+/// (danışman görür) ayrıldığı nokta budur.
+///
+/// ---------------------------------------------------------------------------
+/// KULLANICI TABLOSUNA BAĞLI, "OGRENCI" DEĞİL
+/// ---------------------------------------------------------------------------
+/// Bölüm yalnızca öğrenci panelinde basılıyor ama tablo `kullanici`ya bakıyor —
+/// `KullaniciHedefi` ile aynı karar. Öğretmen ileride kendi referanslarını
+/// tutmak isterse şema değişmiyor; rol kısıtı, verinin şeklinden değil ekranın
+/// kararından geliyor.
+///
+/// AD SOYAD DIŞINDAKİLER İSTEĞE BAĞLI ama telefon ile e-postadan EN AZ BİRİ
+/// zorunlu (uygulama katmanında): ulaşılamayan bir referans, referans değildir.
+model KullaniciReferansi {
+  id          Int     @id @default(autoincrement())
+  kullaniciId Int     @map("kullanici_id")
+  adSoyad     String  @map("ad_soyad") @db.VarChar(150)
+  /// Referansın çalıştığı kurum ya da kuruluş ("Beşiktaş Anadolu Lisesi").
+  /// Unvan da bu alana yazılabilir; ayrı bir sütun açılmadı çünkü istekte
+  /// dört alan sayılıyor ve beşincisi formu uzatmaktan başka bir iş görmezdi.
+  kurum       String? @db.VarChar(200)
+  telefon     String? @db.VarChar(20)
+  eposta      String? @db.VarChar(150)
+
+  /// Listenin sırası: önce eklenen üstte. Ayrı bir `sira_no` yok — referans
+  /// listesi elle sıralanacak kadar uzun değil (en fazla beş satır).
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+
+  @@index([kullaniciId])
+  @@map("kullanici_referansi")
 }
 
 // ---------------------------------------------------------------------------
@@ -1728,22 +1874,22 @@ model FaaliyetBelgesi {
 /// SİLME YOKTUR: iş birliği biten paydaş `aktif=false` yapılır. Geçmiş
 /// faaliyetlerin paydaş bağlantısı bozulmamalı.
 model Paydas {
-  id                 Int        @id @default(autoincrement())
-  ilKodu             String     @map("il_kodu") @db.Char(2)
-  ad                 String     @db.VarChar(250)
-  tur                PaydasTuru
+  id                   Int        @id @default(autoincrement())
+  ilKodu               String     @map("il_kodu") @db.Char(2)
+  ad                   String     @db.VarChar(250)
+  tur                  PaydasTuru
   /// İrtibat kişisi ve unvanı; kurumun santralı yerine gerçek muhatap.
-  yetkiliKisi        String?    @map("yetkili_kisi") @db.VarChar(150)
-  eposta             String?    @db.VarChar(150)
-  telefon            String?    @db.VarChar(20)
-  adres              String?    @db.Text
+  yetkiliKisi          String?    @map("yetkili_kisi") @db.VarChar(150)
+  eposta               String?    @db.VarChar(150)
+  telefon              String?    @db.VarChar(20)
+  adres                String?    @db.Text
   /// İş birliği alanı / potansiyeli — serbest metin. Sabit liste tutulmaz:
   /// bir üniversitenin sunduğu imkân ile bir yazılım firmasınınki aynı
   /// kategorilere sığmıyor.
-  isBirligiAlani     String     @map("is_birligi_alani") @db.Text
-  notlar             String?    @db.Text
-  aktif              Boolean    @default(true)
-  ekleyenKullaniciId Int        @map("ekleyen_kullanici_id")
+  isBirligiAlani       String     @map("is_birligi_alani") @db.Text
+  notlar               String?    @db.Text
+  aktif                Boolean    @default(true)
+  ekleyenKullaniciId   Int        @map("ekleyen_kullanici_id")
   /// MERKEZİN ONAYI (27 Ağustos 2026 · istek: "proje yöneticisi bu listeden en
   /// son sütunda onay veya red versin").
   ///
@@ -1755,14 +1901,14 @@ model Paydas {
   /// Varsayılan `BEKLIYOR`; merkezin kendi açtığı kayıt da kuyruğa düşer ve
   /// kendi onayını kendisi verir — "kimse kendi işini onaylamaz" kuralı burada
   /// aranmıyor, çünkü kuyruğun üstünde başka bir merci yok.
-  onayDurumu         OnayDurumu @default(BEKLIYOR) @map("onay_durumu")
-  onayVerenKullaniciId Int?     @map("onay_veren_kullanici_id")
-  onayTarihi         DateTime?  @map("onay_tarihi") @db.Timestamptz(6)
+  onayDurumu           OnayDurumu @default(BEKLIYOR) @map("onay_durumu")
+  onayVerenKullaniciId Int?       @map("onay_veren_kullanici_id")
+  onayTarihi           DateTime?  @map("onay_tarihi") @db.Timestamptz(6)
   /// Ret gerekçesi; kaydı açan koordinatör neyi düzeltip yeniden sunacağını
   /// bilmeli (emsali: faaliyet ve mentörlük ret gerekçeleri).
-  retGerekcesi       String?    @map("ret_gerekcesi") @db.Text
-  olusturmaTarihi    DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
-  guncellemeTarihi   DateTime   @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+  retGerekcesi         String?    @map("ret_gerekcesi") @db.Text
+  olusturmaTarihi      DateTime   @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi     DateTime   @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
 
   il        Il         @relation(fields: [ilKodu], references: [ilKodu])
   ekleyen   Kullanici  @relation("PaydasEkleyen", fields: [ekleyenKullaniciId], references: [id])

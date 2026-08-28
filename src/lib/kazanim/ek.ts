@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { depolama } from "../depolama";
 import { ekKabulEdilirMi, type EkSinirlari } from "../faaliyet/ek-kurallar";
 import { ekSinirlariniGetir } from "../faaliyet/ek-kaydet";
+import { gorselMi } from "./kapak";
 
 /**
  * Kazanım kaydının destekleyici belgeleri — "etkinliğe dair fotoğraf, belge".
@@ -31,6 +32,8 @@ export async function kazanimEkiKaydet(girdi: {
   kazanimId: number;
   dosya: File;
   sinirlar: EkSinirlari;
+  /** Ürün kapağı olarak yüklendiyse true (bkz. lib/kazanim/kapak.ts). */
+  kapakMi?: boolean;
 }): Promise<KazanimEkSonucu> {
   const { dosya } = girdi;
 
@@ -39,6 +42,13 @@ export async function kazanimEkiKaydet(girdi: {
     girdi.sinirlar,
   );
   if (!karar.olurMu) return { olurMu: false, neden: karar.neden };
+
+  /*
+   * Kapak yalnızca GÖRSEL olabilir. Alan `accept="image/*"` ile basılıyor ama
+   * o yalnızca dosya seçicinin süzgeci; elle gönderilen bir istek pdf'i kapak
+   * diye işaretleyebilirdi ve vitrin kartı kırık resim gösterirdi.
+   */
+  const kapakMi = girdi.kapakMi === true && gorselMi(dosya.type);
 
   const anahtar = await depolama().yaz({
     icerik: Buffer.from(await dosya.arrayBuffer()),
@@ -53,9 +63,18 @@ export async function kazanimEkiKaydet(girdi: {
       depolamaYolu: anahtar,
       mimeTipi: dosya.type,
       boyutBayt: BigInt(dosya.size),
+      kapakMi,
     },
     select: { id: true },
   });
+
+  /* Yeni kapak geldiyse eskisinin işareti düşer: kazanım başına tek kapak. */
+  if (kapakMi) {
+    await prisma.kazanimEk.updateMany({
+      where: { kazanimId: girdi.kazanimId, kapakMi: true, id: { not: ek.id } },
+      data: { kapakMi: false },
+    });
+  }
 
   return { olurMu: true, ekId: ek.id };
 }

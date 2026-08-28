@@ -163,6 +163,21 @@ export const KOPUK_BAGLANTI_IZLERI = [
   "Server has closed the connection",
   "Connection terminated",
   "ECONNRESET",
+  /*
+   * KAPATILMIŞ HAVUZ (28 Ağustos 2026 · kullanıcı hatası 3222233624).
+   *
+   * Bu izi bırakan `pg`'nin kendisi: `pool.end()` çağrılmış bir havuz bir daha
+   * KULLANILAMAZ. 21 Ağustos'taki yeniden deneme, kopan bağlantıdan kurtulmak
+   * için `$disconnect()` çağırıyordu ve adaptör altta tam olarak `pool.end()`
+   * yapıyor — yani düzeltme, geçici bir kopukluğu KALICI bir arızaya
+   * çeviriyordu: o andan sonra dev sunucusu yeniden başlatılana kadar HER
+   * sayfa 500 veriyor.
+   *
+   * Kök neden `db.ts` tarafında giderildi (havuz kapatmak yerine istemci
+   * yenileniyor). Bu iz yine de listede: sürecin içinde ölü kalmış eski bir
+   * istemci, yeniden deneme yolundan kendini toparlayabilsin.
+   */
+  "Cannot use a pool after calling end on the pool",
 ];
 
 export function baglantiKoptuMu(hata: unknown): boolean {

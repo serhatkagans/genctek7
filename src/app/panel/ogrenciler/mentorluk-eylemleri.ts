@@ -3,10 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { BILDIRIM_KODLARI, bildirimGonder } from "@/lib/bildirim/gonder";
+import {
+  BILDIRIM_KODLARI,
+  bildirimGonder,
+  ilKoordinatorlerineBildir,
+  projeYoneticilerineBildir,
+} from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
-import { ogrenciMentorlukKarariGecerliMi } from "@/lib/mentor/kurallar";
-import { ogrenciMentorluguneKararVerebilirMi } from "@/lib/yetki/izinler";
+import {
+  KALDIRMA_DUZEYI_ETIKETLERI,
+  mentorlukKaldirmaKarariGecerliMi,
+  mentorlukKaldirmaTalebiGecerliMi,
+  ogrenciMentorlukKarariGecerliMi,
+} from "@/lib/mentor/kurallar";
+import {
+  mentorlukKaldirmaTalebiniOnaylayabilirMi,
+  ogrenciMentorluguKaldirmaDuzeyi,
+  ogrenciMentorluguneKararVerebilirMi,
+} from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi } from "@/lib/yetki/tipler";
 
@@ -64,6 +78,16 @@ function donusYolunuCoz(veri: FormData): string {
   return YOL;
 }
 
+/**
+ * Kural katmanının reddettiği isteğin ekrana dönüşü.
+ *
+ * Üç eylem de aynı biçimi kullanıyor; ayrı ayrı yazıldığında birinde `&`
+ * ayracı unutulur ve süzgeçli listeden gelen kullanıcı hatayı hiç görmezdi.
+ */
+function hataliDonus(donusYolu: string, neden: string): string {
+  return `${donusYolu}${donusYolu.includes("?") ? "&" : "?"}hata=${encodeURIComponent(neden)}`;
+}
+
 export async function ogrenciMentorluguKararEylemi(
   veri: FormData,
 ): Promise<void> {
@@ -92,7 +116,24 @@ export async function ogrenciMentorluguKararEylemi(
       ad: true,
       soyad: true,
       ilKodu: true,
-      mentorluk: { select: { durum: true } },
+      mentorluk: {
+        select: {
+          durum: true,
+          /*
+           * BEKLEYEN TALEP HER İKİ KARARI DA DURDURUR (28 Ağustos 2026);
+           * kuralı `ogrenciMentorlukKarariGecerliMi` yazıyor, buradaki iş
+           * yalnızca ona veriyi taşımak.
+           */
+          kaldirmaTalebi: {
+            select: {
+              durum: true,
+              gerekce: true,
+              isteyenKullaniciId: true,
+              isteyenDuzeyi: true,
+            },
+          },
+        },
+      },
       ogrenciAtamalari: {
         where: { bitisTarihi: null },
         select: { danismanKullaniciId: true },
@@ -111,16 +152,115 @@ export async function ogrenciMentorluguKararEylemi(
   }
 
   const kaldiriliyor = String(veri.get("karar") ?? "") === "KALDIR";
+  const talep = ogrenci.mentorluk?.kaldirmaTalebi ?? null;
+
+  /*
+   * -------------------------------------------------------------------------
+   * KALDIRMA ARTIK HERKESTE AYNI ŞEYİ YAPMIYOR (28 Ağustos 2026)
+   * -------------------------------------------------------------------------
+   * İSTEK: "hiyerarşi olsun: öğretmeninkini koordinatör ve proje yöneticisi,
+   * koordinatörünkini de proje yöneticisi onaylasın, proje yöneticisine onay
+   * yok".
+   *
+   * Düğme üçünde de aynı ("Mentörlüğü kaldır"); ayrışan şey sonucu. Hangi
+   * düzeyden basıldığını izinler.ts söylüyor — burada dallanma tek satır ve
+   * "proje yöneticisi mi" sorusu bu dosyada hiç sorulmuyor.
+   */
+  if (kaldiriliyor) {
+    const duzey = ogrenciMentorluguKaldirmaDuzeyi(
+      kullanici,
+      ogrenci,
+      kendiOgrencisiMi,
+    );
+    if (!duzey) throw new BulunamadiHatasi();
+
+    if (duzey !== "MERKEZ") {
+      const istek = mentorlukKaldirmaTalebiGecerliMi({
+        mevcutDurum: ogrenci.mentorluk?.durum ?? null,
+        talepDurumu: talep?.durum ?? null,
+        gerekce: String(veri.get("gerekce") ?? ""),
+      });
+      if (!istek.olurMu) {
+        revalidatePath(donusYolu);
+        redirect(hataliDonus(donusYolu, istek.neden));
+      }
+
+      /*
+       * UPSERT: öğrenci başına tek satır tutuluyor (bkz. şema · talep bir
+       * DURUMDUR, geçmiş tablosu değil). Daha önce reddedilmiş bir talebin
+       * satırı yeniden BEKLIYOR'a dönüyor; kararı, gerekçesi ve karar veren
+       * temizleniyor — kalsalardı yeni talep, eski kararın izleriyle
+       * okunurdu.
+       */
+      const talepVerisi = {
+        durum: "BEKLIYOR" as const,
+        isteyenKullaniciId: kullanici.id,
+        isteyenDuzeyi: duzey,
+        gerekce: istek.gerekce,
+        istekTarihi: new Date(),
+        kararVerenKullaniciId: null,
+        kararTarihi: null,
+        retGerekcesi: null,
+      };
+      await prisma.mentorlukKaldirmaTalebi.upsert({
+        where: { kullaniciId: ogrenci.id },
+        create: { kullaniciId: ogrenci.id, ...talepVerisi },
+        update: talepVerisi,
+      });
+
+      /*
+       * UYARI KARAR MERCİİNE GİDER, TALEBİN DÜZEYİNE GÖRE: danışmanınki ilin
+       * koordinatörüne VE merkeze, koordinatörünki yalnızca merkeze. Alıcı
+       * listesi `mentorlukKaldirmaTalebiniOnaylayabilirMi` ile aynı cümleyi
+       * söylüyor; uyarısız bir kuyruk, günlerce bakılmayan kuyruktur ve
+       * buradaki bedeli talebi açan öğretmen ödüyor.
+       *
+       * ÖĞRENCİYE GİTMEZ: henüz kaldırılmış bir şey yok (bkz. sablon.ts ·
+       * MENTORLUK_KALDIRMA_TALEBI).
+       */
+      const degiskenler = {
+        ogrenciAdSoyad: `${ogrenci.ad} ${ogrenci.soyad}`,
+        isteyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        isteyenGorevi: KALDIRMA_DUZEYI_ETIKETLERI[duzey],
+        gerekce: istek.gerekce,
+      };
+      if (duzey === "DANISMAN") {
+        await ilKoordinatorlerineBildir(
+          ogrenci.ilKodu,
+          BILDIRIM_KODLARI.MENTORLUK_KALDIRMA_TALEBI,
+          degiskenler,
+        );
+      }
+      await projeYoneticilerineBildir(
+        BILDIRIM_KODLARI.MENTORLUK_KALDIRMA_TALEBI,
+        degiskenler,
+      );
+
+      await erisimLogla({
+        kullaniciId: kullanici.id,
+        islem: "DEGISIKLIK",
+        hedefTip: "ROL",
+        hedefId: ogrenci.id,
+        detay: `Öğrenci mentörlüğünün kaldırılması istendi (${KALDIRMA_DUZEYI_ETIKETLERI[duzey]}): ${ogrenci.ad} ${ogrenci.soyad}`,
+      });
+
+      revalidatePath(donusYolu);
+      revalidatePath("/panel");
+      redirect(
+        `${donusYolu}${donusYolu.includes("?") ? "&" : "?"}durum=kaldirma-talebi-acildi`,
+      );
+    }
+  }
+
   const karar = ogrenciMentorlukKarariGecerliMi({
     mevcutDurum: ogrenci.mentorluk?.durum ?? null,
     yeniDurum: kaldiriliyor ? "REDDEDILDI" : "ONAYLANDI",
     gerekce: String(veri.get("gerekce") ?? ""),
+    bekleyenKaldirmaTalebiVarMi: talep?.durum === "BEKLIYOR",
   });
   if (!karar.olurMu) {
     revalidatePath(donusYolu);
-    redirect(
-      `${donusYolu}${donusYolu.includes("?") ? "&" : "?"}hata=${encodeURIComponent(karar.neden)}`,
-    );
+    redirect(hataliDonus(donusYolu, karar.neden));
   }
 
   /*
@@ -168,5 +308,152 @@ export async function ogrenciMentorluguKararEylemi(
   revalidatePath("/panel");
   redirect(
     `${donusYolu}${donusYolu.includes("?") ? "&" : "?"}durum=${kaldiriliyor ? "mentorluk-kaldirildi" : "mentor-yapildi"}`,
+  );
+}
+
+/**
+ * BEKLEYEN KALDIRMA TALEBİNİN KARARI (28 Ağustos 2026 · istek: "hiyerarşi
+ * olsun: öğretmeninkini koordinatör ve proje yöneticisi, koordinatörünkini de
+ * proje yöneticisi onaylasın, proje yöneticisine onay yok").
+ *
+ * ONAY, MENTÖRLÜĞÜ TALEBİN GEREKÇESİYLE KALDIRIR: öğrenciye giden bildirimde
+ * yazan metin, kaldırmayı isteyenin yazdığı gerekçedir — onaylayanın değil.
+ * Onaylayana ayrıca gerekçe yazdırılsaydı, öğrenci kendisini tanımayan bir
+ * mercinin cümlesini okurdu; kaldırmayı isteyen ise gerekçesinin yerine
+ * başkasınınkinin geçtiğini hiç görmezdi.
+ *
+ * KARARI KİM VERDİ, MENTÖRLÜK SATIRINA YAZILIR (`kararVerenKullaniciId`):
+ * kaldırma kararı onaylayana aittir, talebi açan yalnızca istemiştir.
+ * "Kim istedi" bilgisi talep satırında duruyor ve ikisi ayrı sorulardır.
+ *
+ * YETKİ HER ÇAĞRIDA VERİTABANINDAN SORULUYOR — ekranda düğmenin basılmamış
+ * olması bir koruma değil (aynı gerekçe bu dosyanın başında yazılı).
+ */
+export async function mentorlukKaldirmaTalebiKararEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  const donusYolu = donusYolunuCoz(veri);
+
+  const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
+  if (!Number.isInteger(ogrenciId)) throw new BulunamadiHatasi();
+
+  const ogrenci = await prisma.kullanici.findUnique({
+    where: { id: ogrenciId },
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      ilKodu: true,
+      mentorluk: {
+        select: {
+          durum: true,
+          kaldirmaTalebi: {
+            select: {
+              durum: true,
+              gerekce: true,
+              isteyenKullaniciId: true,
+              isteyenDuzeyi: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!ogrenci) throw new BulunamadiHatasi();
+
+  const talep = ogrenci.mentorluk?.kaldirmaTalebi ?? null;
+  /*
+   * TALEBİ OLMAYAN ÖĞRENCİDE 404 — "böyle bir öğrenci var" bilgisi de
+   * sızmasın (emsali: yukarıdaki kapsam kararı).
+   */
+  if (!talep) throw new BulunamadiHatasi();
+  if (!mentorlukKaldirmaTalebiniOnaylayabilirMi(kullanici, talep, ogrenci)) {
+    throw new BulunamadiHatasi();
+  }
+
+  const onaylaniyor = String(veri.get("karar") ?? "") === "ONAYLA";
+  const karar = mentorlukKaldirmaKarariGecerliMi({
+    talepDurumu: talep.durum,
+    yeniDurum: onaylaniyor ? "ONAYLANDI" : "REDDEDILDI",
+    retGerekcesi: String(veri.get("retGerekcesi") ?? ""),
+    mentorlukDurumu: ogrenci.mentorluk?.durum ?? null,
+  });
+  if (!karar.olurMu) {
+    revalidatePath(donusYolu);
+    redirect(hataliDonus(donusYolu, karar.neden));
+  }
+
+  /*
+   * İKİ SATIR TEK İŞLEMDE: talebin kapanması ile mentörlüğün kalkması aynı
+   * kararın iki yüzü. Ayrı yazılsalardı araya düşen bir hata, kapanmış bir
+   * talebin ardında onaylı bir mentörlük ya da tersini bırakırdı — ikisi de
+   * ekranda hiçbir düğmesi olmayan bir çıkmaz.
+   */
+  await prisma.$transaction(async (tx) => {
+    await tx.mentorlukKaldirmaTalebi.update({
+      where: { kullaniciId: ogrenci.id },
+      data: {
+        durum: onaylaniyor ? "ONAYLANDI" : "REDDEDILDI",
+        kararVerenKullaniciId: kullanici.id,
+        kararTarihi: new Date(),
+        retGerekcesi: karar.retGerekcesi,
+      },
+    });
+
+    if (onaylaniyor) {
+      await tx.mentorluk.update({
+        where: { kullaniciId: ogrenci.id },
+        data: {
+          /* Kaldırma `REDDEDILDI`dir, `BIRAKILDI` değil — gerekçesi yukarıda. */
+          durum: "REDDEDILDI",
+          kararVerenKullaniciId: kullanici.id,
+          kararTarihi: new Date(),
+          retGerekcesi: talep.gerekce,
+        },
+      });
+    }
+  });
+
+  /* Talebi açan, kararı öğrenmeli: ret hâlinde öğrenci mentör KALIYOR. */
+  await bildirimGonder({
+    kullaniciId: talep.isteyenKullaniciId,
+    kod: BILDIRIM_KODLARI.MENTORLUK_KALDIRMA_KARARI,
+    degiskenler: {
+      ogrenciAdSoyad: `${ogrenci.ad} ${ogrenci.soyad}`,
+      kararVerenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+      sonuc: onaylaniyor ? "onaylandı" : "reddedildi",
+      gerekce: onaylaniyor ? talep.gerekce : (karar.retGerekcesi ?? "—"),
+    },
+  });
+
+  /*
+   * ÖĞRENCİYE YALNIZCA ONAYDA GİDER ve merkezin kararıyla AYNI şablondan:
+   * onun için sonuç aynı — mentörlüğü kalktı. Reddedilen talep öğrenciyi hiç
+   * ilgilendirmiyor; mentörlüğü hiç kesintiye uğramadı.
+   */
+  if (onaylaniyor) {
+    await bildirimGonder({
+      kullaniciId: ogrenci.id,
+      kod: BILDIRIM_KODLARI.MENTORLUK_KARARI,
+      degiskenler: { sonuc: "reddedildi", gerekce: talep.gerekce },
+    });
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "ROL",
+    hedefId: ogrenci.id,
+    detay: `Mentörlük kaldırma talebi ${onaylaniyor ? "onaylandı" : "reddedildi"}: ${ogrenci.ad} ${ogrenci.soyad}`,
+  });
+
+  revalidatePath(donusYolu);
+  revalidatePath("/panel/talepler/mentor-basvuru");
+  revalidatePath("/panel");
+  redirect(
+    `${donusYolu}${donusYolu.includes("?") ? "&" : "?"}durum=${
+      onaylaniyor ? "kaldirma-talebi-onaylandi" : "kaldirma-talebi-reddedildi"
+    }`,
   );
 }

@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckSquare,
   Compass,
+  FileDown,
   FileText,
   GraduationCap,
   Handshake,
@@ -53,11 +54,13 @@ import {
   IletisimDuzenleme,
   KayitEklemeFormu,
   ProfilFotografi,
+  ReferansDuzenleme,
 } from "@/components/ProfilDuzenleme";
 import { YolculukSeridi } from "@/components/YolculukSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
+import { REFERANS_AZAMI_SAYI } from "@/lib/referans/kurallar";
 import {
   danismanlikEylemi,
   destekGruplariEylemi,
@@ -65,6 +68,10 @@ import {
   profilFotoYukleEylemi,
   profilGuncelleEylemi,
 } from "./profil/eylemler";
+import {
+  referansEkleEylemi,
+  referansSilEylemi,
+} from "./profil/referans-eylemleri";
 import {
   cvSilEylemi,
   cvYukleEylemi,
@@ -403,6 +410,28 @@ export default async function PanelSayfasi({
    * tek `count` sorgusu, rol dallanması yazmaktan ucuz.
    */
   const ekipSayim = await ekipSayimiGetir(kullanici.id);
+
+  /*
+   * REFERANSLAR (28 Ağustos 2026). YALNIZCA ÖĞRENCİDE sorgulanıyor: bölüm
+   * yalnızca orada basılıyor ve satırlar üçüncü kişilerin iletişim bilgisi —
+   * gösterilmeyecek bir veriyi belleğe almanın sebebi yok.
+   *
+   * Sıra ekleme sırasıdır (bkz. şema · KullaniciReferansi): liste elle
+   * sıralanacak kadar uzun değil.
+   */
+  const referanslar = ogrenciMi(kullanici)
+    ? await prisma.kullaniciReferansi.findMany({
+        where: { kullaniciId: kullanici.id },
+        orderBy: { olusturmaTarihi: "asc" },
+        select: {
+          id: true,
+          adSoyad: true,
+          kurum: true,
+          telefon: true,
+          eposta: true,
+        },
+      })
+    : [];
 
   /*
    * "ÇALIŞMA GRUPLARI" — dış kullanıcının katkı verebileceği alanlar
@@ -844,6 +873,40 @@ export default async function PanelSayfasi({
                 ? `${okunmamisMesajSayisi} okunmamış mesajın var`
                 : "Bildirimlere git"}
             </Link>
+            {/*
+              ÖZGEÇMİŞ İNDİRME VİTRİNE ÇIKTI (28 Ağustos 2026 · istek: "nerdev
+              cv indir butonu bannera koy").
+
+              Önce "Özgeçmişim (CV)" kartının içindeydi ve orası kapalı bir
+              katlanır kutu: bağlantı, açılmayan bir kutunun içinde kalınca
+              kimse bulamadı. Vitrin, panelin her açılışında görünen tek yer.
+
+              KARTTAKİ İKİNCİ KAPI KAPANDI, bağlantı taşındı — çoğaltılmadı:
+              aynı işi yapan iki düğme, "Panoya git" düğmesinin 22 Ağustos'ta
+              kaldırılma gerekçesiyle aynı sakıncayı doğururdu.
+
+              `<a>` VE `uygulamaYolu` — `<Link>` DEĞİL: dosya indirmede istemci
+              tarafı gezinmenin yapacağı bir şey yok ve ham yol, TEMEL_YOL
+              altında yayımlanan kurulumda ters vekile düşerdi (aynı ayrım
+              DisaAktarmaBagi'nda yazılı; yanındaki `<Link>`ler önek eklemeyi
+              kendileri hallettiği için ham yol yazıyor).
+            */}
+            <a
+              href={uygulamaYolu("/panel/ozgecmis")}
+              className={SINIF_VITRIN_IKINCIL_BUTON}
+            >
+              <FileDown size={16} aria-hidden />
+              {/*
+                METİN "OLUŞTUR" (28 Ağustos 2026 · istek: "bannerdaki özgeçmiş
+                indir butonu özgeçmiş oluştur olsun").
+
+                Düğme gerçekten de bir belge ÜRETİYOR: profildeki kayıtlardan
+                o an yazılan yeni bir dosya iniyor, hazır duran bir eki
+                indirmiyor. "İndir" deseydi, kişinin kendi yüklediği CV
+                dosyasıyla (aynı sayfadaki "Özgeçmişim (CV)" bölümü) karışırdı.
+              */}
+              Özgeçmiş oluştur
+            </a>
           </>
         }
         /*
@@ -2038,6 +2101,34 @@ export default async function PanelSayfasi({
         }
         baslangictaAcik={acilacakBolum === "cvm"}
       >
+        {/*
+          PROFİLDEN ÜRETİLEN ÖZGEÇMİŞ (28 Ağustos 2026 · istek: "profildeki her
+          şeyi cv formatında Word olarak indirebilsin, güzel bir cv formatı
+          olsun").
+
+          YÜKLENEN CV'NİN YERİNE GEÇMİYOR, YANINDA DURUYOR: alttaki form kişinin
+          kendi pdf'ini saklıyor, bu bağlantı sistemdeki veriden bir belge
+          üretiyor. İkisi aynı kartta çünkü kişinin "özgeçmişim" diye aradığı
+          yer burası; ayrı bir bölüm açılsaydı aynı soru panelde iki başlıkla
+          karşılanırdı.
+
+          `<a>` VE `uygulamaYolu` — `<Link>` DEĞİL: dosya indirmede istemci
+          tarafı gezinmenin yapacağı bir şey yok ve ham yol, TEMEL_YOL altında
+          yayımlanan kurulumda ters vekile düşerdi (bkz. DisaAktarmaBagi).
+        */}
+        {/*
+          BAĞLANTI DEĞİL, İŞARET: indirme düğmesi vitrine taşındı (28 Ağustos
+          2026 · istek: "nerdev cv indir butonu bannera koy"). Satır burada
+          kalıyor çünkü "özgeçmişim" diye bakılan yer bu kart; düğmeyi burada
+          da basmak aynı işi yapan ikinci bir kapı olurdu.
+        */}
+        <p className="mb-4 text-sm text-metin-yumusak">
+          Aşağıdaki dosya sizin yüklediğiniz özgeçmiştir. Panelinizdeki
+          bilgilerden (hakkımda, iletişim, çalışma grupları, kayıtlarınız,
+          katılımlarınız ve nişanlarınız) üretilen hazır özgeçmişi ise sayfanın
+          en üstündeki <strong>Özgeçmiş oluştur</strong> düğmesinden Word
+          olarak alabilirsiniz.
+        </p>
         <CvDuzenleme
           cv={
             ogrenciMi(kullanici)
@@ -2144,6 +2235,63 @@ export default async function PanelSayfasi({
           </KatlanabilirKart>
         );
       })}
+
+      {/*
+        REFERANSLARIM (28 Ağustos 2026 · istek: "Öğrenciler için profile
+        referanslar bölümü ekleyelim. Referans için ad soyad telefon kurum
+        eposta").
+
+        YALNIZCA ÖĞRENCİDE: istek öğrenci için geldi ve referans, bir CV'nin
+        parçası olarak işe yarıyor. Tablo kullanıcıya bağlı, yani öğretmene de
+        açılmak istenirse tek koşul değişiyor (bkz. şema · KullaniciReferansi).
+
+        EN ALTTA, DÜZENLENEBİLİR BÖLÜMLERİN SONUNDA (28 Ağustos 2026 · istek:
+        "profilde bu görünmüyor en alta gelecekti"). Önce İletişim
+        bilgilerim'in hemen ardındaydı; gerekçe ikisinin de "bana nasıl
+        ulaşılır" sorusunu cevaplamasıydı. Bir CV'de referanslar en sonda
+        durur ve profilin sırası belgeninkini izliyor. Buradan aşağısı
+        DÜZENLENMEZ, HESAPLANIR (katkı kartı, nişanlar, katılım geçmişi) —
+        yani bu, kişinin doldurduğu son kutu.
+
+        ÖZETTE YALNIZCA SAYI, AD YOK: satırlar üçüncü kişilerin iletişim
+        bilgisi ve kutu kapalıyken profilin üstünde durmalarının bir sebebi
+        yok — kişi kaç referans yazdığını bilmek için açmak zorunda değil,
+        kimlerin telefonunun ekranda durduğunu ise kendisi seçmeli.
+      */}
+      {ogrenciMi(kullanici) && (
+        <KatlanabilirKart
+          baslik="Referanslarım"
+          /*
+            AÇIKLAMASI KALKTI (28 Ağustos 2026 · istek: "Hakkınızda görüşüne
+            başvurulabilecek kişiler. Ürettiğiniz özgeçmişe eklenir; panelde
+            sizden başkası görmez. açıklamayı sil") — aynı gün Topluluklarım
+            bölümünde de yapılan sadeleştirme.
+
+            Cümlenin taşıdığı iki bilgi KAYBOLMADI, kutunun içinde duruyor:
+            formun altındaki satır referansa ulaşılabilir olması gerektiğini ve
+            bilginin üçüncü bir kişiye ait olduğunu söylüyor (bkz.
+            ProfilDuzenleme · ReferansDuzenleme). Başlık zaten bölümün ne
+            olduğunu söylüyordu; açıklama aynı şeyi kapağın üstünde ikinci kez
+            tekrarlıyordu.
+          */
+          Ikon={UserCheck}
+          capa="referanslarim"
+          duzenlenebilir
+          ozet={
+            referanslar.length > 0 ? (
+              <p>{referanslar.length} referans</p>
+            ) : undefined
+          }
+          baslangictaAcik={acilacakBolum === "referanslarim"}
+        >
+          <ReferansDuzenleme
+            referanslar={referanslar}
+            azamiSayi={REFERANS_AZAMI_SAYI}
+            ekleEylemi={referansEkleEylemi}
+            silEylemi={referansSilEylemi}
+          />
+        </KatlanabilirKart>
+      )}
 
       {/*
         "GİRDİĞİM KAYITLAR" BÖLÜMÜ KALKTI (22 Ağustos 2026 · istek: "panelde

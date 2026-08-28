@@ -414,6 +414,157 @@ export function DestekGruplariDuzenleme({
 }
 
 // ---------------------------------------------------------------------------
+// Referanslarım (28 Ağustos 2026)
+// ---------------------------------------------------------------------------
+
+export interface ReferansSatiri {
+  id: number;
+  adSoyad: string;
+  kurum: string | null;
+  telefon: string | null;
+  eposta: string | null;
+}
+
+/**
+ * REFERANSLARIM (istek: "Öğrenciler için profile referanslar bölümü
+ * ekleyelim. Referans için ad soyad telefon kurum eposta").
+ *
+ * ---------------------------------------------------------------------------
+ * LİSTE ÜSTTE, FORM ALTTA
+ * ---------------------------------------------------------------------------
+ * Bölüm açıldığında önce girilmiş referanslar okunuyor; kişi çoğu zaman
+ * "kimleri yazmıştım" diye bakmak için açıyor, her seferinde boş bir formla
+ * karşılaşmak listeyi formun altına itiyordu.
+ *
+ * DÜZENLEME DÜĞMESİ YOK, SİL VE YENİDEN YAZ: dört kısa alan için her satırın
+ * altına ikinci bir form basmak, düzeltmenin kendisinden pahalı (aynı karar
+ * Rotam hedeflerinde de verildi).
+ *
+ * SİLME ONAY SORMUYOR: satır tek tıkla yeniden yazılabilir ve `confirm()`
+ * tarayıcı kipi açıyor — sunucu eylemiyle çalışan bir formda o kip, geri
+ * alınamaz bir işlem izlenimi verirdi. Yeniden yazması bir dakikalık.
+ *
+ * AÇIKLAMA SATIRI KALKTI (28 Ağustos 2026 · istek: "Telefon ve e-postadan en
+ * az birini yazın… sil"). İki şey söylüyordu ve ikisi de KURAL olarak yerinde
+ * duruyor: telefon/e-postadan biri boş bırakılırsa kayıt zaten kabul
+ * edilmiyor ve gerekçesi hata metninde dönüyor (bkz. referansKabulEdilirMi);
+ * satırın üçüncü bir kişiye ait olduğu ise kaydın GÖRÜNÜRLÜĞÜNÜ belirliyor —
+ * yalnızca sahibi görüyor (bkz. şema · KullaniciReferansi). Ekrandaki cümle
+ * bir uyarıydı, davranışın kendisi değil.
+ */
+export function ReferansDuzenleme({
+  referanslar,
+  azamiSayi,
+  ekleEylemi,
+  silEylemi,
+}: {
+  referanslar: ReferansSatiri[];
+  azamiSayi: number;
+  ekleEylemi: Eylem;
+  silEylemi: Eylem;
+}) {
+  const doluMu = referanslar.length >= azamiSayi;
+
+  return (
+    <div className="space-y-4">
+      {referanslar.length > 0 && (
+        <ul className="space-y-2">
+          {referanslar.map((referans) => (
+            <li
+              key={referans.id}
+              className="flex flex-wrap items-start justify-between gap-3 rounded-kutu border border-cizgi px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="font-medium text-metin">{referans.adSoyad}</p>
+                <p className="text-sm text-metin-yumusak">
+                  {[referans.kurum, referans.telefon, referans.eposta]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <form action={silEylemi}>
+                <input
+                  type="hidden"
+                  name="referansId"
+                  value={referans.id}
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-hata-metin"
+                >
+                  <Trash2 size={15} aria-hidden />
+                  Sil
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {doluMu ? (
+        <p className="text-sm text-metin-yumusak">
+          En fazla {azamiSayi} referans ekleyebilirsiniz. Yeni bir referans
+          için önce birini silin.
+        </p>
+      ) : (
+        <form action={ekleEylemi} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-metin">
+                Ad soyad <span className="text-hata-metin">*</span>
+              </span>
+              <input
+                type="text"
+                name="adSoyad"
+                required
+                maxLength={150}
+                placeholder="Ayşe Yılmaz"
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Kurum</span>
+              <input
+                type="text"
+                name="kurum"
+                maxLength={200}
+                placeholder="Beşiktaş Anadolu Lisesi — Bilişim öğretmeni"
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Telefon</span>
+              <input
+                type="tel"
+                name="telefon"
+                maxLength={20}
+                placeholder="0 532 111 22 33"
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-metin">E-posta</span>
+              <input
+                type="email"
+                name="eposta"
+                maxLength={150}
+                placeholder="ogretmen@meb.k12.tr"
+                className={SINIF_GIRDI}
+              />
+            </label>
+          </div>
+
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+            <Plus size={15} aria-hidden />
+            Referans ekle
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Danışman öğretmenliği (öğretmenin kendi işareti)
 // ---------------------------------------------------------------------------
 
@@ -908,6 +1059,44 @@ function KazanimAlanlari({
               placeholder="Kendim · ya da ekip arkadaşlarının adları"
               className={SINIF_GIRDI}
             />
+          </label>
+
+          {/*
+            ÜRÜN GÖRSELİ — VİTRİN KAPAĞI (28 Ağustos 2026 · istek: "vitrine
+            ürün eklerken bir tane ürün görseli ekleyebilelim").
+
+            AYRI BİR DOSYA ALANI DEĞİL, aynı `kazanim_ek` deposuna yazılan tek
+            bir görsel: fark, kaydın kapak olarak İŞARETLENMESİ. Destekleyici
+            görsellerden ayrı bir alan açılmasının sebebi niyet farkı — kart
+            için seçilen görsel ile "etkinlikten fotoğraflar" aynı şey değil ve
+            hangisinin vitrine çıkacağını sistemin tahmin etmesi gerekmemeli.
+
+            TEK DOSYA: `multiple` yok. Kart tek görsel basıyor, ikincisini
+            almak kullanıcıya hangisinin görüneceğini söylemeden dosya
+            yükletmek olurdu; gerisi destekleyici görsellere gider.
+
+            Alan kayıt EKLEME ekranında da DÜZENLEME ekranında da basılır:
+            düzenlemede yeni dosya seçilirse kapak onunla değişir, boş
+            bırakılırsa mevcut kapak korunur (bkz. kazanimGuncelleEylemi).
+          */}
+          <label className="block sm:col-span-2">
+            <span className="text-sm font-medium text-metin">
+              Ürün görseli{" "}
+              <span className="font-normal text-metin-yumusak">
+                (isteğe bağlı)
+              </span>
+            </span>
+            <input
+              type="file"
+              name="urunGorseli"
+              accept="image/*"
+              className={SINIF_GIRDI}
+            />
+            <span className="mt-1 block text-xs text-metin-yumusak">
+              Vitrinde ürün kartının kapağı olarak görünür. En fazla{" "}
+              {(belgeSinirlari.gorselMaksBayt / (1024 * 1024)).toFixed(0)} MB.
+              {kayit ? " Seçmezseniz mevcut kapak korunur." : ""}
+            </span>
           </label>
 
           <label className="flex items-start gap-2 sm:col-span-2">

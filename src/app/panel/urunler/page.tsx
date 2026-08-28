@@ -1,5 +1,5 @@
 import type { OnayDurumu } from "@/generated/prisma/enums";
-import { Eye, ExternalLink, Plus, ScrollText, Users } from "lucide-react";
+import { Eye, ExternalLink, Package, Plus, ScrollText, Users } from "lucide-react";
 import { UrunOnayKuyrugu } from "@/components/UrunOnayKuyrugu";
 import {
   projeYoneticisiMi,
@@ -10,8 +10,9 @@ import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
+  KartIzgarasi,
+  PosterKart,
   Rozet,
-  RozetSeridi,
   SayfaBasligi,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
@@ -26,6 +27,8 @@ import {
   suzgecTanimi,
   urunleriSuz,
 } from "@/lib/market/kurallar";
+import { kapakEkiSec } from "@/lib/kazanim/kapak";
+import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +102,12 @@ export default async function MarketSayfasi({
           roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
         },
       },
+      /*
+       * KAPAK SEÇİMİ İÇİN EKLER (28 Ağustos 2026). Yalnızca kapak kararını
+       * verecek üç alan çekiliyor — dosya adı ve boyutu kartta görünmüyor,
+       * vitrin sorgusu bütün ürünleri tarıyor ve taşınmayan sütun taşınmıyor.
+       */
+      ekler: { select: { id: true, mimeTipi: true, kapakMi: true } },
       _count: { select: { ekler: true, baglantilar: true } },
     },
     orderBy: { olusturmaTarihi: "desc" },
@@ -108,6 +117,8 @@ export default async function MarketSayfasi({
     ...kayit,
     sahipKullaniciId: kayit.kullaniciId,
     sahipKumesi: sahipKumesi(kayit.kullanici.roller.map((r) => r.rolKodu)),
+    /* Kapak kuralı tek yerde: lib/kazanim/kapak.ts. */
+    kapakEki: kapakEkiSec(kayit.ekler),
   }));
 
   /*
@@ -265,89 +276,118 @@ export default async function MarketSayfasi({
           </p>
         </Kart>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2">
+        /*
+          KARTLAR ETKİNLİKLERLE AYNI BİLEŞENDE (28 Ağustos 2026 · istek:
+          "etkinliklerdeki kartlara benzer şekle getir, onun görünümü iyi").
+
+          Vitrin kendi kart düzenini kuruyordu: iki sütunluk ızgara, üstte
+          `object-cover` ile kırpılan 160 piksellik bir kapak, altında rozet
+          şeridi. Aynı panelde iki farklı kart dili demekti ve kapağı olmayan
+          ürün bambaşka bir kutuya dönüşüyordu. `PosterKart` ikisini de
+          çözüyor — afişsiz kayıtta poster bandı filigran ikonla basılıyor,
+          yani ızgaradaki bütün kartlar aynı yükseklikte açılıyor.
+
+          BURADA ARTIK YER TUTUCU VAR ve bu bilinçli bir geri adım: kapaksız
+          karta boş kutu basmamanın gerekçesi "kutu hiçbir şey anlatmıyordu"
+          idi; poster bandı ise bilgi taşıyor (ürün ikonu + durum rozeti) ve
+          kartların hizasını koruyor.
+        */
+        <KartIzgarasi>
           {gosterilecek.map((urun) => (
             <li key={urun.id}>
-              {/*
-                Market bir VİTRİNDİR: kartlar tıklanabilir birer kutu ve
-                imlecin üstüne geldiği kart yükseliyor. Diğer ekranlardaki
-                kartlar bilgi taşıyan yüzeyler, buradakiler ürünün kendisi.
-              */}
-              <Kart className="flex h-full flex-col gap-3 transition hover:border-vurgu hover:shadow-yuksek">
-                <div>
-                  <h2 className="text-lg font-bold text-baslik">
-                    <Link
-                      href={`/panel/urunler/${urun.id}`}
-                      className="hover:underline"
-                    >
-                      {urun.baslik}
-                    </Link>
-                  </h2>
-                  {/*
-                    18 Ağustos 2026: ürünün kümesi düz metinden rozete geçti.
-                    Izgarada yan yana duran kartlarda "Öğrenci ürünü / Öğretmen
-                    ürünü" ayrımı, geliştirici adının ardına iliştirilmiş gri
-                    bir cümle parçasıydı ve göz taramasıyla ayırt edilmiyordu —
-                    oysa vitrinde ilk aranan ayrım bu.
-
-                    Paylaşım rozeti YALNIZCA sahibine gösterilir ve yalnızca
-                    paylaşılmamış üründe: başkasının gördüğü her ürün zaten
-                    paylaşılmış olduğu için rozet bilgi taşımazdı.
-                  */}
-                  <div className="mt-2">
-                    <RozetSeridi>
-                      <Rozet cesit="vurgu">
-                        {urun.sahipKumesi === "OGRENCI"
-                          ? "Öğrenci ürünü"
-                          : urun.sahipKumesi === "OGRETMEN"
-                            ? "Öğretmen ürünü"
-                            : "Ekosistem ürünü"}
-                      </Rozet>
-                      {/*
-                        DURUM ROZETİ (26 Ağustos 2026 · istek: "markette
-                        paylaşılmadı yerine onay bekliyor yazsın").
-
-                        Tek rozet vardı ve yalnızca "paylaşılmadı" diyordu;
-                        paylaşmayı seçmiş ama kararı bekleyen kişi de aynı
-                        cümleyi okuyor, işaretinin gitmediğini sanıyordu.
-                        Şimdi üç ayrı durum var: tercih edilmedi · karar
-                        bekliyor · yayımlanmadı.
-                      */}
-                      {vitrinEtiketi(urun) && (
-                        <Rozet cesit="uyari">{vitrinEtiketi(urun)}</Rozet>
-                      )}
-                    </RozetSeridi>
-                  </div>
-                  <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-metin-yumusak">
-                    <span className="inline-flex items-center gap-1">
-                      <Users size={13} aria-hidden />
+              <PosterKart
+                baslik={urun.baslik}
+                yol={`/panel/urunler/${urun.id}`}
+                /*
+                  KAPAKLI ÜRÜNDE TON NÖTR — etkinlik kartındaki kuralın aynısı:
+                  renkli bir bandın üstünde `object-contain` ile duran görselin
+                  kenarı kayboluyor, nötr gri paspas onu bir nesne olarak
+                  ayırıyor. Kapaksızda kurumsal ton basılıyor.
+                */
+                ton={urun.kapakEki ? "notr" : "vurgu"}
+                Ikon={Package}
+                kapakYolu={
+                  urun.kapakEki
+                    ? uygulamaYolu(`/panel/kazanim-ekleri/${urun.kapakEki.id}`)
+                    : undefined
+                }
+                /*
+                  KENDİ ÜRÜNÜ ÇERÇEVEYLE AYRILIR: "Tüm ürünler" sekmesinde
+                  kişinin kendi kaydı yüzlerce kartın arasında kayboluyordu.
+                */
+                vurguluCerceve={urun.sahipKullaniciId === kullanici.id}
+                /*
+                  DURUM ROZETİ POSTERİN ÜSTÜNDE (26 Ağustos 2026 · istek:
+                  "markette paylaşılmadı yerine onay bekliyor yazsın").
+                  Yalnızca sahibine ve yalnızca vitrinde OLMAYAN üründe basılır
+                  — başkasının gördüğü her ürün zaten vitrinde, rozet bilgi
+                  taşımazdı.
+                */
+                durum={
+                  vitrinEtiketi(urun) ? (
+                    <Rozet cesit="uyari">{vitrinEtiketi(urun)}</Rozet>
+                  ) : undefined
+                }
+                /*
+                  ÜST ŞERİT: ürünü kim yaptı. Etkinlik kartında düzenleyen
+                  birim duruyor; vitrinde bunun karşılığı geliştiren ekip,
+                  yoksa kaydın sahibi.
+                */
+                ustSerit={
+                  <span className="flex items-center gap-1.5">
+                    <Users size={13} aria-hidden className="shrink-0" />
+                    <span className="truncate">
                       {urun.gelistirenEkip ??
                         `${urun.kullanici.ad} ${urun.kullanici.soyad}`}
                     </span>
-                  </p>
-                </div>
-
-                {urun.aciklama && (
-                  <p className="line-clamp-3 text-sm text-metin">
-                    {urun.aciklama}
-                  </p>
-                )}
-
-                <p className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-metin-yumusak">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Eye size={14} aria-hidden />
-                    {sayiYaz(urun.goruntulenmeSayisi)} görüntülenme
                   </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <ExternalLink size={14} aria-hidden />
-                    {sayiYaz(urun.baglantiTiklamasi)} bağlantı ziyareti
-                  </span>
-                  {urun.tarih && <span>{tarihYaz(urun.tarih)}</span>}
-                </p>
-              </Kart>
+                }
+                /*
+                  18 Ağustos 2026: ürünün kümesi düz metinden rozete geçti.
+                  Izgarada yan yana duran kartlarda "Öğrenci ürünü / Öğretmen
+                  ürünü" ayrımı, geliştirici adının ardına iliştirilmiş gri bir
+                  cümle parçasıydı ve göz taramasıyla ayırt edilmiyordu — oysa
+                  vitrinde ilk aranan ayrım bu.
+                */
+                rozetler={
+                  <Rozet cesit="vurgu">
+                    {urun.sahipKumesi === "OGRENCI"
+                      ? "Öğrenci ürünü"
+                      : urun.sahipKumesi === "OGRETMEN"
+                        ? "Öğretmen ürünü"
+                        : "Ekosistem ürünü"}
+                  </Rozet>
+                }
+                altBilgi={
+                  <>
+                    {/*
+                      AÇIKLAMA ÜÇ SATIRDAN İKİYE İNDİ: poster bandı kartın
+                      üstünden yer aldı ve üç satır, sayaç şeridini ızgaranın
+                      dışına taşıyordu. İki satır ürünün ne olduğunu söylemeye
+                      yetiyor; gerisi detay sayfasında.
+                    */}
+                    {urun.aciklama && (
+                      <p className="mb-2 line-clamp-2 text-sm text-metin">
+                        {urun.aciklama}
+                      </p>
+                    )}
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="inline-flex items-center gap-1">
+                        <Eye size={13} aria-hidden />
+                        {sayiYaz(urun.goruntulenmeSayisi)} görüntülenme
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <ExternalLink size={13} aria-hidden />
+                        {sayiYaz(urun.baglantiTiklamasi)} ziyaret
+                      </span>
+                      {urun.tarih && <span>{tarihYaz(urun.tarih)}</span>}
+                    </span>
+                  </>
+                }
+              />
             </li>
           ))}
-        </ul>
+        </KartIzgarasi>
       )}
 
       {/*

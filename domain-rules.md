@@ -631,6 +631,26 @@ Mentörlük = **çalışma grupları + serbest konular + onay durumu**. Kim olur
 
 **`MENTOR` türünün ayrı bir ROLÜ yoktur.** Rol, kapsam filtrelerinin okuduğu şeydir; mentörün kapsamı paydaş temsilcisininkiyle birebir aynı (öğrenci/öğretmen kişisel verisine erişemez, takvimi ve panoyu görür). Ayrı rol, her kapsam filtresine hiçbir şey değiştirmeyen ikinci bir dal eklemek olurdu. "Bu kişi mentör mü" sorusu `mentorluk` kaydından cevaplanıyor.
 
+#### Mentörlüğün kaldırılması: hiyerarşi (28 Ağustos 2026)
+
+> "Mentör olarak atanan öğrencinin danışman öğretmeni, il koordinatörü ve proje yöneticisi iptal edebilsin, hiyerarşi olsun: öğretmeninkini koordinatör ve proje yöneticisi, koordinatörünkini de proje yöneticisi onaylasın, proje yöneticisine onay yok"
+
+Öğrenciler ekranındaki "Mentörlüğü kaldır" düğmesi üç kişide de duruyor ama **aynı şeyi yapmıyor**: proje yöneticisininki anında uygulanıyor, danışman ve il koordinatörününki bir **talebe** dönüşüyor. Öğrenci talep karara bağlanana kadar mentör kalıyor — havuzda görünüyor, ilanlara cevap yazabiliyor.
+
+| İsteyen | Onaylayan |
+| --- | --- |
+| Proje yöneticisi | — (onay yok) |
+| İl koordinatörü | Proje yöneticisi |
+| Danışman öğretmen | İl koordinatörü ya da proje yöneticisi |
+
+**Talep süresince askıya alınmadı**, çünkü reddedilen bir talep öğrenciyi hiç yaşanmamış bir cezadan geçirmiş olurdu; üstelik "askıda" diye üçüncü bir mentörlük hâli, `MentorlukDurumu`nun okunduğu her yeri ilgilendirirdi.
+
+**Onay, mentörlüğü talebin gerekçesiyle kaldırır:** öğrenciye giden bildirimde yazan metin, kaldırmayı *isteyenin* yazdığı gerekçedir. Onaylayana ayrıca gerekçe yazdırılsaydı öğrenci, kendisini tanımayan bir mercinin cümlesini okurdu. Ret gerekçesi ise zorunludur ve talebi açana gider — reddedilen talep öğrenciye hiç duyurulmaz, mentörlüğü kesintiye uğramadı.
+
+**Mentör YAPMA kararı hiyerarşiye girmedi.** Onay geri alınabilir bir karardır; kaldırma ise bir hakkı kesiyor ve öğrenciye bildirimle gidiyor.
+
+Talep tablosu ve gerekçeleri: `data-model.md` · **mentorluk_kaldirma_talebi**. Yetki kuralları: `permissions.md` Bölüm 1.
+
 ### Giriş kapısı: EBA ve E-Devlet
 
 Açılış ekranında iki düğme:
@@ -718,6 +738,7 @@ Bölümler Panelim'de **katlı** gelir: orası kullanıcının ilk gördüğü e
 | **Kazanım kayıtları** (7 açık tür) | Öğrenci beyanı, `kullanici_kazanim` | Yalnızca öğrencinin kendisi |
 | **Rotam** (hedefler) | Öğrenci beyanı, `kullanici_hedefi` | Yalnızca öğrencinin kendisi — **başkası göremez** |
 | **Özgeçmiş (CV)** | Öğrencinin yüklediği dosya | Yalnızca öğrencinin kendisi |
+| **Referanslarım** | Öğrenci beyanı, `kullanici_referansi` | Yalnızca öğrencinin kendisi — **başkası göremez** (satırın içi üçüncü bir kişinin iletişim bilgisi) |
 
 ### Katılım artık BELGEDEN doğar (7 Ağustos 2026)
 
@@ -793,7 +814,13 @@ Etkinliğe dayalı türlerde (dış etkinlik, akran eğitimi, yarışma derecesi
 - **Katılım biçimi** — yüz yüze / çevrim içi / karma.
 - **Hedef kitle** — akran eğitiminde kime anlatıldığı, yarışmada hangi kategoride yarışıldığı. Serbest metindir; kitleyi listeye sığdırmaya çalışmak beyanı çarpıtırdı.
 
-**Ürün formu** (6 Ağustos 2026) şunları sorar: Ürün Adı, **Geliştiren Ekip**, Açıklamalar, Destekleyici Görseller (`kazanim_ek`), **Linkler** (çoklu, `kazanim_baglanti`) ve **"Bu ürünü markette paylaş"** onay kutusu. Kutu varsayılan **kapalıdır**: paylaşım bir tercihtir, açık gelmesi kullanıcının istemeden vitrine çıkması demek olurdu.
+**Ürün formu** (6 Ağustos 2026) şunları sorar: Ürün Adı, **Geliştiren Ekip**, Açıklamalar, **Ürün Görseli** (tek, vitrin kapağı), Destekleyici Görseller (`kazanim_ek`), **Linkler** (çoklu, `kazanim_baglanti`) ve **"Bu ürünü markette paylaş"** onay kutusu. Kutu varsayılan **kapalıdır**: paylaşım bir tercihtir, açık gelmesi kullanıcının istemeden vitrine çıkması demek olurdu.
+
+**Ürün görseli, destekleyici görsellerden ayrı bir alandır** (28 Ağustos 2026 · istek: "vitrine ürün eklerken bir tane ürün görseli ekleyebilelim"). Aynı `kazanim_ek` deposuna yazılır; farkı, kaydın **kapak olarak işaretlenmesidir** (`kapak_mi`). Ayrı alan olmasının sebebi **niyet farkı**: kart için seçilen görsel ile "etkinlikten fotoğraflar" aynı şey değil ve hangisinin vitrine çıkacağını sistemin tahmin etmesi gerekmemeli. Alan **tek dosya** alır — kart tek görsel basıyor, ikincisini istemek kullanıcıya hangisinin görüneceğini söylemeden dosya yükletmek olurdu; gerisi destekleyici görsellere gider.
+
+Alan hem ekleme hem düzenleme formunda basılır. **Boş bırakmak "kapağı kaldır" demek değildir**: dosya girdileri her gönderimde boş gelir ve formu görsele dokunmadan kaydeden kişinin kapağının silinmesi beklenmedik olurdu. Yeni dosya seçilirse kapak onunla **değişir**; kapağı kaldırmak, ekin kendisini silmektir. Görsel reddedilirse (tip/boyut) **kayıt geri alınmaz** — belgelerdeki kuralın aynısı: kişi yazdığı metni kaybetmesin, görseli sonradan ekleyebilsin.
+
+Kapak **vitrin kartında** üstte, **ürün detayında** başlığın altında görünür; detayda "destekleyici görseller" ızgarasından çıkarılır, aynı dosyayı iki kez basmak ikinci bir görsel yüklenmiş izlenimi verirdi. Kapağı olmayan karta **yer tutucu basılmaz**: boş gri bir kutu kartı büyütüp hiçbir şey anlatmazdı. Kapak seçimi tek yerde (`lib/kazanim/kapak.ts`): işaretli ek → yoksa en eski görsel ek → yoksa kapak yok.
 
 **Program dosyası yüklenmez.** İstek iki seçenek sunuyordu ("ürünün tanıtımını yapabilir" ya da "programı yükleyebilir") ve "şimdilik sadece tanıtım yapsınlar" denildi. Yürütülebilir dosya kabul etmek ayrıca virüs taraması ve dağıtım sorumluluğu getirirdi.
 
@@ -821,12 +848,52 @@ Serbest metin değil **hedef listesidir**: her hedefin başlığı, isteğe bağ
 - Tamamlanma **anı** ayrı tutulur ve hedef zaten tamamlanmışken korunur: başlığı düzeltmek, hedefi bugün tamamlanmış göstermemeli.
 - Kişi başına **30 hedef**; kota değil, taşma koruması.
 
+### Referanslarım (28 Ağustos 2026)
+
+> "Öğrenciler için profile referanslar bölümü ekleyelim. Referans için ad soyad telefon kurum eposta"
+
+Öğrencinin, hakkında görüşüne başvurulabilecek kişileri yazdığı liste — bir CV'nin "referanslar" bölümünün karşılığı. Panelde **İletişim bilgilerim**'in hemen ardında duruyor: ikisi de "bana nasıl ulaşılır" sorusunun cevabı, biri kişinin kendi kanalları, öbürü ona kefil olacakların.
+
+- **Ad soyad zorunlu; telefon ile e-postadan en az biri zorunlu.** Ulaşılamayan bir referans, referans değildir. İkisini birden zorunlu tutmak ise doğru bilgiyi geri çevirirdi — bir öğretmenin okul e-postasını verip cep numarasını paylaşmak istememesi olağan. Kısıt hem uygulama katmanında hem veritabanında (`ck_referans_iletisim`).
+- **Kurum isteğe bağlı:** emekli bir öğretmenin ya da aile dostu bir mühendisin kurumu olmayabilir; zorunlu olsaydı kişi olmayan bir kurum adı uydururdu. Unvan da bu alana yazılabilir, beşinci bir sütun açılmadı.
+- **Telefonda maske yok:** "0 (532) 111 22 33" ile "+90 532 111 22 33" aynı numaradır. Aranan tek şey içinde yeterince rakam olması — harf dolu bir kutu numara değildir.
+- **En fazla 5 referans.** Bir CV'nin taşıyabileceğinden zaten fazla; sınırın asıl işi listeyi bir iletişim defterine dönüşmekten alıkoymak.
+- **Düzenleme yok, sil ve yeniden yaz:** dört kısa alan için her satırın altına ikinci bir form basmak düzeltmenin kendisinden pahalı (aynı karar Rotam hedeflerinde de verildi).
+
+**SATIRIN İÇİ ÜÇÜNCÜ BİR KİŞİNİN KİŞİSEL VERİSİDİR** ve bütün görünürlük kararı buradan çıkıyor: telefon ve e-posta öğrencinin değil, referans gösterilen kişinin bilgisi ve o kişinin sistemde kaydı olmayabilir. Kayıt bu yüzden `kullanici_hedefi` gibi kişiye özel — danışman, koordinatör ve merkez ekranlarında **görünmüyor**. Görünseydi sistem, izni alınmamış üçüncü kişilerin iletişim bilgilerinden oluşan, il çapında süzülebilen bir rehbere dönüşürdü; kazanım kayıtlarından (danışman görür) ayrıldığı nokta budur. Aynı sebeple erişim kaydına referansın **adı yazılmaz**, yalnızca "bir referans eklendi" — denetim kaydı, veriyi ikinci bir yere kopyalamamalı.
+
+Bilgi tek yerden dışarı çıkıyor: kişinin kendi ürettiği **özgeçmiş** (bkz. "Profilden üretilen özgeçmiş"). Orada da doğru, çünkü belgeyi indiren kişi onu bilerek paylaşıyor ve referansını bunun için yazmış — ekrandaki form da "eklemeden önce referansınıza sorun" diyor. Sistem izni doğrulayamaz; söyleyebileceği tek şey sorumluluğun kimde olduğudur.
+
+**Bölüm yalnızca öğrencide basılıyor** ama tablo `kullanici`ya bakıyor: öğretmen ileride kendi referanslarını tutmak isterse şema değişmiyor, rol kısıtı verinin şeklinden değil ekranın kararından geliyor.
+
 ### Özgeçmiş (CV)
 
 - Öğrenci başına **tek CV** tutulur; yeni yükleme eskisinin yerine geçer ve eski dosya silinir. Sürüm arşivi yoktur.
 - Kabul edilen biçimler **pdf, doc, docx**; sınırlar `sistem_ayari` içindedir (`IZINLI_CV_TIPLERI`, `CV_MAKS_BAYT`, varsayılan 5 MB). Faaliyet eklerinin belge ayarından **ayrıdır** — ortak ayar kullanılsaydı CV için açılan doc/docx faaliyet eklerinde de açılırdı.
 - Dosya public bir dizinden servis **edilmez**: indirme her istekte oturumdan ve merkezi öğrenci kapsam filtresinden geçer, kapsam dışında **404** döner.
 - CV'yi öğrencinin kendisi, danışmanı, il koordinatörü ve proje yöneticisi indirebilir. Her indirme erişim logu yazar.
+
+#### Profilden üretilen özgeçmiş — Word (28 Ağustos 2026)
+
+> "Profildeki her şeyi cv formatında Word olarak indirebilsin. güzel bir cv formatı olsun"
+
+Yukarıdaki maddeler kişinin **yüklediği** dosyayı anlatıyor; bu ayrı bir şey: sistemdeki verinin kendisinden **üretilen** bir belge (`/panel/ozgecmis`). Yüklenen CV'nin yerine geçmiyor.
+
+**Düğme vitrindedir** (28 Ağustos 2026 · istek: "nerdev cv indir butonu bannera koy"). İlk hâlde "Özgeçmişim (CV)" kartının içindeydi; o kart kapalı bir katlanır kutu olduğu için bağlantı hiç görünmüyordu. Düğmenin metni **"Özgeçmiş oluştur"**: belge o an profildeki kayıtlardan üretiliyor, hazır duran bir ek indirilmiyor — "indir" deseydi kişinin kendi yüklediği CV dosyasıyla karışırdı. Kartta yalnızca bir işaret satırı kaldı — düğmeyi orada da basmak, "Panoya git"in kaldırılma gerekçesiyle aynı sakıncayı doğururdu (aynı işi yapan ikinci kapı).
+
+Belgeye giren bölümler paneldeki bölümlerin tamamı ve **aynı sıradadır**: sol üstte fotoğraf, yanında ad ve unvan; sonra Kimlik bilgileri, Hakkımda, İletişim bilgilerim, Çalışma gruplarım, Mentörlük, kayıt grupları (Ürünlerim · Deneyimlerim · Topluluklarım / Ekiplerim / Kulüplerim), GençTek etkinlik katılımları, Nişanlar ve — yalnızca öğrencide — Referanslarım.
+
+**Boş alan da basılır** (28 Ağustos 2026 · istek: "profildeki tüm alanlar boş girilse de cv de olsun … zaten doldurmuşsa da karşılığı olsun"). İlk sürüm boş bölümü hiç basmıyordu; gerekçe "kayıt yok satırı CV'yi eksikler listesi gibi okutur" idi ve istek bunun tersini söyledi — haklı olarak: belge profilin karşılığı olacaksa profilde duran her başlık belgede de durmalı, yoksa iki kişinin CV'si aynı sistemden farklı iskeletlerle çıkar ve okuyan, bölümün "boş mu yok mu" olduğunu ayırt edemez. Değeri olmayan künye satırı `—`, kaydı olmayan bölüm "Bilgi girilmemiş." ile basılıyor; sessiz bırakmak belgenin yarım üretildiği izlenimi verirdi. İletişimin altı satırı (e-posta, telefon, GitHub, kişisel site, LinkedIn, Instagram) her CV'de aynı şekilde duruyor.
+
+**Fotoğraf sol üstte, alan her zaman var** (aynı gün · istek: "sol üste de profil resmi alanı olsun, profil resmi eklediyse onu da cv ye eklesin"). Fotoğraf yoksa aynı ölçüdeki kutuya kişinin baş harfleri giriyor — kutu tümüyle kalksaydı ad ve unvan sola kayar, fotoğraflı ve fotoğrafsız iki CV başka bir belge gibi görünürdü. Görsel `data:` adresiyle belgenin **içine gömülür**: dış adres verilseydi özgeçmiş, GençTek'e ulaşamayan bir bilgisayarda fotoğrafsız açılırdı. Dosya okunamazsa belge yine üretilir, kutuya baş harfler girer.
+
+Her kayıt başlığının altında tek satırlık künye var: düzenleyen, derece, geliştiren ekip, hedef kitle, katılım biçimi ve **belge sayısı** ("1 belge"). Eklerin kendisi gömülmez — dosya boyutu Word belgesini kullanılamaz hâle getirirdi (aynı karar faaliyet raporunun görsellerinde de verildi). Grupların ekrandaki açıklama cümleleri ("Katıldığın etkinlikler, gösterdiğin başarılar…") basılmaz: onlar kişiye ne gireceğini anlatan form metinleridir.
+
+Dışarıda kalan üç şey, üçü de bilerek: **KVKK onayları** (bir izin kaydıdır, dışarıya verilen bir belgede anlamı yok), **yüklenen CV dosyası** (özgeçmişin içine ikinci bir özgeçmiş konmaz) ve **kazanılmamış nişanlar** (panelde teşviktir, CV'de "bunu yapamadım" listesi olurdu). Hiçbir gruba düşmeyen kayıtlar (akran eğitimi, arşivlenmiş "Diğer") **"Diğer kayıtlarım"** başlığında toplanır ve bu tek bölüm boşsa basılmaz: paneldeki karşılığı olan bir başlık değil, artakalanların yeri.
+
+**Biçim: HTML gövdeli `.doc`.** Gerçek `.docx` bir kütüphane bağımlılığı gerektiriyor; Word, HTML gövdeli `.doc` dosyasını yerel olarak açıp biçimlendirmeyi koruyor ve bu yol projede faaliyet raporunda zaten kurulu (`wordYaniti`). Belgenin renkleri sabittir, panelin tema değişkenlerinden gelmez: indirilen dosya, indirildiği andaki tema tercihini taşımamalı.
+
+**Yalnızca kişi kendi özgeçmişini indirir** — rotada kimlik yok. Kimlik adrese girseydi "başkasınınkini kim indirebilir" diye bugün kimsenin istemediği bir yetki için ikinci bir kapsam kararı doğardı. İndirme erişim logu yazar: belge bütün profili tek dosyada dışarı taşıyor.
 
 ### Tekil profil erişimi
 

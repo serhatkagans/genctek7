@@ -245,10 +245,28 @@ export const KAZANIM_TIPLERI: KazanimTipiTanimi[] = [
      */
     tip: "TOPLULUK",
     baslik: "Topluluklarım",
-    baslikEtiketi: "Topluluğun adı",
+    /*
+     * ETİKET ÜÇ ADI BİRDEN SAYIYOR (28 Ağustos 2026 · istek: "Topluluğun adı
+     * buraya topluluğun/ ekibin kulübün/ adı olsun"): bölüm başlığı aynı gün
+     * "Topluluklarım / Ekiplerim / Kulüplerim" oldu ve kutunun etiketi tek
+     * başına "Topluluğun adı" derken kişi kulübünü buraya yazacağını
+     * bilemiyordu.
+     */
+    baslikEtiketi: "Topluluğun / ekibin / kulübün adı",
     baslikOrnegi: "Robotik Kulübü — takım kaptanı",
-    aciklama:
-      "İçinde yer aldığınız kulüp, proje ekibi, takım ve benzeri topluluklar. Kendi beyanınızdır; sistem doğrulamaz.",
+    /*
+     * AÇIKLAMASI KALKTI (28 Ağustos 2026 · istek: "İçinde yer aldığınız kulüp,
+     * proje ekibi, takım ve benzeri topluluklar. Kendi beyanınızdır; sistem
+     * doğrulamaz. bunu da [sil]").
+     *
+     * Cümlenin ilk yarısı bölümün BAŞLIĞIYLA aynı şeyi söylüyordu — başlık
+     * aynı gün "Topluluklarım / Ekiplerim / Kulüplerim" olmuştu ve kapsamı
+     * zaten sayıyor. İkinci yarısı ("kendi beyanınızdır") bir UYARIYDI;
+     * kaldırılması DAVRANIŞI değiştirmiyor: kayıt hâlâ beyandır, sistem
+     * doğrulamıyor ve aynı ekibi yazan iki kişi eşleştirilmiyor (bkz.
+     * yukarıdaki not). Alan isteğe bağlı olduğu için satır tümüyle siliniyor;
+     * boş metin, ekranda boş bir satır bırakırdı.
+     */
     aciklamaOrnegi:
       "Topluluk kaç kişiden oluşuyor? Varsa bağlı olduğu kurum ya da kuruluş. Toplulukta üstlendiğiniz görevi de açıklayınız.",
     dereceVarMi: false,
@@ -497,13 +515,38 @@ export const BILISIM_YOLCULUGU_GRUPLARI: readonly KazanimGrubu[] = [
   },
   {
     kod: "TOPLULUKLARIM",
-    baslik: "Topluluklarım / Ekiplerim",
     /*
-     * AÇIKLAMASI YOK (22 Ağustos 2026 · istek). "Beyandır — aynı ekibi yazan
-     * iki kişi sistemde eşleştirilmez" bir uyarıydı; kaldırılması DAVRANIŞI
-     * değiştirmiyor, kayıt hâlâ beyandır ve eşleştirilmiyor
+     * "KULÜPLERİM" BAŞLIĞA EKLENDİ (28 Ağustos 2026 · istek: "Profilde
+     * Topluluklarım / Ekiplerim buraya bi de kulüplerim ekle").
+     *
+     * YENİ BİR GRUP AÇILMADI, BAŞLIK GENİŞLEDİ: okul kulübü zaten bu grubun
+     * kapsadığı şey (bkz. KAZANIM_TIPLERI · TOPLULUK · "kulüp, proje ekibi,
+     * takım") ama başlıkta adı geçmediği için kişi kulübünü nereye yazacağını
+     * bulamıyordu. Ayrı bir grup, aynı tipi ikiye bölmek ve kaydı hangisine
+     * girdiğine göre iki ayrı yerde aramak demekti.
+     *
+     * KOD DEĞİŞMEDİ (`TOPLULUKLARIM`): kod adrestir — bölüm çapası, `?bolum=`
+     * değeri ve öğrenci envanterindeki süzgeç ondan türüyor (bkz.
+     * kazanimGrupCapasi · kazanimGrubununTipleri). Değiştirilseydi girilmiş
+     * kayıtların bağlantıları ve kayıtlı süzgeçler kırılırdı.
+     */
+    baslik: "Topluluklarım / Ekiplerim / Kulüplerim",
+    /*
+     * AÇIKLAMA GERİ GELDİ (28 Ağustos 2026 · istek: "topluluk ekiplerime
+     * eklensin … serbest ekipler, okul kulüpleri kamu kurum kuruluş
+     * topluluklar vb").
+     *
+     * Aynı gün içinde eklenip kaldırılmıştı; kaldırma gerekçesi "başlık zaten
+     * söylüyor" idi. Başlık üç ADI sayıyor (topluluk · ekip · kulüp), açıklama
+     * ise KAYNAĞI: kulübün okuldan mı, ekibin serbest mi, topluluğun bir kamu
+     * kurumundan mı olduğunu — yani başlığın söylemediği şeyi.
+     *
+     * 22 Ağustos'ta kaldırılan cümleyle karıştırılmamalı: o bir UYARIYDI
+     * ("beyandır, eşleştirilmez"); kayıt hâlâ beyandır ve eşleştirilmiyor
      * (bkz. KAZANIM_TIPLERI · TOPLULUK).
      */
+    aciklama:
+      "Serbest ekipler, okul kulüpleri, kamu kurum ve kuruluşlarındaki topluluklar vb.",
     tipler: ["TOPLULUK"],
   },
 ];

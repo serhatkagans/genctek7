@@ -237,11 +237,15 @@ Tablo öğrenci için açıldı, **öğretmen de aynı tabloya yazar** (bu yüzd
 Tablodaki **`baglanti_url` kaldırılmadı**: dolu kayıtlar var ve diğer tipler onu kullanmaya devam ediyor. Taşıma da yapılmadı — geçmiş kayıtları yeni tabloya kopyalamak aynı adresin iki yerde yaşamasına ve birinden silinip öbüründe kalmasına yol açardı.
 
 **kazanim_ek** — kazanım kaydının destekleyici belgeleri (5 Ağustos 2026)
-`id`, `kazanim_id` (FK → `kullanici_kazanim`, ON DELETE CASCADE), `dosya_adi`, `depolama_yolu`, `mime_tipi`, `boyut_bayt`, `yuklenme_tarihi`
+`id`, `kazanim_id` (FK → `kullanici_kazanim`, ON DELETE CASCADE), `dosya_adi`, `depolama_yolu`, `mime_tipi`, `boyut_bayt`, `kapak_mi`, `yuklenme_tarihi`
 
 "Etkinliğe dair fotoğraf, belge" için. Depolama deseni `faaliyet_ek` ile **aynı**: `depolama_yolu` bir anahtardır, dosya yolu değil. Ayrı tablo çünkü bir kayda birden çok dosya eklenir; sütun olsaydı ya tek dosyayla sınırlı kalırdık ya da `dosya_1, dosya_2` gibi sürdürülemez bir şema çıkardı.
 
 **Soft-delete YOKTUR** — `faaliyet_ek`'ten ayrıldığı tek nokta. Faaliyet eki başkalarının göreceği ortak bir içeriktir ve moderasyon gereği "kim sildi" kaydı kalır; kazanım eki ise kişinin **kendi** beyanının parçasıdır ve kazanım kaydının kendisi de kalıcı siliniyor. Yarısı hard, yarısı soft silinen bir kayıt çifti tutarsız olurdu. Silme `erisim_logu`na yazılır.
+
+**`kapak_mi` — ürünün vitrin kapağı** (28 Ağustos 2026 · istek: "vitrine ürün eklerken bir tane ürün görseli ekleyebilelim"). Kapak için `kullanici_kazanim` üzerine ayrı bir dosya alanı **açılmadı**: açılsaydı aynı dosya iki yerde yaşar, ek listesinden silinen görsel kapakta kalabilirdi. Bayrak ekin üzerinde durduğu için ek silinince kapak da kendiliğinden düşer. Kazanım başına en fazla bir işaretli ek bulunur; teklik uygulama katmanında korunur (yeni kapak yazılınca eskisinin işareti düşer) — kısmi tekil indeks, iki satırı güncelleyen bu işlemi yazma sırasına bağımlı kılardı. Yalnızca **görsel** tipli ek işaretlenebilir: kapak yerine pdf basmak kırık kart demekti.
+
+**İşaretli ek yoksa ekran en eski görsel eki kapak sayar** (`src/lib/kazanim/kapak.ts`). Sütun açılmadan önce girilmiş ürünlerin görselleri vardı; migration onlara geriye dönük kapak **atamıyor** — birini seçip vitrine koymak, sahibinin vermediği bir kararı onun adına vermek olurdu. Gösterim kuralı bu boşluğu veriyi değiştirmeden dolduruyor, sahibi kendi kapağını seçtiği anda tercihine dönüyor.
 
 Tip ve boyut sınırları faaliyet ekleriyle **ortaktır** (`IZINLI_GORSEL_TIPLERI`, `IZINLI_BELGE_TIPLERI`, `GORSEL_MAKS_BAYT`, `BELGE_MAKS_BAYT`): ikisi de aynı türde içerik taşıyor. CV'nin ayrı sınırları olmasının sebebi tür farkıydı (orada doc/docx kabul ediliyor); burada öyle bir fark yok. Ayrışırlarsa değişecek tek yer `src/lib/kazanim/ek.ts`.
 
@@ -259,6 +263,26 @@ Tip ve boyut sınırları faaliyet ekleriyle **ortaktır** (`IZINLI_GORSEL_TIPLE
 | durum | VAZGECILDI değeri **yoktur** — vazgeçilen hedef silinir. Ayrı bir durum, profilde vazgeçilenlerin kalıcı listesini tutmak olurdu |
 
 Kişi başına **30 hedef** sınırı uygulama katmanındadır (kota değil, taşma koruması: profil sayfası hepsini tek seferde basıyor).
+
+**kullanici_referansi** — "Referanslarım": öğrencinin gösterdiği referanslar (28 Ağustos 2026)
+`id`, `kullanici_id` (FK → `kullanici`, ON DELETE CASCADE), `ad_soyad`, `kurum`, `telefon`, `eposta`, `olusturma_tarihi`
+
+İstek: *"Öğrenciler için profile referanslar bölümü ekleyelim. Referans için ad soyad telefon kurum eposta"*.
+
+**`ogrenci_profil`e sütun olarak eklenmedi:** referans birden çok olabiliyor ve dört alan taşıyor; profil satırına `referans1_ad`, `referans2_ad` diye açılsaydı sayı koda gömülür, bir tanesinin silinmesi de sütun kaydırmaya dönerdi.
+
+**`kullanici`ya bağlı, "öğrenci"ye değil** — `kullanici_hedefi` ile aynı karar. Bölüm yalnızca öğrenci panelinde basılıyor; rol kısıtı verinin şeklinden değil ekranın kararından geliyor ve öğretmene açılmak istenirse şema değişmiyor.
+
+| Alan | Not |
+|---|---|
+| ad_soyad | Zorunlu. Adı olmayan bir referans kimseyi göstermiyor |
+| kurum | İsteğe bağlı — emekli bir öğretmenin kurumu olmayabilir; zorunlu olsaydı kişi olmayan bir kurum adı uydururdu. Unvan da buraya yazılabilir, beşinci sütun açılmadı |
+| telefon / eposta | **En az biri dolu olmalı** (`ck_referans_iletisim`): ulaşılamayan bir referans, referans değildir. Kısıt uygulama katmanında da var; tabloya ileride başka bir ekrandan da yazılabilir (emsali `ck_mentorluk_ret_gerekcesi`) |
+| olusturma_tarihi | Listenin sırası. Ayrı `sira_no` yok — liste elle sıralanacak kadar uzun değil (en fazla beş satır) |
+
+**Satırın içi ÜÇÜNCÜ BİR KİŞİNİN kişisel verisidir:** telefon ve e-posta öğrencinin değil, referans gösterilen kişinin bilgisi ve o kişinin sistemde kaydı olmayabilir. Kayıt bu yüzden kişiye özel — yalnızca sahibi görüyor ve yalnızca kendi ürettiği özgeçmişe giriyor; danışman/koordinatör/merkez ekranlarında görünmüyor. Görünseydi sistem, izni alınmamış üçüncü kişilerin iletişim bilgilerinden oluşan ve il çapında süzülebilen bir rehbere dönüşürdü. Erişim kaydına referansın **adı yazılmaz**.
+
+Kişi başına **5 referans** sınırı uygulama katmanındadır (kota değil, listeyi bir iletişim defterine dönüşmekten alıkoyma).
 
 > **Faz 2 (rozet sistemi) notu.** Rozet/katkı kategorileri netleşti: İl Temsilcisi, Okul Temsilcisi, verdiği akran eğitimleri, çalışma grubu yöneticiliği / organizasyon ekibi üyeliği (bu madde hâlâ belirsiz), moderatörlük yaptığı etkinlikler, derece aldığı yarışmalar (GençTek içi ve dışı). Liste mevcut `tip` değerleriyle büyük ölçüde örtüştüğü için Faz 2 açıldığında **yeni tablo açma**: bu tablonun `tip` alanını genişlet. Bazı kategorilerin (İl/Okul Temsilcisi) kaynağı zaten `ogrenci_gorev_rolu`, bazılarının (moderatörlük) kaynağı faaliyet ilişkisidir — türetilebilenler için ayrıca kayıt tutma.
 
@@ -410,6 +434,14 @@ Sınırlar **ortak** (`IZINLI_CV_TIPLERI`, `CV_MAKS_BAYT`): aynı türde dosya, 
 **mentorluk** — `kullanici_id` (PK, FK), `durum` (BEKLIYOR/ONAYLANDI/REDDEDILDI/BIRAKILDI), `konular` (text), `basvuru_tarihi`, `karar_veren_kullanici_id`, `karar_tarihi`, `ret_gerekcesi`
 
 **mentorluk_calisma_grubu** — `mentorluk_kullanici_id` + `calisma_grubu_id`, bileşik PK
+
+**mentorluk_kaldirma_talebi** (28 Ağustos 2026) — `kullanici_id` (PK, FK → `mentorluk`), `durum` (`OnayDurumu`), `isteyen_kullanici_id`, `isteyen_duzeyi` (`MentorlukKaldirmaDuzeyi`: DANISMAN/IL_KOORDINATOR), `gerekce`, `istek_tarihi`, `karar_veren_kullanici_id`, `karar_tarihi`, `ret_gerekcesi`
+
+**`mentorluk`a SÜTUN OLARAK EKLENMEDİ.** Talep süresince mentörlük *durumu değişmiyor*: öğrenci karar çıkana kadar mentör kalıyor. Alanlar aynı satıra konsaydı kaldırılmış bir mentörlükte "kim istedi" ile "kim kaldırdı" birbirine karışır, reddedilen bir talebin gerekçesi de mentörlüğün ret gerekçesi sanılırdı.
+
+**Öğrenci başına tek satır** (`mentorluk`un kendi gerekçesiyle aynı desen): talep bir *durumdur*, geçmiş tablosu değil. Yeni talep aynı satırı `BEKLIYOR`a döndürür ve önceki kararın izlerini temizler; bekleyen talep varken ikincisi açılamaz.
+
+**`isteyen_duzeyi` saklanıyor, karar anında rolden yeniden hesaplanmıyor:** talebi kimin onaylayabileceği açanın düzeyinden çıkıyor ve o düzey sonradan hesaplansaydı, aradan geçen sürede danışmanlığı düşen ya da koordinatör olan bir öğretmenin talebi kendiliğinden başka bir onay kapısına taşınırdı. Enum'da `MERKEZ` **yok**: proje yöneticisinin kaldırması onaya tabi değil, bu tabloya hiç satır açmıyor.
 
 **KİŞİ BAŞINA TEK SATIR.** Mentörlük bir *durumdur*, geçmiş tablosu değil: bırakılan mentörlük `BIRAKILDI` olur, yeniden başvuruda aynı satır `BEKLIYOR`a döner. Her başvuru yeni satır açsaydı "şu an mentör mü" sorusu her seferinde tarih sıralaması gerektirirdi ve pano süzgeci yanlış cevap verebilirdi.
 

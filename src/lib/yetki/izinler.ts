@@ -197,6 +197,102 @@ export function ogrenciMentorluguneKararVerebilirMi(
 }
 
 /**
+ * ÖĞRENCİNİN MENTÖRLÜĞÜNÜ HANGİ DÜZEYDEN KALDIRABİLİR? (28 Ağustos 2026)
+ *
+ * İSTEK: "Mentör olarak atanan öğrencinin danışman öğretmeni, il koordinatörü
+ * ve proje yöneticisi iptal edebilsin, hiyerarşi olsun: öğretmeninkini
+ * koordinatör ve proje yöneticisi, koordinatörünkini de proje yöneticisi
+ * onaylasın, proje yöneticisine onay yok".
+ *
+ * ---------------------------------------------------------------------------
+ * NİYE `boolean` DEĞİL DÜZEY DÖNÜYOR
+ * ---------------------------------------------------------------------------
+ * Kaldırma artık tek bir kapı değil: aynı düğmeye basan üç kişiden birininki
+ * anında uygulanıyor, ikisininki onaya gidiyor. "Kaldırabilir mi" sorusunun
+ * cevabı üçünde de EVET; ayrışan şey SONUCU. Bu ayrım tek bir yerde
+ * durmasaydı, eylem "proje yöneticisi mi" diye kendi başına sorar ve yetki
+ * kuralının yarısı izinler.ts'te yarısı eylem dosyasında kalırdı.
+ *
+ * EN YÜKSEK DÜZEY KAZANIR. Bir kişi hem danışman hem il koordinatörü olabilir
+ * (yaygın: koordinatörlerin çoğu aynı zamanda okulunda danışman). Sıra
+ * merkezden aşağı doğru okunur; tersi olsaydı koordinatör, kendi öğrencisi
+ * için DANISMAN düzeyinden talep açar ve o talebi onaylayacak mercii kendisi
+ * olurdu (talebi açan kendi talebini onaylayamıyor — bkz. aşağısı — yani
+ * öğrencinin mentörlüğü merkeze kadar gitmeden kaldırılamazdı).
+ *
+ * KAPSAM SORULARI `ogrenciMentorluguneKararVerebilirMi` İLE AYNI: kendi kaydı
+ * elenir, koordinatörde öğrencinin ili karşılaştırılır, danışmanda aktif
+ * atama aranır. İki fonksiyon aynı üç koşulu soruyor ama farklı sorulara cevap
+ * veriyor ("karar verebilir mi" · "hangi düzeyden") ve ayrı duruyorlar:
+ * mentör YAPMA kararının hiyerarşisi yok, kaldırmanınki var.
+ */
+export type MentorlukKaldirmaYetkisi =
+  /** Kaldırma ANINDA uygulanır; onaya gitmez. */
+  | "MERKEZ"
+  | "IL_KOORDINATOR"
+  | "DANISMAN";
+
+export function ogrenciMentorluguKaldirmaDuzeyi(
+  kullanici: OturumKullanicisi,
+  ogrenci: { id: number; ilKodu: string | null },
+  kendiOgrencisiMi: boolean,
+): MentorlukKaldirmaYetkisi | null {
+  if (ogrenci.id === kullanici.id) return null;
+  if (projeYoneticisiMi(kullanici)) return "MERKEZ";
+  if (
+    ogrenci.ilKodu !== null &&
+    ilKoordinatoruMu(kullanici) &&
+    koordinatorIlKodu(kullanici) === ogrenci.ilKodu
+  ) {
+    return "IL_KOORDINATOR";
+  }
+  if (danismanMi(kullanici) && kendiOgrencisiMi) return "DANISMAN";
+  return null;
+}
+
+/**
+ * Bekleyen kaldırma talebini karara bağlayabilir mi? (28 Ağustos 2026)
+ *
+ * HİYERARŞİ TEK CÜMLEDE: danışmanın talebini ilin koordinatörü ya da merkez,
+ * koordinatörün talebini yalnızca merkez karara bağlar.
+ *
+ * "VE" DEĞİL "YA DA" OKUNDU (istek: "öğretmeninkini koordinatör ve proje
+ * yöneticisi … onaylasın"): iki ayrı imza değil, iki yetkili merci. İki
+ * imza istenseydi ilinde koordinatörü olmayan bir okulun öğretmeni hiçbir
+ * mentörlüğü kaldıramaz, talep süresiz askıda kalırdı — oysa koordinatörsüz
+ * iller olağan (bkz. ilKoordinatorlerineBildir).
+ *
+ * KENDİ TALEBİNİ ONAYLAYAMAZ ve bu, hiyerarşinin tamamını taşıyan koşul:
+ * onaysız kaldırma yetkisi yalnızca merkezde ve merkez bu tabloya hiç talep
+ * yazmıyor. Koşul olmasaydı, danışman düzeyinden talep açan bir koordinatör
+ * kendi talebini bir sonraki tıklamada onaylardı — yani hiyerarşi, arada bir
+ * ekran daha olan bir kendi kendine onaya dönerdi (emsali:
+ * mentorlukKarariGecerliMi · kendiBasvurusuMu).
+ *
+ * TALEBİN DÜZEYİ SATIRDAN OKUNUR, ROLDEN YENİDEN HESAPLANMAZ: talebi açanın
+ * rolü aradan geçen sürede değişebilir ve o değişiklik, açılmış bir talebi
+ * sessizce başka bir onay kapısına taşırdı.
+ */
+export function mentorlukKaldirmaTalebiniOnaylayabilirMi(
+  kullanici: OturumKullanicisi,
+  talep: {
+    isteyenKullaniciId: number;
+    isteyenDuzeyi: "DANISMAN" | "IL_KOORDINATOR";
+  },
+  ogrenci: { ilKodu: string | null },
+): boolean {
+  if (talep.isteyenKullaniciId === kullanici.id) return false;
+  if (projeYoneticisiMi(kullanici)) return true;
+  /* Koordinatörün talebini yalnızca merkez karara bağlar. */
+  if (talep.isteyenDuzeyi !== "DANISMAN") return false;
+  return (
+    ogrenci.ilKodu !== null &&
+    ilKoordinatoruMu(kullanici) &&
+    koordinatorIlKodu(kullanici) === ogrenci.ilKodu
+  );
+}
+
+/**
  * GençTek görev ilanlarını açar ve başvuruları karara bağlar mı?
  *
  * MENTÖRLÜKLE AYNI KAPI (21 Ağustos 2026 · istek: "yönetim panelinde yeni kart

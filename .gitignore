@@ -56,3 +56,7 @@ Thumbs.db
 coverage/
 next-env.d.ts
 *.tsbuildinfo
+
+# Sunucudan çekilen kişi verisi (28 Ağustos 2026). GERÇEK KİŞİSEL VERİ taşır —
+# ad, soyad, e-posta, telefon. Depoya asla girmemeli; aktarım bitince silin.
+genctek-kisiler.json

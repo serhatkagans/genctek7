@@ -1,4 +1,4 @@
-import type { MentorlukDurumu } from "@/generated/prisma/enums";
+import type { MentorlukDurumu, OnayDurumu } from "@/generated/prisma/enums";
 
 /**
  * Mentörlük kuralları (7 Ağustos 2026).
@@ -262,6 +262,18 @@ export type DanismanKararGirdisi = {
   yeniDurum: "ONAYLANDI" | "REDDEDILDI";
   /** Yalnızca kaldırmada okunur. */
   gerekce: string;
+  /**
+   * Karara bağlanmamış bir KALDIRMA TALEBİ duruyor mu? (28 Ağustos 2026)
+   *
+   * Belirtilmezse `false` sayılır: eksik veriyle kapıyı kapatmak yerine
+   * açmıyoruz (emsali `kendiBasvurusuMu`).
+   *
+   * Bekleyen talep HER İKİ kararı da durdurur, yalnızca kaldırmayı değil:
+   * "Mentör yap" düğmesi açık kalsaydı, kaldırılması istenen bir mentörlük
+   * ikinci bir tıklamayla yeniden onaylanır ve talep, artık geçerli olmayan
+   * bir gerekçeyle kuyrukta beklemeye devam ederdi.
+   */
+  bekleyenKaldirmaTalebiVarMi?: boolean;
 };
 
 export type DanismanKararSonucu =
@@ -314,6 +326,14 @@ export type DanismanKararSonucu =
 export function ogrenciMentorlukKarariGecerliMi(
   girdi: DanismanKararGirdisi,
 ): DanismanKararSonucu {
+  if (girdi.bekleyenKaldirmaTalebiVarMi) {
+    return {
+      olurMu: false,
+      neden:
+        "Bu öğrencinin mentörlüğü için karara bağlanmamış bir kaldırma talebi var. Yeni bir karar vermeden önce bekleyen talep sonuçlanmalı.",
+    };
+  }
+
   if (girdi.mevcutDurum === null) {
     return {
       olurMu: false,
@@ -345,4 +365,184 @@ export function ogrenciMentorlukKarariGecerliMi(
   }
 
   return { olurMu: true, retGerekcesi: gerekce };
+}
+
+// ---------------------------------------------------------------------------
+// MENTÖRLÜĞÜN KALDIRILMASI — TALEP VE ONAY (28 Ağustos 2026)
+// ---------------------------------------------------------------------------
+/**
+ * İSTEK: "Mentör olarak atanan öğrencinin danışman öğretmeni, il koordinatörü
+ * ve proje yöneticisi iptal edebilsin, hiyerarşi olsun: öğretmeninkini
+ * koordinatör ve proje yöneticisi, koordinatörünkini de proje yöneticisi
+ * onaylasın, proje yöneticisine onay yok".
+ *
+ * KURAL KATMANI KİMİN İSTEDİĞİNE BAKMAZ: hangi düzeyin hangi düzeyi
+ * onayladığı bir YETKİ sorusudur ve tek yerde durur (izinler.ts ·
+ * ogrenciMentorluguKaldirmaDuzeyi · mentorlukKaldirmaTalebiniOnaylayabilirMi).
+ * Buradaki iş "hangi kayda, hangi gerekçeyle" — aynı ayrım
+ * `ogrenciMentorlukKarariGecerliMi` ile yetki fonksiyonları arasında da var.
+ *
+ * ÖĞRENCİ TALEP SÜRESİNCE MENTÖR KALIR. Bunun bedeli açık: kaldırılması
+ * istenen bir mentörlük, karar çıkana kadar havuzda görünmeye devam ediyor.
+ * Alternatifi — talebi açar açmaz askıya almak — onay mercii talebi
+ * reddettiğinde öğrenciyi hiç yaşanmamış bir cezadan geçirmiş olurdu; üstelik
+ * "askıda" diye üçüncü bir mentörlük hâli, `MentorlukDurumu`nun dört değerinin
+ * her okunduğu yeri ilgilendirirdi.
+ */
+
+/** Talebin geçerliliği için gerekçenin en az uzunluğu — kaldırmayla aynı ölçü. */
+export const KALDIRMA_TALEBI_GEREKCESI_ASGARI =
+  DANISMAN_KALDIRMA_GEREKCESI_ASGARI;
+
+/**
+ * Talebin bugünkü hâli; hiç talep açılmamışsa `null`.
+ *
+ * `OnayDurumu` OLDUĞU GİBİ alınıyor, üç değere daraltılmıyor: çağıran her
+ * seferinde veritabanı enum'unu daraltmak zorunda kalsaydı, o dönüşüm her
+ * çağrı yerinde tekrarlanır ve biri `ONAY_GEREKMEZ`i "bekliyor" sayarak
+ * daraltabilirdi. `ONAY_GEREKMEZ` bu tabloya HİÇ yazılmıyor (merkezin
+ * kaldırması satır açmıyor); yazılsaydı da aşağıdaki kurallar onu "bekleyen
+ * talep değil" sayar — doğru davranış.
+ */
+export type KaldirmaTalebiDurumu = OnayDurumu | null;
+
+export type KaldirmaTalebiGirdisi = {
+  /** Öğrencinin bugünkü mentörlük kaydı; kayıt yoksa `null`. */
+  mevcutDurum: MentorlukDurumu | null;
+  /** Daha önce açılmış talebin hâli. */
+  talepDurumu: KaldirmaTalebiDurumu;
+  gerekce: string;
+};
+
+export type KaldirmaTalebiSonucu =
+  | { olurMu: true; gerekce: string }
+  | { olurMu: false; neden: string };
+
+/**
+ * Kaldırma TALEBİ açılabilir mi?
+ *
+ * Yalnızca ONAYLI bir mentörlük için: kaldırılacak bir şey yoksa talebin de
+ * karara bağlanacak bir şeyi olmaz.
+ *
+ * REDDEDİLMİŞ YA DA ONAYLANMIŞ ESKİ TALEP ENGEL DEĞİLDİR. Reddedilen talep
+ * "bu gerekçe yeterli değil" demektir, "bir daha istenemez" değil; koşullar
+ * değişebilir. Onaylanmış talep ise zaten mentörlüğü kaldırmıştır — öğrenci
+ * yeniden mentör yapıldıysa yeni bir talep açılabilmelidir. Engel olan tek hâl
+ * BEKLEYEN talep: ikincisi açılsaydı aynı satır üzerine yazılır ve ilk
+ * talebin gerekçesi, onay mercii onu okumadan kaybolurdu.
+ */
+export function mentorlukKaldirmaTalebiGecerliMi(
+  girdi: KaldirmaTalebiGirdisi,
+): KaldirmaTalebiSonucu {
+  if (girdi.talepDurumu === "BEKLIYOR") {
+    return {
+      olurMu: false,
+      neden:
+        "Bu öğrencinin mentörlüğü için zaten karara bağlanmamış bir kaldırma talebi var.",
+    };
+  }
+
+  if (girdi.mevcutDurum !== "ONAYLANDI") {
+    return {
+      olurMu: false,
+      neden:
+        girdi.mevcutDurum === null
+          ? "Öğrencinin mentörlük kaydı yok; kaldırılacak bir mentörlük bulunmuyor."
+          : `Kaldırılacak bir mentörlük yok (${MENTORLUK_DURUM_ETIKETLERI[girdi.mevcutDurum].toLowerCase()}).`,
+    };
+  }
+
+  const gerekce = girdi.gerekce.trim();
+  if (gerekce.length < KALDIRMA_TALEBI_GEREKCESI_ASGARI) {
+    return {
+      olurMu: false,
+      neden: `Mentörlüğü kaldırma gerekçesi en az ${KALDIRMA_TALEBI_GEREKCESI_ASGARI} karakter olmalıdır.`,
+    };
+  }
+
+  return { olurMu: true, gerekce };
+}
+
+export type KaldirmaKarariGirdisi = {
+  talepDurumu: KaldirmaTalebiDurumu;
+  yeniDurum: "ONAYLANDI" | "REDDEDILDI";
+  /** Yalnızca rette okunur. */
+  retGerekcesi: string;
+  /** Öğrencinin mentörlüğü hâlâ onaylı mı? */
+  mentorlukDurumu: MentorlukDurumu | null;
+};
+
+export type KaldirmaKarariSonucu =
+  | { olurMu: true; retGerekcesi: string | null }
+  | { olurMu: false; neden: string };
+
+/**
+ * Bekleyen talebin onay/ret kararı geçerli mi?
+ *
+ * YALNIZCA BEKLEYEN TALEP karara bağlanır — emsali `mentorlukKarariGecerliMi`:
+ * ikinci kez karar vermek, karar tarihini sessizce kaydırır ve "ne zaman
+ * kaldırıldı" sorusunun cevabını bozar.
+ *
+ * MENTÖRLÜK ARADA DÜŞMÜŞ OLABİLİR: kişi kendi bırakmış (BIRAKILDI) ya da
+ * merkez doğrudan kaldırmış olabilir. O hâlde onaylanacak bir şey kalmadı ve
+ * talebi "onaylandı" diye kapatmak, kaldırma kararını kararı vermeyen kişinin
+ * üstüne yazardı. Talep bu durumda REDDEDİLEREK kapatılabilir — böylece
+ * kuyrukta sonsuza kadar duran bir satır kalmıyor.
+ *
+ * RET GEREKÇESİ ZORUNLU: gerekçesiz ret, talebi açan öğretmene neyi
+ * eksik bıraktığını söylemez (aynı ölçü mentörlük başvurusunun rettinde de
+ * var). Onayda gerekçe İSTENMEZ — kaldırmanın gerekçesini talebin kendisi
+ * taşıyor ve öğrenciye giden bildirim o metni yazıyor.
+ */
+export function mentorlukKaldirmaKarariGecerliMi(
+  girdi: KaldirmaKarariGirdisi,
+): KaldirmaKarariSonucu {
+  if (girdi.talepDurumu !== "BEKLIYOR") {
+    return {
+      olurMu: false,
+      neden:
+        girdi.talepDurumu === null
+          ? "Karara bağlanacak bir kaldırma talebi yok."
+          : "Bu talep zaten karara bağlanmış.",
+    };
+  }
+
+  if (girdi.yeniDurum === "ONAYLANDI" && girdi.mentorlukDurumu !== "ONAYLANDI") {
+    return {
+      olurMu: false,
+      neden:
+        "Öğrencinin mentörlüğü bu talep beklerken zaten sona ermiş; talebi reddederek kapatabilirsiniz.",
+    };
+  }
+
+  if (girdi.yeniDurum === "REDDEDILDI") {
+    const gerekce = girdi.retGerekcesi.trim();
+    if (!gerekce) {
+      return { olurMu: false, neden: "Ret gerekçesi zorunludur." };
+    }
+    return { olurMu: true, retGerekcesi: gerekce };
+  }
+
+  return { olurMu: true, retGerekcesi: null };
+}
+
+/** Talebi açanın düzeyinin ekranda ve bildirimde yazılışı. */
+export const KALDIRMA_DUZEYI_ETIKETLERI: Record<
+  "DANISMAN" | "IL_KOORDINATOR",
+  string
+> = {
+  DANISMAN: "Danışman öğretmen",
+  IL_KOORDINATOR: "İl koordinatörü",
+};
+
+/**
+ * Talebi kimin onaylayacağının ekranda yazılışı — talebi açan kişi, kararın
+ * kimde beklediğini görebilmeli.
+ */
+export function kaldirmaTalebiOnayMercii(
+  duzey: "DANISMAN" | "IL_KOORDINATOR",
+): string {
+  return duzey === "DANISMAN"
+    ? "il koordinatörü ya da proje yöneticisi"
+    : "proje yöneticisi";
 }

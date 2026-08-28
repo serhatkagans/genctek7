@@ -308,6 +308,27 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\nMentörlük başvurunuz {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nOnaylandıysa menünüzde \"Mentörlüğüm\" sekmesi açıldı; panodaki ilanlara oradan cevap yazabilirsiniz.\n\nGençTek",
   },
   /*
+   * MENTÖRLÜĞÜN KALDIRILMASI ONAYA TABİ (28 Ağustos 2026 · istek: "hiyerarşi
+   * olsun: öğretmeninkini koordinatör ve proje yöneticisi, koordinatörünkini
+   * de proje yöneticisi onaylasın, proje yöneticisine onay yok").
+   *
+   * Metinler migration ile birebir aynı (20260828110000_mentorluk_kaldirma_
+   * talebi): kurulu veritabanı göçten, yeni kurulum seed'den alıyor ve ikisi
+   * ayrışırsa aynı bildirim iki ortamda iki farklı cümle olurdu.
+   */
+  {
+    kod: "MENTORLUK_KALDIRMA_TALEBI",
+    konu: "Onayınızı bekleyen mentörlük kaldırma talebi: {{ogrenciAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{isteyenAdSoyad}} ({{isteyenGorevi}}), {{ogrenciAdSoyad}} adlı öğrencinin mentörlüğünün kaldırılmasını istedi.\n\nGerekçe: {{gerekce}}\n\nÖğrenci, siz karar verene kadar mentör olarak kalır. Talebi Öğrenciler ekranındaki Mentörlük sütunundan onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek",
+  },
+  {
+    kod: "MENTORLUK_KALDIRMA_KARARI",
+    konu: "Mentörlük kaldırma talebiniz {{sonuc}}: {{ogrenciAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{ogrenciAdSoyad}} adlı öğrencinin mentörlüğünün kaldırılması yönündeki talebiniz {{kararVerenAdSoyad}} tarafından {{sonuc}}.\n\nGerekçe: {{gerekce}}\n\nGençTek",
+  },
+  /*
    * GENÇTEK GÖREVLERİ (26 Ağustos 2026 · istek: "bunlardan birine öğrenci
    * başvurduğunda yönetici sayfasına düşmüyor").
    *

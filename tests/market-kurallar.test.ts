@@ -9,6 +9,7 @@ import {
   suzgecTanimi,
   urunGorunurMu,
   urunMarketKarariGecerliMi,
+  urunPaylasimOnayAlanlari,
   URUN_VITRIN_ETIKETLERI,
   urunVitrindeMi,
   urunVitrinDurumu,
@@ -281,5 +282,47 @@ describe("urunMarketKarariGecerliMi", () => {
       gerekce: "Uygun değil.",
     });
     expect(karar.olurMu).toBe(false);
+  });
+});
+
+describe("urunPaylasimOnayAlanlari", () => {
+  const SIMDI = new Date("2026-08-28T09:00:00Z");
+
+  it("sıradan kullanıcının paylaşımı kuyruğa girer ve merkez uyarılır", () => {
+    const { alanlar, bildirimGerekliMi } = urunPaylasimOnayAlanlari({
+      sahipKullaniciId: BEN,
+      kendiKararVerebilirMi: false,
+      simdi: SIMDI,
+    });
+
+    expect(alanlar.marketOnayDurumu).toBe("BEKLIYOR");
+    expect(alanlar.marketKararVerenKullaniciId).toBeNull();
+    expect(alanlar.marketKararTarihi).toBeNull();
+    expect(bildirimGerekliMi).toBe(true);
+  });
+
+  it("eski ret gerekçesi ve kararı temizlenir: kapanmış karar kuyrukta okunmasın", () => {
+    const { alanlar } = urunPaylasimOnayAlanlari({
+      sahipKullaniciId: BEN,
+      kendiKararVerebilirMi: false,
+      simdi: SIMDI,
+    });
+
+    expect(alanlar.marketRetGerekcesi).toBeNull();
+  });
+
+  it("kararı zaten verebilen kişinin ürünü doğrudan yayımlanır", () => {
+    const { alanlar, bildirimGerekliMi } = urunPaylasimOnayAlanlari({
+      sahipKullaniciId: BEN,
+      kendiKararVerebilirMi: true,
+      simdi: SIMDI,
+    });
+
+    expect(alanlar.marketOnayDurumu).toBe("ONAYLANDI");
+    /* Karar "kendisi verdi" diye yazılır: denetimde yayımlayan görünsün. */
+    expect(alanlar.marketKararVerenKullaniciId).toBe(BEN);
+    expect(alanlar.marketKararTarihi).toEqual(SIMDI);
+    /* Kendine "senin ürünün onay bekliyor" bildirimi gitmez. */
+    expect(bildirimGerekliMi).toBe(false);
   });
 });

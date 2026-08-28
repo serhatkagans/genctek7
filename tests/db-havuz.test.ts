@@ -110,6 +110,16 @@ describe("baglantiKoptuMu", () => {
       true,
     );
     expect(baglantiKoptuMu(new Error("read ECONNRESET"))).toBe(true);
+    /*
+     * KAPATILMIŞ HAVUZ (28 Ağustos 2026 · hata 3222233624): 21 Ağustos'taki
+     * yeniden deneme `$disconnect()` çağırıp havuzu kalıcı olarak öldürüyordu
+     * ve bu mesaj listede olmadığı için kendini toparlayamıyordu.
+     */
+    expect(
+      baglantiKoptuMu(
+        new Error("Cannot use a pool after calling end on the pool"),
+      ),
+    ).toBe(true);
     // Prisma hatayı uzun bir metnin içine gömüyor; alt dize araması şart.
     expect(
       baglantiKoptuMu(

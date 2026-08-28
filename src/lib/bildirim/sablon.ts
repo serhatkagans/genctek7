@@ -175,6 +175,31 @@ export const BILDIRIM_KODLARI = {
    */
   MENTORLUK_KARARI: "MENTORLUK_KARARI",
   /**
+   * Bir öğrencinin mentörlüğünün kaldırılması istendi; ONAY MERCİİNE gider
+   * (28 Ağustos 2026 · istek: "hiyerarşi olsun … öğretmeninkini koordinatör ve
+   * proje yöneticisi, koordinatörünkini de proje yöneticisi onaylasın").
+   *
+   * ALICI TALEBİN DÜZEYİNE GÖRE DEĞİŞİR ve bu, projedeki öbür onay
+   * bildirimlerinden ayrıldığı nokta: danışmanın talebi ilin koordinatörüne VE
+   * merkeze, koordinatörün talebi yalnızca merkeze düşer (bkz.
+   * mentorlukKaldirmaTalebiniOnaylayabilirMi). Koordinatöre "yapacağı bir şey
+   * olmayan uyarı" gitmiyor — kendi talebinde zaten karar mercii değil.
+   *
+   * ÖĞRENCİYE GİTMEZ: henüz kaldırılmış bir şey yok. Reddedilebilecek bir
+   * talep için "mentörlüğünüz kaldırılıyor" demek, sonucu olmayan bir kaygı
+   * üretirdi; karar onaylandığında MENTORLUK_KARARI zaten gidiyor.
+   */
+  MENTORLUK_KALDIRMA_TALEBI: "MENTORLUK_KALDIRMA_TALEBI",
+  /**
+   * Kaldırma talebi karara bağlandı; TALEBİ AÇANA gider (28 Ağustos 2026).
+   *
+   * Emsali PANO_ILANI_KARARI: onay da ret de duyurulur. Ret hâlinde talebi
+   * açan öğretmen, öğrencinin mentör KALDIĞINI başka hiçbir yerden öğrenmez —
+   * ekrandaki rozet onaylı görünmeye devam eder ve bu, kaldırma isteğinin
+   * unutulduğu izlenimi verirdi.
+   */
+  MENTORLUK_KALDIRMA_KARARI: "MENTORLUK_KALDIRMA_KARARI",
+  /**
    * Öğrencinin açtığı pano ilanı onay bekliyor; PROJE YÖNETİCİLERİNE gider
    * (14 Ağustos 2026).
    *
@@ -459,6 +484,30 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "Başvuruyu yapan kişiye gider. Onaylandıysa Mentörlüğüm sekmesi açılmıştır; reddedildiyse gerekçe yazılıdır.",
     degiskenler: ["sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.MENTORLUK_KALDIRMA_TALEBI,
+    baslik: "Onay bekleyen mentörlük kaldırma talebi",
+    aciklama:
+      "Danışman öğretmen ya da il koordinatörü bir öğrencinin mentörlüğünü kaldırmak istediğinde, kararı verecek mercie gider: öğretmenin talebi ilin koordinatörüne ve merkeze, koordinatörün talebi yalnızca merkeze. Öğrenci karar çıkana kadar mentör kalır.",
+    degiskenler: [
+      "ogrenciAdSoyad",
+      "isteyenAdSoyad",
+      "isteyenGorevi",
+      "gerekce",
+    ],
+  },
+  {
+    kod: BILDIRIM_KODLARI.MENTORLUK_KALDIRMA_KARARI,
+    baslik: "Mentörlük kaldırma talebi sonucu",
+    aciklama:
+      "Talebi açan danışman ya da koordinatöre gider. Onayda mentörlük kaldırılmıştır; rette öğrenci mentör kalır ve gerekçe yazılıdır.",
+    degiskenler: [
+      "ogrenciAdSoyad",
+      "kararVerenAdSoyad",
+      "sonuc",
+      "gerekce",
+    ],
   },
   {
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_GENCTEK_GOREVI,

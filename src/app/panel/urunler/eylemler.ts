@@ -9,7 +9,10 @@ import {
   bildirimGonder,
   projeYoneticilerineBildir,
 } from "@/lib/bildirim/gonder";
-import { urunMarketKarariGecerliMi } from "@/lib/market/kurallar";
+import {
+  urunMarketKarariGecerliMi,
+  urunPaylasimOnayAlanlari,
+} from "@/lib/market/kurallar";
 import { urunMarketOnayiVerebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
@@ -68,23 +71,23 @@ export async function paylasimiDegistirEylemi(veri: FormData): Promise<void> {
    *
    * PAYLAŞIM KAPATILIRKEN KARARA DOKUNULMAZ: tercih ile karar ayrı alanlar.
    */
-  const yeniOnayDurumu =
-    yeniDurum && urun.marketOnayDurumu !== "ONAYLANDI"
-      ? "BEKLIYOR"
-      : urun.marketOnayDurumu;
+  /*
+   * SAHİBİ KARARI ZATEN VEREBİLİYORSA ÜRÜN DOĞRUDAN YAYIMLANIR (28 Ağustos
+   * 2026). Gerekçe kural katmanında: lib/market/kurallar.ts.
+   */
+  const onay = urunPaylasimOnayAlanlari({
+    sahipKullaniciId: kullanici.id,
+    kendiKararVerebilirMi: urunMarketOnayiVerebilirMi(kullanici),
+    simdi: new Date(),
+  });
+
+  const onayYazilsinMi = yeniDurum && urun.marketOnayDurumu !== "ONAYLANDI";
 
   await prisma.kullaniciKazanim.update({
     where: { id: urun.id },
     data: {
       markettePaylasilsin: yeniDurum,
-      marketOnayDurumu: yeniOnayDurumu,
-      ...(yeniOnayDurumu === "BEKLIYOR"
-        ? {
-            marketRetGerekcesi: null,
-            marketKararVerenKullaniciId: null,
-            marketKararTarihi: null,
-          }
-        : {}),
+      ...(onayYazilsinMi ? onay.alanlar : {}),
     },
   });
 
@@ -92,7 +95,7 @@ export async function paylasimiDegistirEylemi(veri: FormData): Promise<void> {
    * Kuyruk sessiz değil: kararı verecek merkez uyarılıyor. Bildirim KAYITTAN
    * SONRA — gönderimde çıkacak bir sorun paylaşımın kendisini düşürmemeli.
    */
-  if (yeniOnayDurumu === "BEKLIYOR") {
+  if (onayYazilsinMi && onay.bildirimGerekliMi) {
     await projeYoneticilerineBildir(BILDIRIM_KODLARI.ONAY_BEKLEYEN_URUN, {
       sahipAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
       urunAdi: urun.baslik,

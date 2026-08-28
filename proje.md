@@ -407,7 +407,7 @@ stateDiagram-v2
 - **Kazanım ve CV Güvenliği:** Yalnızca sahibi ekler ve siler; yetkililer profilde salt-okunur görür. CV yalnızca PDF formatında kabul edilir.
 - **Rotam:** En fazla 30 hedef, 250 karakter başlık, 2000 karakter açıklama. Durumlar: `PLANLANDI`, `SURUYOR`, `TAMAMLANDI`. Yalnızca sahibi görür.
 - **Algoritmam (`EnvanterUygulamasi`):** 25 maddelik özdeğerlendirme envanteri. Sonuçlar yalnızca öğrenciye aittir.
-- **Market:** `markettePaylasilsin` seçilen ürünler vitrinde listelenir. Tıklama sayaçları yapay yenilemelere karşı korunur.
+- **Market:** `markettePaylasilsin` seçilen ürünler vitrinde listelenir. Vitrine çıkış **proje yöneticisinin onayına** bağlıdır; kararı zaten verebilen kişinin (proje yöneticisi) kendi ürünü kuyruğa girmez, doğrudan yayımlanır ve karar veren olarak kendisi yazılır (28 Ağustos 2026). Tıklama sayaçları yapay yenilemelere karşı korunur.
 
 ---
 

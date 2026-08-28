@@ -45,6 +45,8 @@
 | Bağlantı isteği gönderme (onaya tabi) | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |
 | Panodaki ilana cevap yazma | ✗ | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse | Onaylı mentörse |
 | Öğrencinin mentörlük başvurusuna karar verme | ✗ | Danışmanlığındaki öğrenciler | Kendi ili | Tüm iller | ✗ | ✗ |
+| Öğrencinin mentörlüğünü kaldırma | ✗ | Danışmanlığındaki öğrenciler (onaya tabi) | Kendi ili (onaya tabi) | Tüm iller (onaysız) | ✗ | ✗ |
+| Mentörlük kaldırma talebini karara bağlama | ✗ | ✗ | Kendi ilindeki **öğretmen** talepleri | Tüm talepler | ✗ | ✗ |
 | YEĞİTEK Okul Sorumlusu işareti koyma | ✗ | ✓ (kendi işareti) | ✗ | ✗ | ✗ | ✗ |
 | YEĞİTEK Okul Sorumlusu listesini görme | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | Ekip kurma / üye ekleme | ✗ | ✗ | Kendi ili | Tüm iller | ✗ | ✗ |
@@ -62,6 +64,24 @@
 **Mentörlüğe artık ÖĞRENCİ de başvurur** (14 Ağustos 2026 · istekler: "öğrenci de mentör olarak başvurabilsin", "ama onay olsun onun için"). Önceki kural öğrenciyi dışarıda tutuyordu, gerekçesi "mentörlük 18 yaş altı bir kullanıcıyla birebir yazışma hakkı doğurur ve karşı taraf yetişkin olmalı" idi. Gerekçenin dayanağı yanlıştı: **mentörlük tek başına yazışma hakkı doğurmuyor** — mentörün ilana yazdığı cevap panoda AÇIKTIR, birebir yazışma ise yine bağlantı isteği ve danışman/koordinatör onayından geçer. Öğrenci mentör olduğunda kazandığı tek şey panodaki ilanlara açıkta cevap yazabilmek, yani akran desteği. Kapı **onaydır**: başvuru `BEKLIYOR` açılır, kararı yalnızca proje yöneticisi verir (`mentorlukOnaylayabilirMi`) ve öğrenci kendi başvurusunu onaylayamaz. Rolsüz kullanıcı hâlâ başvuramaz.
 
 **Öğrencinin mentörlük kararı öğrenci listesine indi** (26 Ağustos 2026 · istek: "eğer öğrenci başvurduysa buradan onaylasın, mentör yap / mentörlüğü kaldır butonu olsun"; 27 Ağustos 2026 · istek: "il koordinatörü de öğrencinin mentörlük başvurusunu onaylayabilsin"). Bir üstteki paragrafın "kararı yalnızca proje yöneticisi verir" cümlesi ÖĞRENCİ İÇİN artık geçerli değil: Öğrenciler ekranındaki "Mentörlük" sütununda danışmanı ve ilinin koordinatörü karar veriyor (`ogrenciMentorluguneKararVerebilirMi`), verilen onay anında geçerli oluyor ve merkezin kuyruğu ikinci bir kapı değil. Gerekçe kapsamdır: "bu öğrenci akranlarına yol gösterebilir mi" sorusunu ülke genelindeki bir kuyrukta adı okuyan merkez cevaplayamıyordu. **Merkez de aynı gün içeri alındı** (istek: "proje yöneticisine mentörlük ata kaldır da olsun"): ilk turda dışarıdaydı, gerekçe "merkezin kendi kuyruğu var, buradaki düğme onun kopyası olur" idi. Kopya değil — kuyruk yalnızca BEKLEYEN başvuruyu karara bağlıyor, buradaki düğme daha önce reddedilmiş bir öğrenciyi yeniden mentör yapabiliyor ve onaylı bir mentörlüğü gerekçesiyle kaldırabiliyor. Merkezin kuyruğu **kapanmadı** — öğretmen, mezun ve paydaş başvuruları orada karara bağlanıyor ve `mentorlukOnaylayabilirMi` (dolayısıyla "koordinatör kendi başvurusunu onaylayamaz" kuralı) değişmedi; buradaki kapı BAŞKASININ kaydına açılıyor ve kişinin kendi kaydı açıkça eleniyor. Mentörlüğü kaldırma gerekçe ister ve öğrenciye bildirimle gider; kayıt `REDDEDILDI` yazılır, `BIRAKILDI` değil (o kişinin kendi vazgeçmesidir).
+
+**Mentörlüğün KALDIRILMASI 28 Ağustos 2026'da hiyerarşiye bağlandı** (istek: "Mentör olarak atanan öğrencinin danışman öğretmeni, il koordinatörü ve proje yöneticisi iptal edebilsin, hiyerarşi olsun: öğretmeninkini koordinatör ve proje yöneticisi, koordinatörünkini de proje yöneticisi onaylasın, proje yöneticisine onay yok"). Bir üstteki paragrafın "verilen karar anında geçerli olur" cümlesi KALDIRMA için artık yalnızca merkezde doğru:
+
+| Kaldırmayı isteyen | Sonuç | Kararı veren |
+| --- | --- | --- |
+| Proje yöneticisi | Mentörlük **anında** kalkar | — (onay yok) |
+| İl koordinatörü | Talep açılır, öğrenci mentör **kalır** | Proje yöneticisi |
+| Danışman öğretmen | Talep açılır, öğrenci mentör **kalır** | İl koordinatörü **ya da** proje yöneticisi |
+
+"Öğretmeninkini koordinatör **ve** proje yöneticisi onaylasın" **iki imza değil iki yetkili merci** okundu: iki imza istenseydi koordinatörü olmayan bir ilin öğretmeni hiçbir mentörlüğü kaldıramaz, talep süresiz askıda kalırdı — koordinatörsüz iller olağandır.
+
+**MENTÖR YAPMA kararı hiyerarşiye girmedi**, yalnızca kaldırma girdi. Onay geri alınabilir bir karardır ve yanlışlıkla verilmişi bu kapıdan düzeltilir; kaldırma ise öğrenciyi havuzdan çıkarıp ilanlara cevap yazma hakkını kesiyor ve öğrenciye bildirimle gidiyor — geri alınması yeni bir onay gerektiriyor.
+
+**Öğrenci talep süresince mentör KALIR.** Bedeli açık: kaldırılması istenen bir mentörlük karar çıkana kadar havuzda görünmeye devam ediyor. Alternatifi — talep açılır açılmaz askıya almak — talep reddedildiğinde öğrenciyi hiç yaşanmamış bir cezadan geçirmiş olurdu.
+
+**Kimse kendi talebini onaylayamaz** (`mentorlukKaldirmaTalebiniOnaylayabilirMi`) ve hiyerarşinin tamamını taşıyan koşul budur: koşul olmasaydı, danışman düzeyinden talep açan bir koordinatör kendi talebini bir sonraki tıklamada onaylardı. Aynı sebeple **en yüksek düzey kazanır** (`ogrenciMentorluguKaldirmaDuzeyi`): hem danışman hem koordinatör olan kişi, kendi öğrencisi için de koordinatör düzeyinden talep açar.
+
+**Bekleyen talep, o öğrenci için her iki düğmeyi de kapatır** — "Mentör yap" açık kalsaydı kaldırılması istenen bir mentörlük ikinci bir tıklamayla yeniden onaylanır, talep ise artık geçerli olmayan bir gerekçeyle kuyrukta beklemeye devam ederdi.
 
 **Panodaki ilana cevabı yalnızca ONAYLI MENTÖR yazar** (13 Ağustos 2026 · istek: "mentörlerin kendi sayfası olsun … talepleri inceleyip cevap yazacak"). Mentörlük bir rol değil, merkezin onayladığı bir kayıttır; matristeki hücreler bu yüzden role değil o kayda bakar. Cevap AÇIKTIR — ilanın altında herkes okur. Birebir yazışma kapısı değişmedi: o hâlâ bağlantı isteği ve danışman/koordinatör onayından geçiyor. Cevabı gizleme yetkisi yazarında ve gözetim rollerindedir (danışman, koordinatör, merkez).
 
