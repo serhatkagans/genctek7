@@ -56,6 +56,7 @@ import {
   ProfilFotografi,
   ReferansDuzenleme,
 } from "@/components/ProfilDuzenleme";
+import { SeviyeYildizlari } from "@/components/SeviyeYildizlari";
 import { YolculukSeridi } from "@/components/YolculukSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
@@ -90,6 +91,8 @@ import { profilFotoSinirlariniGetir } from "@/lib/kullanici/profil-foto";
 import { MENTORLUK_DURUM_ETIKETLERI } from "@/lib/mentor/kurallar";
 import { mentorluguGetir } from "@/lib/mentor/veri";
 import { ogretmenKatkiSayilariGetir } from "@/lib/ogretmen/katki";
+import { seviyeAdiTirnakli } from "@/lib/yolculuk/kurallar";
+import { ogrencilerimYolculuguGetir } from "@/lib/yolculuk/ogrencilerim";
 import { yolculugumuGetir } from "@/lib/yolculuk/veri";
 import { katkiKartiMetni } from "@/lib/ogretmen/katki-ozeti";
 import { HAKKINDA_MAKS } from "@/lib/akis/kurallar";
@@ -778,7 +781,17 @@ export default async function PanelSayfasi({
    * (lib/yolculuk/veri.ts): iki yerde iki ayrı formül olsaydı kart "Üretimde"
    * derken sayfa "Harekette" diyebilirdi.
    */
-  const yolculuk = await yolculugumuGetir(kullanici);
+  const yolculuk = ogrenci ? await yolculugumuGetir(kullanici) : null;
+  /*
+   * Öğretmen ve koordinatörün panosunda da AŞAMA DAĞILIMI duruyor (28 Ağustos
+   * 2026 · istek: "öğretmen koordinatörün Öğrencilerimin GençTek Yolculuğu
+   * bunu neden kaldırdın"). Bir tur boyunca panodan çıkarılmıştı; gerekçe
+   * maliyetti (aşağıya bakın) ama kaldırılan şey ekranın asıl bilgisiydi:
+   * kaç öğrencinin hangi basamakta olduğu.
+   */
+  const ogrencilerimYolculugu = ogrenci
+    ? null
+    : await ogrencilerimYolculuguGetir(kullanici);
 
   const rolsuzMu = kullanici.roller.length === 0;
 
@@ -1494,6 +1507,25 @@ export default async function PanelSayfasi({
 
         Çubuk iki eşik ARASINI ölçüyor, toplam puanı değil; hesap sayfadakiyle
         aynı yerden geliyor (lib/yolculuk/kurallar.ts · `yuzde`).
+
+        ÖĞRETMENDE KART ÖĞRENCİLERİ SAYIYOR (28 Ağustos 2026 · istek:
+        "öğretmen tarafında 'GençTek Yolculuğum' yerine 'Öğrencilerimin GençTek
+        Yolculuğu' yazıyoruz"): öğretmene kendi seviyesi değil, kapsamındaki
+        öğrenci sayısı gösteriliyor ve kart aynı sayfaya götürüyor.
+
+        DAĞILIMIN BEDELİ PANODA DA ÖDENİYOR: her basamağın öğrenci sayısını
+        bulmak, kapsamdaki bütün öğrencilerin kayıtlarını taramak demek ve
+        proje yöneticisinde bu il il değil ülke çapında bir hesap. Bir tur
+        boyunca bu yüzden yalnızca sayı gösterilmişti; ama şeridi olmayan kart
+        öğretmene "12 öğrencin var" demekten başka bir şey söylemiyordu.
+        Sorgu sayısı öğrenci sayısından bağımsız tutuluyor
+        (bkz. lib/yolculuk/ogrencilerim.ts); yavaşlarsa çare şeridi kaldırmak
+        değil, hesabı önbelleğe almaktır.
+
+        SAYI YERİNE YILDIZ (28 Ağustos 2026): kartta "42 puan" ve "3 puan
+        kaldı" yazıyordu. Yolculuk ekranıyla aynı dili konuşması gerekiyor —
+        orada puan kaldırılıp burada bırakılsaydı, aynı yolculuk iki ekranda
+        iki ayrı ölçüyle anlatılırdı.
       */}
       <Link
         href="/panel/genctek-yolculugum"
@@ -1511,34 +1543,50 @@ export default async function PanelSayfasi({
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <div>
               <p className="text-sm font-medium text-metin-yumusak">
-                GençTek Yolculuğum
+                {yolculuk
+                  ? "GençTek Yolculuğum"
+                  : "Öğrencilerimin GençTek Yolculuğu"}
               </p>
               <p className="mt-1 font-baslik text-3xl leading-tight font-extrabold text-baslik">
-                {yolculuk.seviye.ad}
+                {yolculuk
+                  ? yolculuk.seviye.ad
+                  : `${kapsamdakiOgrenciSayisi} öğrenci`}
               </p>
             </div>
-            <p className="text-sm text-metin-yumusak">
-              {yolculuk.toplamPuan} puan
+            {yolculuk && <SeviyeYildizlari yildiz={yolculuk.yildiz} />}
+          </div>
+          {yolculuk ? (
+            <>
+              <div
+                className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-zemin"
+                role="progressbar"
+                aria-valuenow={yolculuk.yuzde}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`${yolculuk.seviye.ad} seviyesindeki ilerlemeniz`}
+              >
+                <div
+                  className="h-full rounded-full bg-birincil transition-all"
+                  style={{ width: `${yolculuk.yuzde}%` }}
+                />
+              </div>
+              <p className="mt-2 text-sm text-metin-yumusak">
+                {yolculuk.sonraki
+                  ? `Sonraki seviyen ${seviyeAdiTirnakli(yolculuk.sonraki.ad)}`
+                  : "En üst seviyedesiniz."}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-metin-yumusak">
+              {ogrencilerimYolculugu && ogrencilerimYolculugu.ogrenciSayisi > 0
+                ? `Öğrencilerinin çoğu ${seviyeAdiTirnakli(
+                    ogrencilerimYolculugu.dagilim.reduce((enIyi, satir) =>
+                      satir.ogrenciSayisi > enIyi.ogrenciSayisi ? satir : enIyi,
+                    ).seviye.ad,
+                  )} aşamasında.`
+                : "Kapsamında henüz öğrenci yok."}
             </p>
-          </div>
-          <div
-            className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-zemin"
-            role="progressbar"
-            aria-valuenow={yolculuk.yuzde}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`${yolculuk.seviye.ad} seviyesindeki ilerlemeniz`}
-          >
-            <div
-              className="h-full rounded-full bg-birincil transition-all"
-              style={{ width: `${yolculuk.yuzde}%` }}
-            />
-          </div>
-          <p className="mt-2 text-sm text-metin-yumusak">
-            {yolculuk.sonraki
-              ? `Sonraki seviye "${yolculuk.sonraki.ad}" · ${yolculuk.kalanPuan} puan kaldı`
-              : "En üst seviyedesiniz."}
-          </p>
+          )}
         </div>
       </Link>
 
@@ -1555,7 +1603,13 @@ export default async function PanelSayfasi({
         BİLEŞENDEN geliyor (components/YolculukSeridi.tsx) — kopyalansaydı
         seviye eklendiğinde biri geride kalırdı.
       */}
-      <YolculukSeridi seviyeKodu={yolculuk.seviye.kod} />
+      {yolculuk ? (
+        <YolculukSeridi seviyeKodu={yolculuk.seviye.kod} />
+      ) : (
+        ogrencilerimYolculugu && (
+          <YolculukSeridi dagilim={ogrencilerimYolculugu.dagilim} />
+        )
+      )}
 
       {/*
         BÖLÜM ÖLÇÜM KARTLARININ HEMEN ARDINA ALINDI (13 Ağustos 2026).

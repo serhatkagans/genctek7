@@ -145,8 +145,9 @@ export default async function PanelDuzeni({
    * duruyor çünkü sekmenin varlığı da bir yetki bildirimi — sayfa 404 dönerken
    * menüde adının görünmesi, kullanıcıyı kapalı bir kapıya yollardı.
    *
-   * Mentör olabilen herkeste basılıyor: dış kullanıcı da (mezun, paydaş,
-   * mentör) onaylı mentör olabiliyor, bu yüzden kontrol erken dönüşten ÖNCE.
+   * ARTIK YALNIZCA DIŞ KULLANICI MENÜSÜNDE (28 Ağustos 2026): iç kullanıcıdan
+   * kaldırıldı, gerekçesi aşağıda. Tanım bu yüzden dış kullanıcı dönüşünden
+   * önce duruyor — sorguyu ödeyen tek menü o.
    */
   const mentorSekmesi: GezinmeBaglantisi[] = (await onayliMentorMu(kullanici.id))
     ? [
@@ -181,6 +182,15 @@ export default async function PanelDuzeni({
       grup: "İletişim",
       ikon: "ClipboardList",
     });
+    /*
+     * MEZUN, PAYDAŞ VE MENTÖRDE SEKME DURUYOR (28 Ağustos 2026 · istek: "dış
+     * kullanıcıyı eski haline getirmeyi unutma"). İç kullanıcıdan kaldırılırken
+     * bir tur boyunca buradan da kalkmıştı; oysa istek öğrenci menüsü içindi.
+     *
+     * Ayrım keyfî değil: dış kullanıcının menüsü zaten altı satır ve
+     * mentörlük, mezun ile paydaşın ekosistemdeki ASIL işi — öğrencinin
+     * yanında ise sekiz sekmenin arasına giren ikincil bir kutu.
+     */
     baglantilar.push(...mentorSekmesi);
     baglantilar.push({
       yol: "/panel/urunler",
@@ -346,24 +356,25 @@ export default async function PanelDuzeni({
   });
 
   /*
-   * MENTÖRLÜĞÜM SEKMESİ YÖNETİM PANELİ GÖRENLERDE YOK (15 Ağustos 2026 ·
-   * istek: "koordinatör sayfasındaki mentörlüğüm menüsünü yönetim paneline
-   * kart olarak koy").
+   * "MENTÖRLÜĞÜM" İÇ KULLANICI MENÜSÜNDE YOK (28 Ağustos 2026 · istek: "birisi
+   * mentör olarak başvurup mentörlüğüne onay verildiğinde sol menüde
+   * Mentörlüğüm diye yeni menü öğesi ekleniyor … orada mentörlüğüm menüsü
+   * olmamalı" — örnek hesap onaylı mentör bir ÖĞRENCİYDİ).
    *
-   * Koordinatör ve merkez ekrana Yönetim Paneli'ndeki karttan giriyor —
-   * "Ekiplerim" kartıyla aynı düzen: mentörlük onların günlük işi değil.
+   * Sekme 15 Ağustos'ta koordinatör ve merkezden kalkmıştı; bugün öğrenci ve
+   * danışmandan da kalktı. Menünün onay geldiğinde KENDİLİĞİNDEN uzaması
+   * istenmeyen davranıştı: kişi ezberlediği sıranın değiştiğini fark ediyor
+   * ama bunu neyin yaptığını anlamıyordu.
    *
-   * SEKME HERKESTEN KALKMADI ve bu ayrım önemli: mentörlük bir rol değil,
-   * onaya bağlı bir kayıt — öğrenci, danışman ve mezun da onaylı mentör
-   * olabiliyor. Onlar Yönetim Paneli'ni göremiyor; sekme onlardan da
-   * kaldırılsaydı kendi mentörlük kutularına ulaşacak hiçbir yolları kalmazdı.
+   * DIŞ KULLANICIDA (mezun, paydaş, mentör) SEKME DURUYOR — yukarıya bakın.
    *
-   * Sekme kalanlarda panonun hemen ardında: mentörün işi panodaki ilanları
-   * cevaplamak.
+   * SAYFA VE YETKİ DURUYOR, DEĞİŞEN KAPI. /panel/mentorlugum yerinde ve her
+   * onaylı mentöre açık; öğrenci ve danışman oraya Profil'deki
+   * "Mentörlüklerim" kartından giriyor (bkz. app/panel/page.tsx) — kart rolü
+   * olan herkeste basılıyor ve onaylıda doğrudan bu sayfaya gidiyor.
+   * Koordinatör ve merkezin kapısı ise Yönetim Paneli'ndeki "Mentörlüğüm"
+   * kartı (bkz. app/panel/yonetim/page.tsx), 15 Ağustos'tan beri orada.
    */
-  if (!yonetimPanosuGorebilirMi(kullanici)) {
-    baglantilar.push(...mentorSekmesi);
-  }
 
   /*
    * ÜRÜNLERİM (GençTek Market) HERKESE AÇIK (I · 6 Ağustos 2026).

@@ -28,10 +28,43 @@
  * kimseye "seviyen düştü" denmez, yalnızca sonraki eşiğe kalan puan artar).
  */
 
-/** Puan kaynağı — ekranda "Nasıl puan kazanırım?" listesi de bundan basılır. */
+/**
+ * Puan kaynağı — hem Seyir Defteri hem "GençTek Yolculuğum nasıl ilerliyor?"
+ * listesi bundan basılır.
+ *
+ * DÖRT ETİKET — İKİYE İKİLİK BİR TABLO (28 Ağustos 2026). Kalem aynı, cümle
+ * dört yerde dört ayrı kişi ve zamanla kuruluyor:
+ *
+ *   |                | OLAN (defter)   | OLABİLECEK (yol listesi) |
+ *   |----------------|-----------------|--------------------------|
+ *   | kendi ekranı   | "Mentör oldun"  | "Mentör ol"              |
+ *   | öğretmen ekranı| "Mentör oldular"| "Mentör olurlar"         |
+ *
+ * Tek etiketle dördü de yanlış okunuyordu: yol listesi geçmiş zamanla
+ * yazılınca yapılmamış işler yapılmış gibi duruyor, öğretmenin ekranı ikinci
+ * tekil şahısla yazılınca öğrencilerinin kaydı öğretmenin kendi kaydı
+ * sanılıyordu.
+ *
+ * METİNLER ELLE YAZILIYOR, ÜRETİLMİYOR: Türkçede şahıs ve kip ekini koddan
+ * türetmek (ol → oldun → oldular → olurlar) ünlü uyumu ve düzensiz gövdeler
+ * yüzünden sağlam yapılamaz; "sergilensin → sergilenir" gibi çatı değişimleri
+ * ise hiç türetilemez.
+ */
 export interface PuanKaynagi {
   kod: string;
   etiket: string;
+  /** Yolculuğun nasıl ilerlediğini anlatan liste için, emir kipinde. */
+  yolEtiketi: string;
+  /**
+   * Öğretmenin ekranındaki topluluk defteri için: özne öğretmen değil
+   * ÖĞRENCİLERİ ("Ekosisteme kayıt oldular").
+   */
+  topluEtiketi: string;
+  /**
+   * Öğretmenin ekranındaki yol listesi için, geniş zamanda: yapılmış bir iş
+   * değil, öğrencilerin yolunu ilerleten şey ("Ekosisteme kayıt olurlar").
+   */
+  topluYolEtiketi: string;
   /** Bir kez yapıldığında kazanılan puan. */
   puan: number;
   /** Kaynağın kime gösterileceği; öğretmende olmayan ölçütler gizlenir. */
@@ -47,60 +80,131 @@ export const PUAN_KAYNAKLARI: PuanKaynagi[] = [
   {
     kod: "KAYIT",
     etiket: "Ekosisteme kayıt oldun",
-    puan: 1,
-    kimde: "herkes",
-  },
-  {
-    kod: "KATILIM",
-    etiket: "GençTek etkinliğine katıldın",
+    yolEtiketi: "Ekosisteme kayıt ol",
+    topluEtiketi: "Ekosisteme kayıt oldular",
+    topluYolEtiketi: "Ekosisteme kayıt olurlar",
     puan: 1,
     kimde: "herkes",
   },
   {
     kod: "URUN",
     etiket: "Ürün / proje yükledin",
-    puan: 1,
-    kimde: "herkes",
-  },
-  {
-    kod: "DENEYIM",
-    etiket: "Deneyim, sertifika ya da derece eklendi",
+    yolEtiketi: "GençTek Vitrin'de ürünün sergilensin",
+    topluEtiketi: "GençTek Vitrin'de ürün sergilediler",
+    topluYolEtiketi: "GençTek Vitrin'de ürünleri sergilenir",
     puan: 1,
     kimde: "herkes",
   },
   {
     kod: "CALISMA_GRUBU",
     etiket: "Çalışma grubu seçtin",
+    yolEtiketi: "Çalışma grubu seç",
+    topluEtiketi: "Çalışma grubu seçtiler",
+    topluYolEtiketi: "Çalışma grubu seçerler",
     puan: 1,
     kimde: "ogrenci",
   },
   {
-    kod: "AKRAN_EGITIMI",
-    etiket: "Akran eğitimi verdin",
-    puan: 2,
-    kimde: "ogrenci",
-  },
-  {
-    kod: "ETKINLIK_DUZENLEME",
-    etiket: "Etkinlik düzenledin",
-    puan: 2,
-    kimde: "herkes",
-  },
-  {
-    kod: "GOREV",
-    etiket: "Temsilcilik ya da GençTek görevi aldın",
-    puan: 2,
+    kod: "KATILIM",
+    etiket: "GençTek etkinliğine katıldın",
+    yolEtiketi: "GençTek etkinliklerine katıl",
+    topluEtiketi: "GençTek etkinliklerine katıldılar",
+    topluYolEtiketi: "GençTek etkinliklerine katılırlar",
+    puan: 1,
     kimde: "herkes",
   },
   {
     kod: "MENTORLUK",
     etiket: "Mentör oldun",
+    yolEtiketi: "Mentör ol",
+    topluEtiketi: "Mentör oldular",
+    topluYolEtiketi: "Mentör olurlar",
     puan: 2,
     kimde: "herkes",
   },
   {
+    kod: "DENEYIM",
+    etiket: "Deneyim, sertifika ya da derece eklendi",
+    yolEtiketi: "Deneyim yükle",
+    topluEtiketi: "Deneyim, sertifika ya da derece eklediler",
+    topluYolEtiketi: "Deneyim yüklerler",
+    puan: 1,
+    kimde: "herkes",
+  },
+  /*
+   * TEMSİLCİLİK VE GENÇTEK GÖREVİ AYRILDI (28 Ağustos 2026 · istek listesinde
+   * ikisi ayrı satır). Önce tek kalemdi ("Temsilcilik ya da GençTek görevi
+   * aldın") ve sayıları toplanıyordu; iki ayrı işi tek satırda toplamak,
+   * defterde "× 3" gördüğünde hangisinin kaç kez olduğunu gizliyordu.
+   *
+   * Puanlar bölünmedi, ikisi de eskisi gibi 2: ayrım sunum tarafında olduğu
+   * için kimsenin toplamı ve seviyesi bu değişiklikle kıpırdamıyor.
+   */
+  {
+    kod: "TEMSILCILIK",
+    etiket: "Temsilcilik görevi aldın",
+    yolEtiketi: "Temsilci ol",
+    topluEtiketi: "Temsilcilik görevi aldılar",
+    topluYolEtiketi: "Temsilci olurlar",
+    puan: 2,
+    kimde: "herkes",
+  },
+  {
+    kod: "GENCTEK_GOREVI",
+    etiket: "GençTek görevi tamamladın",
+    yolEtiketi: "GençTek Görevleri tamamla",
+    topluEtiketi: "GençTek görevi tamamladılar",
+    topluYolEtiketi: "GençTek Görevleri tamamlarlar",
+    puan: 2,
+    kimde: "herkes",
+  },
+  {
+    kod: "AKRAN_EGITIMI",
+    etiket: "Akran eğitimi verdin",
+    yolEtiketi: "Akran Eğitimi ver",
+    topluEtiketi: "Akran eğitimi verdiler",
+    topluYolEtiketi: "Akran Eğitimi verirler",
+    puan: 2,
+    kimde: "ogrenci",
+  },
+  /*
+   * EKİP ÜYELİĞİ (28 Ağustos 2026 · istek: "Topluluk/ekip/kulüp kur/katıl").
+   * Sayılan şey ÜYELİKTİR, kurmak değil: ekibi öğrenciler kurmuyor, il
+   * koordinatörü ve merkez kuruyor (bkz. permissions.md) — "kur" karşılığı bir
+   * sayaç açmak, öğrenciye yetkisi olmayan bir yol göstermek olurdu.
+   *
+   * Ağırlığı 1: katılmak, çalışma grubu seçmekle aynı ölçekte bir adım.
+   */
+  {
+    kod: "EKIP",
+    etiket: "Topluluk / ekip / kulübe katıldın",
+    yolEtiketi: "Topluluk, ekip ya da kulübe katıl",
+    topluEtiketi: "Topluluk / ekip / kulübe katıldılar",
+    topluYolEtiketi: "Topluluk/ekip/kulüp kurar ya da katılırlar",
+    puan: 1,
+    kimde: "herkes",
+  },
+  /*
+   * ETKİNLİK DÜZENLEME ARTIK ÖĞRETMEN LİSTESİNDE (28 Ağustos 2026): öğrenciye
+   * gösterilen yol listesinde istenmedi ve etkinliği fiilen okul/il tarafı
+   * açıyor. `kimde` YALNIZCA LİSTEYİ süzer — daha önce etkinlik düzenlemiş bir
+   * öğrencinin defterindeki satır ve puanı yerinde kalır.
+   */
+  {
+    kod: "ETKINLIK_DUZENLEME",
+    etiket: "Etkinlik düzenledin",
+    yolEtiketi: "Etkinlik düzenle",
+    topluEtiketi: "Etkinlik düzenlediler",
+    topluYolEtiketi: "Etkinlik düzenlerler",
+    puan: 2,
+    kimde: "ogretmen",
+  },
+  {
     kod: "DANISMANLIK",
     etiket: "Danışmanlık yürütüyorsun",
+    yolEtiketi: "Danışmanlık üstlen",
+    topluEtiketi: "Danışmanlık yürütüyorlar",
+    topluYolEtiketi: "Danışmanlık yürütürler",
     puan: 2,
     kimde: "ogretmen",
   },
@@ -118,7 +222,9 @@ export interface YolculukGirdisi {
   calismaGrubuSayisi: number;
   akranEgitimiSayisi: number;
   duzenlenenEtkinlikSayisi: number;
-  gorevSayisi: number;
+  temsilcilikSayisi: number;
+  gencTekGorevSayisi: number;
+  ekipSayisi: number;
   mentorMu: boolean;
   aktifDanismanlikSayisi: number;
 }
@@ -151,6 +257,16 @@ export interface SeviyeTanimi {
   /** Bu seviyeye girmek için gereken en düşük puan. */
   esik: number;
   aciklama: string;
+  /**
+   * Aynı basamağın öğretmen ekranındaki hâli (28 Ağustos 2026 · istek:
+   * "metinleri de öğretmene göre 'Öğrencileriniz ekosisteme adım atıyor'
+   * şeklinde değiştiriyoruz").
+   *
+   * AYRI ALAN, ÇEVİRİ DEĞİL: öğrenci metni ikinci tekil şahısta ("adım attın")
+   * ve öğretmen ekranında o cümlenin öznesi yanlış kişi olurdu. Metni kodda
+   * çevirmeye çalışmak (şahıs eki değiştirmek) Türkçede sağlam yapılamaz.
+   */
+  ogretmenAciklamasi: string;
 }
 
 export const YOLCULUK_SEVIYELERI: SeviyeTanimi[] = [
@@ -159,47 +275,67 @@ export const YOLCULUK_SEVIYELERI: SeviyeTanimi[] = [
     ad: '"Hello World"',
     esik: 0,
     aciklama: "Ekosisteme adım attın; yolculuk buradan başlıyor.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz ekosisteme adım atıyor; yolculuk buradan başlıyor.",
   },
   {
     kod: "KESIFTE",
     ad: "Keşifte",
     esik: 3,
     aciklama: "Etkinliklere katılıyor, ekosistemi tanıyorsun.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz etkinliklere katılıyor, ekosistemi tanıyor.",
   },
   {
     kod: "HAREKETTE",
     ad: "Harekette",
     esik: 8,
     aciklama: "Düzenli katılıyor, çalışma alanını seçiyorsun.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz düzenli katılıyor, çalışma grubunu seçiyor.",
   },
   {
     kod: "URETIMDE",
     ad: "Üretimde",
     esik: 15,
     aciklama: "Kendi ürünlerini ve deneyimlerini ortaya koyuyorsun.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz kendi ürünlerini ve deneyimlerini ortaya koyuyor.",
   },
   {
     kod: "KATKIDA",
     ad: "Katkıda",
     esik: 25,
     aciklama: "Görev alıyor, bildiğini paylaşıyor ve üretimi büyütüyorsun.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz görev alıyor, bildiğini paylaşıyor ve üretimi büyütüyor.",
   },
   {
     kod: "UFUK_ACAN",
     ad: "Ufuk Açan",
     esik: 40,
     aciklama: "Başkalarına yol gösteriyor, etkinlik ve ekip kuruyorsun.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz başkalarına yol gösteriyor, etkinlik ve ekip kuruyor.",
   },
   {
     kod: "IZ_BIRAKAN",
     ad: "İz Bırakan",
     esik: 60,
     aciklama: "Ekosistemin öncülerindensin; ardında kalıcı iş bırakıyorsun.",
+    ogretmenAciklamasi:
+      "Öğrencileriniz ekosistemin öncülerinden; ardında kalıcı iş bırakıyor.",
   },
 ];
 
 export interface YolculukDurumu {
+  /**
+   * İç hesap birimi — EKRANDA GÖSTERİLMEZ, yalnızca seviyeyi ve ilerleme
+   * yüzdesini üretir (bkz. yukarıdaki "puan içeride kalır" notu).
+   */
   toplamPuan: number;
+  /** Ekranda gösterilen ölçü: seviyenin sırası kadar yıldız. */
+  yildiz: number;
   /** Puanın hangi kaynaklardan geldiği — yalnızca sıfırdan büyük satırlar. */
   dokum: PuanSatiri[];
   seviye: SeviyeTanimi;
@@ -228,7 +364,9 @@ export function puanDokumu(girdi: YolculukGirdisi): PuanSatiri[] {
     CALISMA_GRUBU: girdi.calismaGrubuSayisi,
     AKRAN_EGITIMI: girdi.akranEgitimiSayisi,
     ETKINLIK_DUZENLEME: girdi.duzenlenenEtkinlikSayisi,
-    GOREV: girdi.gorevSayisi,
+    TEMSILCILIK: girdi.temsilcilikSayisi,
+    GENCTEK_GOREVI: girdi.gencTekGorevSayisi,
+    EKIP: girdi.ekipSayisi,
     MENTORLUK: girdi.mentorMu ? 1 : 0,
     DANISMANLIK: girdi.aktifDanismanlikSayisi,
   };
@@ -243,6 +381,51 @@ export function puanDokumu(girdi: YolculukGirdisi): PuanSatiri[] {
       toplam: adet * kaynak.puan,
     };
   }).filter((satir) => satir.adet > 0);
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * PUAN İÇERİDE KALIR, EKRANDA YILDIZ GÖRÜNÜR (28 Ağustos 2026)
+ * ---------------------------------------------------------------------------
+ * İstek: "puanları göstermiyoruz, belki bir yıldız iki yıldız üç yıldız …
+ * puan demeyelim". Bu dosyadaki puan hesabı DEĞİŞMEDİ — seviyeyi hâlâ o
+ * belirliyor; değişen, kişiye ne gösterildiği.
+ *
+ * Sayı ekrandan kalktı çünkü sayı yarıştırır: "42 puan" iki kişinin
+ * karşılaştırılabileceği bir ölçüdür ve yolculuğu kendi hızında ilerleyen bir
+ * merdiven olmaktan çıkarıp sıralamaya çevirir. Yıldız ise nerede olduğunu
+ * söyler, ne kadar önde olduğunu değil.
+ *
+ * YILDIZ SAYISI = SEVİYENİN SIRASI. İkinci bir ölçek TANIMLANMADI (ör. beş
+ * yıldıza sıkıştırmak): ayrı eşikleri olan bir yıldız ölçeği, "kaç yıldızım
+ * var" ile "hangi seviyedeyim" sorularının farklı cevaplar verebildiği iki
+ * merdiven demek olurdu ve biri seviye eklendiğinde geride kalırdı. Böylece
+ * yıldız, seviye adının sayıyla söylenmiş hâlidir — fazladan bilgi taşımaz,
+ * yeni bir kural da getirmez.
+ */
+export const TOPLAM_YILDIZ = YOLCULUK_SEVIYELERI.length;
+
+/**
+ * Seviye adını cümle içinde tırnağa alır.
+ *
+ * NİYE FONKSİYON: ilk basamağın adı zaten tırnaklı — `"Hello World"`. Cümlede
+ * elle tırnağa alınınca ekrana çift tırnak çıkıyordu:
+ * `Öğrencilerinin çoğu ""Hello World"" aşamasında.` Adı tırnaksıza çevirmek
+ * çözüm değil; o tırnaklar adın kendisine ait (bir kod dizgesi olduğu için
+ * öyle yazıldı, bkz. YOLCULUK_SEVIYELERI).
+ *
+ * Bu yüzden karar tek yerde: adı zaten tırnakla başlıyorsa olduğu gibi
+ * bırakılır, değilse tırnağa alınır. Cümlede seviye adı geçen her yer bundan
+ * geçmeli — dört ekranda dört ayrı düzeltme, birinin geride kalması demekti.
+ */
+export function seviyeAdiTirnakli(ad: string): string {
+  return ad.startsWith('"') ? ad : `"${ad}"`;
+}
+
+/** Seviyenin yıldız sayısı: ilk basamak bir yıldız, son basamak yedi. */
+export function seviyeYildizi(kod: string): number {
+  const sira = YOLCULUK_SEVIYELERI.findIndex((seviye) => seviye.kod === kod);
+  return sira < 0 ? 1 : sira + 1;
 }
 
 /** Toplam puana karşılık gelen seviye — ulaşılan en yüksek eşik. */
@@ -272,5 +455,13 @@ export function yolculukDurumu(girdi: YolculukGirdisi): YolculukDurumu {
       )
     : 100;
 
-  return { toplamPuan, dokum, seviye, sonraki, kalanPuan, yuzde };
+  return {
+    toplamPuan,
+    yildiz: seviyeYildizi(seviye.kod),
+    dokum,
+    seviye,
+    sonraki,
+    kalanPuan,
+    yuzde,
+  };
 }

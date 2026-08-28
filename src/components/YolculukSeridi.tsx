@@ -1,5 +1,7 @@
+import { Star } from "lucide-react";
 import { Rozet } from "@/components/ui";
 import { YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
+import type { SeviyeDagilimi } from "@/lib/yolculuk/ogrencilerim";
 
 /**
  * GENÇTEK YOLCULUĞUNUN AŞAMA ŞERİDİ — yedi seviye ve kişinin durduğu basamak.
@@ -10,15 +12,48 @@ import { YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
  * yaşayacaktı — seviye eklendiğinde ya da renkler değiştiğinde biri geride
  * kalırdı.
  *
+ * EŞİK SAYISI YERİNE YILDIZ (28 Ağustos 2026 · istek: "puanları
+ * göstermiyoruz … puan demeyelim"). Basamakların altında "8 puan ve üzeri"
+ * yazıyordu; bu, yolculuğun tamamını bir sayı cetveline çeviren tek satırdı.
+ * Yerine o basamağın yıldızı geldi — kişi hangi basamakta kaç yıldıza
+ * ulaştığını görüyor, oraya kaç puanla girildiğini değil.
+ *
+ * ŞERİTTE YILDIZ DİZİSİ YOK, TEK SİMGE VE SAYI VAR: yedi kartın her birine o
+ * basamağın yıldızlarını dizmek yirmi sekiz yıldız eder ve kartları birbirinden
+ * ayırt etmesi gereken şey okunmaz hâle gelir. Dizi, kişinin KENDİ seviyesinin
+ * gösterildiği iki yerde duruyor (yolculuk kartı ve panel özeti); burada
+ * basamağın kaç yıldıza karşılık geldiğini söylemek yetiyor.
+ *
+ * İKİ KİP, TEK ŞERİT (28 Ağustos 2026 · istek: "kaç öğrencisi Hello World
+ * aşamasında onu yazdırıyoruz"):
+ *   · `seviyeKodu` → kişinin kendi yolculuğu; durduğu basamak "Buradasın" ile
+ *     işaretli, sonrası soluk.
+ *   · `dagilim`   → öğretmenin ekranı; her basamakta kaç öğrenci olduğu ve
+ *     basamağın öğretmene göre yazılmış açıklaması. Burada "buradasın" yok,
+ *     çünkü şeritte duran öğretmen değil öğrencileri; soluk olanlar da
+ *     ulaşılmamış basamaklar değil ÖĞRENCİSİ OLMAYAN basamaklar.
+ *
+ * Şerit ikiye BÖLÜNMEDİ: basamakların sırası, adı ve görünümü tek yerde
+ * kalsın diye. İki bileşen olsaydı seviye eklendiğinde biri geride kalırdı —
+ * bu dosyanın var oluş sebebi zaten o.
+ *
  * SEVİYE KODU DIŞARIDAN GELİYOR, hesap içeride yapılmıyor: kişinin seviyesi
  * `lib/yolculuk` hesabından doğuyor ve bileşenin işi onu çizmek. İki yerde iki
  * ayrı formül, kartın "Üretimde" derken şeridin "Harekette"yi işaretlemesi
  * demek olurdu.
  */
-export function YolculukSeridi({ seviyeKodu }: { seviyeKodu: string }) {
+export function YolculukSeridi({
+  seviyeKodu,
+  dagilim,
+}: {
+  seviyeKodu?: string;
+  dagilim?: SeviyeDagilimi[];
+}) {
   const seviyeSirasi = YOLCULUK_SEVIYELERI.findIndex(
     (seviye) => seviye.kod === seviyeKodu,
   );
+  const ogrenciSayisi = (kod: string): number =>
+    dagilim?.find((satir) => satir.seviye.kod === kod)?.ogrenciSayisi ?? 0;
 
   return (
     /*
@@ -27,8 +62,10 @@ export function YolculukSeridi({ seviyeKodu }: { seviyeKodu: string }) {
     */
     <ol className="flex gap-3 overflow-x-auto pb-1">
       {YOLCULUK_SEVIYELERI.map((seviye, sira) => {
-        const ulasildi = sira <= seviyeSirasi;
-        const suAn = sira === seviyeSirasi;
+        const sayi = ogrenciSayisi(seviye.kod);
+        // Öğretmen kipinde "ulaşıldı", öğrencisi olan basamak demektir.
+        const ulasildi = dagilim ? sayi > 0 : sira <= seviyeSirasi;
+        const suAn = dagilim ? false : sira === seviyeSirasi;
         return (
           <li
             key={seviye.kod}
@@ -53,16 +90,28 @@ export function YolculukSeridi({ seviyeKodu }: { seviyeKodu: string }) {
               </span>
               <p className="font-semibold text-baslik">{seviye.ad}</p>
             </div>
-            <p className="mt-1 text-xs font-medium text-metin-yumusak">
-              {seviye.esik} puan ve üzeri
+            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-metin-yumusak">
+              <Star size={13} aria-hidden className="fill-current text-vurgu-metin" />
+              {sira + 1} yıldız
             </p>
             <p className="mt-2 text-sm text-metin-yumusak">
-              {seviye.aciklama}
+              {dagilim ? seviye.ogretmenAciklamasi : seviye.aciklama}
             </p>
             {suAn && (
               <span className="mt-3 inline-block">
                 <Rozet cesit="vurgu">Buradasın</Rozet>
               </span>
+            )}
+            {/*
+              SIFIR DA YAZILIR: "0 öğrenci" boş bir basamağı gösteriyor ve
+              öğretmenin bakması gereken yer çoğu zaman orası. Satır
+              gizlenseydi kart, sayısı olmayanla sayısı yazılmayan arasında
+              fark bırakmazdı.
+            */}
+            {dagilim && (
+              <p className="mt-3 font-baslik text-lg font-extrabold text-baslik">
+                {sayi} öğrenci
+              </p>
             )}
           </li>
         );

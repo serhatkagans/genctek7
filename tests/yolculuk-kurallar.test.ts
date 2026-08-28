@@ -2,6 +2,9 @@ import {
   PUAN_KAYNAKLARI,
   puanDokumu,
   seviyeBul,
+  seviyeAdiTirnakli,
+  seviyeYildizi,
+  TOPLAM_YILDIZ,
   YOLCULUK_SEVIYELERI,
   yolculukDurumu,
 } from "@/lib/yolculuk/kurallar";
@@ -25,7 +28,9 @@ function girdi(ozellikler: Record<string, unknown> = {}) {
     calismaGrubuSayisi: 0,
     akranEgitimiSayisi: 0,
     duzenlenenEtkinlikSayisi: 0,
-    gorevSayisi: 0,
+    temsilcilikSayisi: 0,
+    gencTekGorevSayisi: 0,
+    ekipSayisi: 0,
     mentorMu: false,
     aktifDanismanlikSayisi: 0,
     ...ozellikler,
@@ -99,6 +104,9 @@ describe("puan dökümü", () => {
     for (const kaynak of PUAN_KAYNAKLARI) {
       expect(kaynak.puan).toBeGreaterThan(0);
       expect(kaynak.etiket).toBeTruthy();
+      expect(kaynak.yolEtiketi).toBeTruthy();
+      expect(kaynak.topluEtiketi).toBeTruthy();
+      expect(kaynak.topluYolEtiketi).toBeTruthy();
     }
   });
 });
@@ -137,11 +145,165 @@ describe("yolculuk durumu", () => {
         katilimSayisi: 5, // 5
         urunSayisi: 2, // 2
         akranEgitimiSayisi: 1, // 2
-        gorevSayisi: 1, // 2
+        temsilcilikSayisi: 1, // 2
         mentorMu: true, // 2
       }),
     );
     expect(durum.toplamPuan).toBe(1 + 5 + 2 + 2 + 2 + 2);
     expect(durum.seviye.ad).toBe("Harekette");
+  });
+});
+
+/**
+ * YILDIZ — ekranda puanın yerini alan ölçü (28 Ağustos 2026).
+ *
+ * Sınanan şey, yıldızın SEVİYEYLE AYNI ŞEYİ söylediğidir: ikisi ayrışırsa
+ * kişi kartta "Üretimde" okurken şeritte dört yıldızın üçüncüsünde işaretli
+ * görünür ve hangisinin doğru olduğunu bilemez.
+ */
+describe("seviye yıldızı", () => {
+  it("ilk basamak bir, son basamak yedi yıldızdır", () => {
+    expect(seviyeYildizi("HELLO_WORLD")).toBe(1);
+    expect(seviyeYildizi("IZ_BIRAKAN")).toBe(TOPLAM_YILDIZ);
+    expect(TOPLAM_YILDIZ).toBe(YOLCULUK_SEVIYELERI.length);
+  });
+
+  it("her seviyenin yıldızı sırasının bir fazlasıdır", () => {
+    YOLCULUK_SEVIYELERI.forEach((seviye, sira) => {
+      expect(seviyeYildizi(seviye.kod)).toBe(sira + 1);
+    });
+  });
+
+  it("durumdaki yıldız, ulaşılan seviyenin yıldızıdır", () => {
+    // 1 (kayıt) + 4 katılım = 5 → Keşifte, yani ikinci basamak.
+    const durum = yolculukDurumu(girdi({ katilimSayisi: 4 }));
+    expect(durum.seviye.kod).toBe("KESIFTE");
+    expect(durum.yildiz).toBe(2);
+  });
+
+  it("tanınmayan kod tek yıldıza düşer, çökmez", () => {
+    // Şerit ve kart seviye kodunu dışarıdan alıyor; bilinmeyen bir kod
+    // geldiğinde ekranın boş yıldız dizisi basması, hata vermesinden iyidir.
+    expect(seviyeYildizi("YOK_BOYLE_BIR_SEVIYE")).toBe(1);
+  });
+});
+
+/**
+ * YOLCULUĞU NELERİN İLERLETTİĞİ — ekrandaki liste (28 Ağustos 2026).
+ *
+ * Kalemler ve SIRALARI istekte tek tek sayıldı; dizinin sırası ekranın sırası
+ * olduğu için burada aynen sınanıyor. Bir kalem eklenir ya da yeri
+ * değiştirilirse bu test düşer — listenin sessizce kaymasındansa testin
+ * düşmesi iyidir.
+ */
+describe("yolculuğu ilerleten kalemler", () => {
+  const yol = (kimde: "ogrenci" | "ogretmen") =>
+    PUAN_KAYNAKLARI.filter(
+      (kaynak) => kaynak.kimde === "herkes" || kaynak.kimde === kimde,
+    ).map((kaynak) => kaynak.yolEtiketi);
+
+  it("öğrenciye istenen liste, istenen sırada gösterilir", () => {
+    expect(yol("ogrenci")).toEqual([
+      "Ekosisteme kayıt ol",
+      "GençTek Vitrin'de ürünün sergilensin",
+      "Çalışma grubu seç",
+      "GençTek etkinliklerine katıl",
+      "Mentör ol",
+      "Deneyim yükle",
+      "Temsilci ol",
+      "GençTek Görevleri tamamla",
+      "Akran Eğitimi ver",
+      "Topluluk, ekip ya da kulübe katıl",
+    ]);
+  });
+
+  it("öğretmene çalışma grubu ve akran eğitimi gösterilmez", () => {
+    const liste = yol("ogretmen");
+    expect(liste).not.toContain("Çalışma grubu seç");
+    expect(liste).not.toContain("Akran Eğitimi ver");
+    expect(liste).toContain("Etkinlik düzenle");
+    expect(liste).toContain("Danışmanlık üstlen");
+  });
+
+  it("temsilcilik ile GençTek görevi ayrı sayılır ama toplam değişmez", () => {
+    // Ayrım sunumda: ikisi tek kalemken de her biri 2 puandı.
+    const ayri = yolculukDurumu(
+      girdi({ temsilcilikSayisi: 1, gencTekGorevSayisi: 1 }),
+    );
+    expect(ayri.toplamPuan).toBe(1 + 2 + 2);
+    expect(ayri.dokum.map((satir) => satir.kod)).toEqual([
+      "KAYIT",
+      "TEMSILCILIK",
+      "GENCTEK_GOREVI",
+    ]);
+  });
+
+  it("ekip üyeliği yolculuğu ilerletir", () => {
+    const durum = yolculukDurumu(girdi({ ekipSayisi: 2 }));
+    expect(durum.toplamPuan).toBe(1 + 2);
+  });
+});
+
+/**
+ * ÖĞRETMEN METİNLERİ (28 Ağustos 2026 · istek: "metinleri de öğretmene göre
+ * 'Öğrencileriniz ekosisteme adım atıyor' … değiştiriyoruz").
+ *
+ * Sınanan şey, her basamağın ve her kalemin öğretmen karşılığının BULUNDUĞU:
+ * biri unutulursa öğretmenin ekranında o satır ikinci tekil şahısta kalır ve
+ * öğrencilerinin kaydı öğretmenin kendi kaydı gibi okunur.
+ */
+describe("öğretmen metinleri", () => {
+  it("her basamağın öğretmene göre yazılmış açıklaması vardır", () => {
+    for (const seviye of YOLCULUK_SEVIYELERI) {
+      expect(seviye.ogretmenAciklamasi).toBeTruthy();
+      // Öğrenci metniyle aynı olmamalı: şahsı değişmemiş demektir.
+      expect(seviye.ogretmenAciklamasi).not.toBe(seviye.aciklama);
+      expect(seviye.ogretmenAciklamasi).toContain("Öğrencileriniz");
+    }
+  });
+
+  it("topluluk defteri satırları öğrencileri özne alır", () => {
+    for (const kaynak of PUAN_KAYNAKLARI) {
+      expect(kaynak.topluEtiketi).not.toBe(kaynak.etiket);
+      expect(kaynak.topluYolEtiketi).not.toBe(kaynak.yolEtiketi);
+    }
+  });
+
+  it("öğretmenin yol listesi istenen cümlelerle, istenen sırada", () => {
+    const liste = PUAN_KAYNAKLARI.filter(
+      (kaynak) => kaynak.kimde === "herkes" || kaynak.kimde === "ogrenci",
+    ).map((kaynak) => kaynak.topluYolEtiketi);
+    expect(liste).toEqual([
+      "Ekosisteme kayıt olurlar",
+      "GençTek Vitrin'de ürünleri sergilenir",
+      "Çalışma grubu seçerler",
+      "GençTek etkinliklerine katılırlar",
+      "Mentör olurlar",
+      "Deneyim yüklerler",
+      "Temsilci olurlar",
+      "GençTek Görevleri tamamlarlar",
+      "Akran Eğitimi verirler",
+      "Topluluk/ekip/kulüp kurar ya da katılırlar",
+    ]);
+  });
+});
+
+/**
+ * SEVİYE ADININ TIRNAĞI (28 Ağustos 2026 · bulgu: ekranda
+ * `Öğrencilerinin çoğu ""Hello World"" aşamasında.` yazıyordu).
+ */
+describe("seviye adı tırnağı", () => {
+  it("zaten tırnaklı ad ikinci kez tırnağa alınmaz", () => {
+    expect(seviyeAdiTirnakli('"Hello World"')).toBe('"Hello World"');
+  });
+
+  it("tırnaksız ad tırnağa alınır", () => {
+    expect(seviyeAdiTirnakli("Keşifte")).toBe('"Keşifte"');
+  });
+
+  it("hiçbir seviye adı çift tırnakla basılmaz", () => {
+    for (const seviye of YOLCULUK_SEVIYELERI) {
+      expect(seviyeAdiTirnakli(seviye.ad)).not.toContain('""');
+    }
   });
 });

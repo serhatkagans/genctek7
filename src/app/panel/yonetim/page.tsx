@@ -105,8 +105,13 @@ export default async function YonetimSayfasi({
   /*
    * Mentörlük bir ROL DEĞİL, onaya bağlı bir kayıt; bu yüzden koşul
    * veritabanından soruluyor (bkz. lib/mentor/veri.ts · onayliMentorMu).
+   *
+   * MERKEZ HİÇ SORMUYOR (28 Ağustos 2026 · istek: "proje yöneticisinden
+   * kaldıralım ona gerek yok"): kart merkezde basılmadığı için cevabın da
+   * kullanılacağı bir yer kalmadı — koşul `&&` ile kısa devre yapıyor ve
+   * merkezin her yönetim panosu açılışından bir sorgu düşüyor.
    */
-  const onayliMentor = await onayliMentorMu(kullanici.id);
+  const onayliMentor = !merkezMi && (await onayliMentorMu(kullanici.id));
   const ilKodu = koordinatorIlKodu(kullanici);
 
   /*
@@ -504,11 +509,15 @@ export default async function YonetimSayfasi({
             geldi — "Ekiplerim" kartıyla aynı gerekçe: mentörlük koordinatörün
             günlük işi değil, ihtiyaç oldukça açtığı bir kapı.
 
-            SEKME HERKESTEN KALKMADI. Onaylı mentör olmak bir rol değil, onaya
-            bağlı bir kayıt: öğrenci, danışman ve mezun da mentör olabiliyor
-            (bkz. layout.tsx · mentorSekmesi). Onlar Yönetim Paneli'ni
-            göremediği için sekmeleri yerinde duruyor — kaldırılsaydı kendi
-            mentörlük kutularına ulaşacak hiçbir yolları kalmazdı.
+            KART ARTIK YALNIZCA İL KOORDİNATÖRÜNDE (28 Ağustos 2026 · istek:
+            "proje yöneticisinden kaldıralım ona gerek yok"). Merkezin mentörlük
+            işi kendi kaydını okumak değil, BAŞKALARININ başvurusunu karara
+            bağlamak — o da bu panodaki mentörlük onay kuyruğunda. İki kart yan
+            yana durunca hangisinin merkezin işi olduğu belirsizleşiyordu.
+
+            Merkezdeki bir kişi onaylı mentörse sayfası kapanmadı:
+            /panel/mentorlugum yerinde ve Profil'deki "Mentörlüklerim" kartı
+            oraya götürüyor (bkz. app/panel/page.tsx).
 
             KOŞUL YİNE VERİTABANINDAN (`onayliMentorMu`), rolden değil: kart
             yalnızca onaylı mentörde basılıyor, yoksa 404 dönen bir kapıya

@@ -56,15 +56,16 @@ export async function yolculugumuGetir(
 
   const gecmis = await katilimGecmisiGetir(kullaniciId, simdi);
 
-  const [calismaGrubuSayisi, gorevRolSayisi, gencTekGorevSayisi] =
+  const [calismaGrubuSayisi, temsilcilikSayisi, gencTekGorevSayisi] =
     await Promise.all([
       ogrenci
         ? prisma.ogrenciCalismaGrubu.count({ where: { ogrenciId: kullaniciId } })
         : Promise.resolve(0),
       prisma.ogrenciGorevRolu.count({ where: { ogrenciId: kullaniciId } }),
       /*
-       * GENÇTEK GÖREVLERİ DE SAYILIYOR (aynı gün eklendi): panodan başvurulup
-       * ONAYLANAN görev, temsilcilikle aynı ağırlıkta bir görevdir.
+       * GENÇTEK GÖREVLERİ AYRI SAYILIYOR: panodan başvurulup ONAYLANAN görev
+       * temsilcilikle aynı ağırlıkta ama aynı şey değil, ikisi ekranda ayrı
+       * satır (bkz. kurallar.ts · TEMSILCILIK / GENCTEK_GOREVI).
        */
       prisma.gencTekGorevBasvurusu.count({
         where: { kullaniciId, onayDurumu: "ONAYLANDI" },
@@ -92,6 +93,19 @@ export async function yolculugumuGetir(
           }),
     ]);
 
+  /*
+   * EKİP ÜYELİĞİ TEK BAŞINA, ÜÇLÜ GRUPLARIN DIŞINDA: yukarıdaki iki grup zaten
+   * üçer sorgu açıyor ve birine eklemek dosyanın başındaki eşzamanlılık
+   * tavanını aşardı.
+   *
+   * Sayılan şey üyeliktir; ekibin AKTİF olması aranmıyor. Kapanmış bir ekipte
+   * geçirilen zaman yaşanmamış sayılmaz — kaydı silinen bir üyelik ise zaten
+   * burada da yok.
+   */
+  const ekipSayisi = await prisma.ekipUyesi.count({
+    where: { kullaniciId },
+  });
+
   return yolculukDurumu({
     katilimSayisi: gecmis.katilimlar.length,
     urunSayisi: kazanimAdedi("URUN"),
@@ -103,7 +117,9 @@ export async function yolculugumuGetir(
     calismaGrubuSayisi,
     akranEgitimiSayisi: kazanimAdedi("AKRAN_EGITIMI"),
     duzenlenenEtkinlikSayisi,
-    gorevSayisi: gorevRolSayisi + gencTekGorevSayisi,
+    temsilcilikSayisi,
+    gencTekGorevSayisi,
+    ekipSayisi,
     mentorMu: mentorluk?.durum === "ONAYLANDI",
     aktifDanismanlikSayisi,
   });
