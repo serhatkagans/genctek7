@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Eye,
   EyeOff,
   ExternalLink,
@@ -11,6 +10,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Kart,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_IKINCIL_BUTON,
@@ -142,13 +142,18 @@ export default async function UrunDetaySayfasi({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/panel/urunler"
-        className="inline-flex items-center gap-1.5 text-sm text-vurgu-metin hover:underline"
-      >
-        <ArrowLeft size={15} aria-hidden />
-        GençTek Vitrin
-      </Link>
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "vitrin de profile dönüyor").
+        Yerinde tek başına "← GençTek Vitrin" bağlantısı vardı: dönülecek yeri
+        söylüyor, bulunulan yeri söylemiyordu. Şerit ikisini birden basıyor ve
+        panelin her yerinde aynı biçimde (bkz. components/ui.tsx · KirintiYolu).
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "GençTek Vitrin", yol: "/panel/urunler" },
+          { etiket: urun.baslik },
+        ]}
+      />
 
       <SayfaBasligi
         baslik={urun.baslik}
@@ -157,11 +162,8 @@ export default async function UrunDetaySayfasi({
             ? `${urun.gelistirenEkip} · ${urun.kullanici.ad} ${urun.kullanici.soyad}`
             : `${urun.kullanici.ad} ${urun.kullanici.soyad}`
         }
-        /*
-          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
-          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
-          basılsaydı üst üste iki geri bağlantısı olurdu.
-        */
+        /* Yol yukarıdaki şeritte; varsayılan "← Profil" onun altına ikinci
+           bir navigasyon basardı. */
         geri={null}
       />
 

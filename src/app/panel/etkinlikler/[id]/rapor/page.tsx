@@ -5,6 +5,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -148,16 +149,27 @@ export default async function FaaliyetRaporuSayfasi({
 
   return (
     <div className="space-y-6">
-      <Link
-        href={`/panel/etkinlikler/${faaliyet.id}`}
-        className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-      >
-        ← Etkinliğe dön
-      </Link>
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "etkinlikler sayfasındaki
+        kartlara girince profile dönüyor, o da etkinliklere dönsün").
+
+        Başlığın geri bağlantısı verilmediği için SayfaBasligi VARSAYILANI
+        basıyordu: "← Profil". Bu ekrana Profil'den değil etkinlik listesinden
+        (ya da etkinliğin kendisinden) geliniyor; şerit o yolu basamaklarıyla
+        gösteriyor, `geri={null}` de varsayılanın üste binmesini engelliyor.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Etkinlikler", yol: "/panel/etkinlikler" },
+          { etiket: faaliyet.ad, yol: `/panel/etkinlikler/${faaliyet.id}` },
+          { etiket: "Etkinlik raporu" },
+        ]}
+      />
 
       <SayfaBasligi
         baslik="Etkinlik raporu"
         aciklama={`${faaliyet.ad} · ${faaliyetSuresiYaz(faaliyet.tarih, faaliyet.bitisTarihi)}`}
+        geri={null}
       />
 
       {durum && DURUM_MESAJLARI[durum] && (

@@ -1,5 +1,4 @@
-import { ArrowLeft, ClipboardCheck, Megaphone, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { ClipboardCheck, Megaphone, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { GorevBasvuruKuyrugu } from "@/components/GorevBasvuruKuyrugu";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
@@ -7,6 +6,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -270,6 +270,23 @@ export default async function PanoIlanOnaylariSayfasi({
   return (
     <div className="space-y-6">
       {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "pano da da aynı sorun var").
+
+        Panodan açılan ekranlarda üstte ya "← Profil" (SayfaBasligi'nın
+        varsayılanı) ya da elle yazılmış "Panoya dön" bağlantısı duruyordu:
+        ikisi de nereye dönüleceğini söylüyor, nerede olunduğunu söylemiyordu.
+        Şerit ikisini birden basıyor ve panelin her yerinde aynı biçimde
+        (bkz. components/ui.tsx · KirintiYolu). SayfaBasligi'nın geri
+        bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Pano", yol: "/panel/talepler" },
+          { etiket: "Onay kuyruğu" },
+        ]}
+      />
+
+      {/*
         BAŞLIK İKİ KUYRUĞU BİRDEN SAYAR (26 Ağustos 2026): ekran artık
         yalnızca pano ilanlarının değil, merkezin karar verdiği işlerin
         kuyruğu. Yalnızca ilan sayısı yazsaydı, bekleyen görev başvurusu
@@ -291,21 +308,8 @@ export default async function PanoIlanOnaylariSayfasi({
                 .join(" · ") + " kararınızı bekliyor"
             : "Kararınızı bekleyen iş yok"
         }
-        /*
-          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
-          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
-          basılsaydı üst üste iki geri bağlantısı olurdu.
-        */
         geri={null}
       />
-
-      <Link
-        href="/panel/talepler"
-        className="inline-flex items-center gap-1 text-sm font-medium text-vurgu-metin"
-      >
-        <ArrowLeft size={14} aria-hidden />
-        Panoya dön
-      </Link>
 
       {durum && DURUM_MESAJLARI[durum] && (
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>

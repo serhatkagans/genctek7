@@ -625,6 +625,13 @@ export default async function FaaliyetDetaySayfasi({
       */}
       <SayfaBasligi
         baslik={faaliyet.ad}
+        /*
+          "← PROFİL" KALKTI (29 Ağustos 2026 · istek: "etkinlikler sayfasındaki
+          kartlara girince profile dönüyor"). Yolu üstteki kırıntı şeridi
+          gösteriyor; varsayılan geri bağlantısı onun altına ikinci bir
+          navigasyon basıyordu.
+        */
+        geri={null}
         aciklama={faaliyet.duzenleyenBirim}
         rozet={
           <>

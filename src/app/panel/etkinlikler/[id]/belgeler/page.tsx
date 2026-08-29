@@ -3,7 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TumunuSecKutusu } from "@/components/belge/TumunuSecKutusu";
 import {
-  BilgiKutusu, Kart, KartBasligi, SayfaBasligi, SINIF_GIRDI, SINIF_IKINCIL_BUTON,
+  BilgiKutusu,
+  Kart,
+  KartBasligi,
+  KirintiYolu,
+  SayfaBasligi,
+  SINIF_GIRDI,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
@@ -48,16 +54,23 @@ export default async function BelgelerSayfasi({
   if (!kapi.olurMu) {
     return (
       <div className="space-y-6">
-        <Link
-          href={`/panel/etkinlikler/${faaliyet.id}`}
-          className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-        >
-          ← Etkinliğe dön
-        </Link>
+        {/*
+          KIRINTI YOLU (29 Ağustos 2026 · istek: "etkinlikler sayfasındaki
+          kartlara girince profile dönüyor, o da etkinliklere dönsün").
+          SayfaBasligi'nın varsayılan "← Profil" bağlantısı bu yüzden `null`.
+        */}
+        <KirintiYolu
+          basamaklar={[
+            { etiket: "Etkinlikler", yol: "/panel/etkinlikler" },
+            { etiket: faaliyet.ad, yol: `/panel/etkinlikler/${faaliyet.id}` },
+            { etiket: "Katılım ve teşekkür belgeleri" },
+          ]}
+        />
 
         <SayfaBasligi
           baslik="Katılım ve teşekkür belgeleri"
           aciklama={`${faaliyet.ad} · ${tarihYaz(faaliyet.tarih)}`}
+          geri={null}
         />
 
         <Kart>
@@ -121,16 +134,23 @@ export default async function BelgelerSayfasi({
 
   return (
     <div className="space-y-6">
-      <Link
-        href={`/panel/etkinlikler/${faaliyet.id}`}
-        className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-      >
-        ← Etkinliğe dön
-      </Link>
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "etkinlikler sayfasındaki
+        kartlara girince profile dönüyor, o da etkinliklere dönsün").
+        SayfaBasligi'nın varsayılan "← Profil" bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Etkinlikler", yol: "/panel/etkinlikler" },
+          { etiket: faaliyet.ad, yol: `/panel/etkinlikler/${faaliyet.id}` },
+          { etiket: "Katılım ve teşekkür belgeleri" },
+        ]}
+      />
 
       <SayfaBasligi
         baslik="Katılım ve teşekkür belgeleri"
         aciklama={`${faaliyet.ad} · ${tarihYaz(faaliyet.tarih)}`}
+        geri={null}
       />
 
       <BilgiKutusu cesit="uyari">

@@ -3,6 +3,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   Rozet,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
@@ -81,10 +82,27 @@ export default async function GencTekGorevleriSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "pano da da aynı sorun var").
+
+        Panodan açılan ekranlarda üstte ya "← Profil" (SayfaBasligi'nın
+        varsayılanı) ya da elle yazılmış "Panoya dön" bağlantısı duruyordu:
+        ikisi de nereye dönüleceğini söylüyor, nerede olunduğunu söylemiyordu.
+        Şerit ikisini birden basıyor ve panelin her yerinde aynı biçimde
+        (bkz. components/ui.tsx · KirintiYolu). SayfaBasligi'nın geri
+        bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Pano", yol: "/panel/talepler" },
+          { etiket: "GençTek Görevleri" },
+        ]}
+      />
+
       <SayfaBasligi
         baslik="GençTek Görevleri"
         aciklama="Merkezin açtığı görevlere başvurun; başvurunuz proje yöneticisinin onayından geçer."
-        geri={{ yol: "/panel/talepler", etiket: "Pano" }}
+        geri={null}
       />
 
       {durum && DURUM_MESAJLARI[durum] && (

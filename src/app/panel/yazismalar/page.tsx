@@ -389,7 +389,17 @@ export default async function BaglantilarimSayfasi({
 
   return (
     <div className="space-y-6">
-      <SayfaBasligi baslik="Bağlantılarım" aciklama={ozet} />
+      {/*
+        "← PROFİL" KALKTI (29 Ağustos 2026 · istek: "bağlantılarımda hâlâ profil
+        navigasyonu var").
+
+        Bağlantı `SayfaBasligi`nın VARSAYILANIYDI (bkz. components/ui.tsx) ve bu
+        sayfa onu geçmediği için basılıyordu. Varsayılanın gerekçesi "Profil'deki
+        kartla açılan, menüde karşılığı olmayan ekranlardan çıkılamıyor"du; bu
+        ekranın sol menüde kendi satırı var (İletişim · Bağlantılarım), yani
+        buraya Profil'den geçmek gerekmiyor ve dönüş yolu menüde duruyor.
+      */}
+      <SayfaBasligi baslik="Bağlantılarım" aciklama={ozet} geri={null} />
 
       {durum && DURUM_MESAJLARI[durum] && (
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>

@@ -1,7 +1,10 @@
-import { ArrowLeft, GraduationCap } from "lucide-react";
-import Link from "next/link";
+import { GraduationCap } from "lucide-react";
 import { notFound } from "next/navigation";
-import { BilgiKutusu, SayfaBasligi } from "@/components/ui";
+import {
+  BilgiKutusu,
+  KirintiYolu,
+  SayfaBasligi,
+} from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { TALEP_AZAMI_GUN } from "@/lib/iletisim/kurallar";
 import { mentorHavuzunuGetir } from "@/lib/mentor/veri";
@@ -37,6 +40,23 @@ export default async function MentorTalebiSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "pano da da aynı sorun var").
+
+        Panodan açılan ekranlarda üstte ya "← Profil" (SayfaBasligi'nın
+        varsayılanı) ya da elle yazılmış "Panoya dön" bağlantısı duruyordu:
+        ikisi de nereye dönüleceğini söylüyor, nerede olunduğunu söylemiyordu.
+        Şerit ikisini birden basıyor ve panelin her yerinde aynı biçimde
+        (bkz. components/ui.tsx · KirintiYolu). SayfaBasligi'nın geri
+        bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Pano", yol: "/panel/talepler" },
+          { etiket: "Mentör talebi aç" },
+        ]}
+      />
+
       <SayfaBasligi
         baslik="Mentör talebi aç"
         /*
@@ -44,21 +64,8 @@ export default async function MentorTalebiSayfasi({
           yapıldığını zaten söylüyordu; cümlenin taşıdığı tek ek bilgi
           talebi kimin göreceğiydi ve o da formun kendi metninde duruyor.
         */
-        /*
-          Kendi geri bağlantısı yukarıda: bu ekranın üstü Panel değil,
-          geldiği liste. `SayfaBasligi`nin varsayılan "Panel" bağlantısı
-          basılsaydı üst üste iki geri bağlantısı olurdu.
-        */
         geri={null}
       />
-
-      <Link
-        href="/panel/talepler"
-        className="inline-flex items-center gap-1 text-sm font-medium text-vurgu-metin"
-      >
-        <ArrowLeft size={14} aria-hidden />
-        Panoya dön
-      </Link>
 
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
       {/*

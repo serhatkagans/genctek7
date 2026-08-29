@@ -1,10 +1,14 @@
 import { School } from "lucide-react";
 import Link from "next/link";
-import { Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
+import {
+  Kart,
+  KartBasligi,
+  KirintiYolu,
+  SayfaBasligi,
+} from "@/components/ui";
 import {
   BirimKarti,
   ToplamSeridi,
-  YolIzi,
 } from "@/components/YonetimKartlari";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
@@ -61,8 +65,8 @@ export default async function IlceKirilimiSayfasi({
 
   return (
     <div className="space-y-6">
-      <YolIzi
-        adimlar={[
+      <KirintiYolu
+        basamaklar={[
           { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
           { etiket: ilce.il.ad, yol: `/panel/yonetim/il/${ilce.ilKodu}` },
           { etiket: ilce.ad },

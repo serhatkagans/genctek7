@@ -1,10 +1,10 @@
 import { EyeOff, Lock, Send } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -144,14 +144,26 @@ export default async function YazismaSayfasi({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/panel/yazismalar"
-        className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
-      >
-        ← Bağlantılarım
-      </Link>
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "bağlantılarımda hâlâ profil
+        navigasyonu var"). Yerinde tek başına "← Bağlantılarım" bağlantısı
+        vardı; şerit hem dönülecek yeri hem bulunulan yeri basıyor ve panelin
+        her yerinde aynı biçimde duruyor (bkz. components/ui.tsx · KirintiYolu).
+
+        SON BASAMAK YAZIŞMANIN İKİ TARAFI: aynı kişiyle birden çok yazışma
+        satırı olabildiği için başlık burada bir ad değil, bir çift.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Bağlantılarım", yol: "/panel/yazismalar" },
+          {
+            etiket: `${yazisma.baglantiIstegi.isteyen.ad} ${yazisma.baglantiIstegi.isteyen.soyad} ↔ ${yazisma.baglantiIstegi.hedef.ad} ${yazisma.baglantiIstegi.hedef.soyad}`,
+          },
+        ]}
+      />
 
       <SayfaBasligi
+        geri={null}
         baslik={`${yazisma.baglantiIstegi.isteyen.ad} ${yazisma.baglantiIstegi.isteyen.soyad} ↔ ${yazisma.baglantiIstegi.hedef.ad} ${yazisma.baglantiIstegi.hedef.soyad}`}
         aciklama={
           yazisma.baglantiIstegi.kararVeren

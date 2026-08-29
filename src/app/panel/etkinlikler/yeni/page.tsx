@@ -4,6 +4,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -128,12 +129,29 @@ export default async function YeniFaaliyetSayfasi({
   return (
     <div className="space-y-6">
       {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "etkinlikler sayfasındaki
+        kartlara girince profile dönüyor, o da etkinliklere dönsün").
+
+        Başlığın geri bağlantısı verilmediği için SayfaBasligi VARSAYILANI
+        basıyordu: "← Profil". Bu ekrana Profil'den değil etkinlik listesinden
+        (ya da etkinliğin kendisinden) geliniyor; şerit o yolu basamaklarıyla
+        gösteriyor, `geri={null}` de varsayılanın üste binmesini engelliyor.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Etkinlikler", yol: "/panel/etkinlikler" },
+          { etiket: ogrenci ? "Yeni etkinlik önerisi" : "Yeni etkinlik" },
+        ]}
+      />
+
+      {/*
         12 Ağustos 2026 · istek: dış kullanıcıda da "Yeni etkinlik" yazsın.
         Başlık, Etkinlikler ekranındaki düğmeyle aynı adı taşır; tıklanan
         düğmeyle açılan sayfanın adı ayrışmasın.
       */}
       <SayfaBasligi
         baslik={ogrenci ? "Yeni etkinlik önerisi" : "Yeni etkinlik"}
+        geri={null}
         /*
           GÖREVLİNİN AÇIKLAMA SATIRI KALKTI (20 Ağustos 2026 · istek:
           "Etkinliğin yeri açtığınız göreve göre belirlenir; ayrıca seçmenize

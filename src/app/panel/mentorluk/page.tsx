@@ -5,6 +5,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -140,11 +141,29 @@ export default async function MentorlukKuyruguSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU · ÜST BASAMAK PANO (29 Ağustos 2026 · istek: "bu iki
+        kartın navigasyonu bunların yönetim panelinde olduğunu söylüyor, ama
+        onları taşıdık, panoyu göstermesi gerek").
+
+        Ekranın kapısı 27 Ağustos'ta Yönetim Paneli'nden PANOYA taşındı
+        (bkz. app/panel/talepler/page.tsx · "onay kuyrukları üç ayrı kart");
+        panoda artık kendi kartı var, Yönetim Paneli'nde yok. Şerit bu yüzden
+        Pano diyor — kişiyi geldiği kartın durduğu ekrana döndürmeyen bir
+        basamak, boş bir kapı gösterirdi.
+
+        SON BASAMAK BAĞLANTI DEĞİL (bkz. components/ui.tsx · KirintiYolu);
+        SayfaBasligi'nın geri bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Pano", yol: "/panel/talepler" },
+          { etiket: "Mentör onayları" },
+        ]}
+      />
+
       <SayfaBasligi
-        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
-           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
-           zaten sol menüde duruyor. */
-        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
+        geri={null}
         baslik="Mentörlük başvuruları"
         aciklama={
           bekleyenler.length > 0

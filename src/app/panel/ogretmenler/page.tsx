@@ -10,10 +10,10 @@ import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
 } from "@/components/ui";
-import { YolIzi } from "@/components/YonetimKartlari";
 import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import type { Prisma } from "@/generated/prisma/client";
@@ -283,13 +283,25 @@ export default async function OgretmenlerSayfasi({
 
   return (
     <div className="space-y-6">
-      {yolIziAdimlari && <YolIzi adimlar={yolIziAdimlari} />}
+      {yolIziAdimlari && <KirintiYolu basamaklar={yolIziAdimlari} />}
 
       <SayfaBasligi
-        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
-           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
-           zaten sol menüde duruyor. */
-        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
+        /*
+          GERİ BAĞLANTISI YOK, ŞERİT VAR (29 Ağustos 2026 · istek: "yönetim
+          panelindeki tüm kartlara uygula").
+
+          Panodan gelen kullanıcının yolu yukarıdaki kırıntı şeridinde duruyor
+          (kırılımdan gelindiyse il/ilçe/okul basamaklarıyla birlikte); burada
+          bir de "← Yönetim Paneli" basmak aynı yolu iki kez yazardı.
+
+          PANOYU AÇAMAYAN KULLANICIDA ŞERİT BASILMAZ (danışman öğretmen —
+          bkz. app/panel/envanter-yolu.ts; 26 Ağustos 2026 · istek: "en üstte
+          Yönetim Paneli linki var, basınca boş sayfa geliyor, profil sayfasına
+          dönsün"). Onun bu ekrana geldiği yer Panel'deki kart, dolayısıyla
+          dönüşü de Panel — şeridin `null` döndüğü tek hâl bu ve geri bağlantısı
+          da tam orada devreye giriyor.
+        */
+        geri={yolIziAdimlari ? null : { yol: "/panel", etiket: "Panel" }}
         baslik="Öğretmenler"
         aciklama={
           toplam > SAYFA_BOYUTU

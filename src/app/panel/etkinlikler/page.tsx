@@ -970,6 +970,18 @@ export default async function FaaliyetlerSayfasi({
       */}
       <SayfaBasligi
         baslik="Etkinlikler"
+        /*
+          "← PROFİL" KALKTI (29 Ağustos 2026 · istekler: "pano da profile
+          dönüyor" · "vitrin de profile dönüyor").
+
+          Bağlantı `SayfaBasligi`nın VARSAYILANIYDI (bkz. components/ui.tsx) ve
+          bu sayfa onu geçmediği için basılıyordu. Varsayılanın gerekçesi
+          "Profil'deki kartla açılan, menüde karşılığı olmayan ekranlardan
+          çıkılamıyor"du; BU EKRAN O EKRANLARDAN DEĞİL — sol menüde kendi satırı
+          var, yani kişi buraya Profil'den geçmek zorunda değil ve dönüşü de
+          menüde duruyor. Ekranın altındakiler kendi şeritlerini basıyor.
+        */
+        geri={null}
         rozet={
           /*
             Sayım açıklamadan rozete taşındı: "· 143 kayıt · 2. sayfa" düz

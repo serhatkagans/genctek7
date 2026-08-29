@@ -5,6 +5,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   Rozet,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
@@ -122,10 +123,31 @@ export default async function GencTekGorevYonetimiSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU · ÜST BASAMAK PANO (29 Ağustos 2026 · istek: "bu iki
+        kartın navigasyonu bunların yönetim panelinde olduğunu söylüyor, ama
+        onları taşıdık, panoyu göstermesi gerek").
+
+        Ekranın kapısı 27 Ağustos'ta Yönetim Paneli'nden PANOYA taşındı
+        (bkz. app/panel/talepler/page.tsx · "onay kuyrukları üç ayrı kart");
+        panoda artık kendi kartı var, Yönetim Paneli'nde yok. Şerit bu yüzden
+        Pano diyor — kişiyi geldiği kartın durduğu ekrana döndürmeyen bir
+        basamak, boş bir kapı gösterirdi.
+
+        SON BASAMAK BAĞLANTI DEĞİL (bkz. components/ui.tsx · KirintiYolu);
+        SayfaBasligi'nın geri bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Pano", yol: "/panel/talepler" },
+          { etiket: "GençTek görevi onayları" },
+        ]}
+      />
+
       <SayfaBasligi
         baslik="GençTek Görevleri"
         aciklama={`${gorevler.filter((gorev) => gorev.aktif).length} açık görev · ${bekleyenler.length} başvuru karar bekliyor`}
-        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
+        geri={null}
       />
 
       {durum && DURUM_MESAJLARI[durum] && (

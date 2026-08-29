@@ -4,6 +4,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   Rozet,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
@@ -200,11 +201,28 @@ export default async function HataKayitlariSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istekler: "navigasyon bunu göstersin
+        yönetim paneli / rol envanteri şeklinde" · "yönetim panelindeki tüm
+        kartlara uygula").
+
+        Yerinde tek başına "← Yönetim Paneli" bağlantısı vardı: dönülecek
+        yeri söylüyor, bulunulan yeri söylemiyordu. Şerit ikisini birden
+        basıyor ve panodan açılan HER ekranda aynı biçimde duruyor.
+
+        SON BASAMAK BAĞLANTI DEĞİL (bkz. components/ui.tsx · KirintiYolu);
+        SayfaBasligi'nın geri bağlantısı bu yüzden `null` — ikisi bir arada
+        aynı yolu üst üste iki kez basardı.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
+          { etiket: "Hata kayıtları" },
+        ]}
+      />
+
       <SayfaBasligi
-        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
-           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
-           zaten sol menüde duruyor. */
-        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
+        geri={null}
         baslik="Hata kayıtları"
         aciklama="Kullanıcının ekranda gördüğü hata kimliğinin karşılığı: hangi adres, hangi hata, ne zaman. Kimliği yazın, kaydın tamamı yığın iziyle açılsın."
         rozet={

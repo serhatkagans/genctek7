@@ -5,6 +5,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   Rozet,
   SayfaBasligi,
 } from "@/components/ui";
@@ -96,9 +97,26 @@ export default async function TalepAyrintiSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "pano da da aynı sorun var").
+
+        Panodan açılan ekranlarda üstte ya "← Profil" (SayfaBasligi'nın
+        varsayılanı) ya da elle yazılmış "Panoya dön" bağlantısı duruyordu:
+        ikisi de nereye dönüleceğini söylüyor, nerede olunduğunu söylemiyordu.
+        Şerit ikisini birden basıyor ve panelin her yerinde aynı biçimde
+        (bkz. components/ui.tsx · KirintiYolu). SayfaBasligi'nın geri
+        bağlantısı bu yüzden `null`.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Pano", yol: "/panel/talepler" },
+          { etiket: talep.baslik },
+        ]}
+      />
+
       <SayfaBasligi
         baslik={talep.baslik}
-        geri={{ yol: "/panel/talepler", etiket: "Pano" }}
+        geri={null}
         rozet={
           <>
             <Rozet cesit="vurgu">

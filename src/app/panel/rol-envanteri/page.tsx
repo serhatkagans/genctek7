@@ -7,6 +7,7 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_IKINCIL_BUTON,
@@ -167,11 +168,30 @@ export default async function RolEnvanteriSayfasi({
 
   return (
     <div className="space-y-6">
+      {/*
+        KIRINTI YOLU (29 Ağustos 2026 · istek: "navigasyon bunu göstersin
+        yönetim paneli / rol envanteri şeklinde").
+
+        Yerinde tek başına "← Yönetim Paneli" bağlantısı vardı: geri dönüşü
+        veriyordu ama bu ekranın Yönetim Paneli'nin ALTINDA olduğunu
+        söylemiyordu — kişi nereye döneceğini görüyor, nerede durduğunu
+        görmüyordu. Basamak sırası ekranın gerçek yoludur: buraya yalnızca o
+        panonun kartından giriliyor (bkz. panel/yonetim/page.tsx).
+
+        SON BASAMAK BAĞLANTI DEĞİL: bulunulan sayfanın kendisi
+        (bkz. components/ui.tsx · KirintiYolu). Bu yüzden SayfaBasligi'nın
+        kendi geri bağlantısı da `null` — ikisi bir arada aynı yolu üst üste
+        iki kez basardı.
+      */}
+      <KirintiYolu
+        basamaklar={[
+          { etiket: "Yönetim Paneli", yol: "/panel/yonetim" },
+          { etiket: "Rol envanteri" },
+        ]}
+      />
+
       <SayfaBasligi
-        /* Bu ekrana Yönetim Paneli'ndeki karttan geliniyor (21 Ağustos 2026 ·
-           istek): geri bağlantısı da oraya döner, "Panel"e değil — Panel
-           zaten sol menüde duruyor. */
-        geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
+        geri={null}
         baslik="Rol/atama envanteri"
         aciklama={`${iller.length} il · ${bosIller.length} ilde koordinatör yok (${acilBosIller.length}'i öğrencili) · ${danismansizOkullar.length} okul danışmansız`}
       />

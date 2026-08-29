@@ -14,11 +14,11 @@ import {
   BilgiKutusu,
   Kart,
   KartBasligi,
+  KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
-import { YolIzi } from "@/components/YonetimKartlari";
 import { envanterYolIzi } from "../envanter-yolu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { BILISIM_YOLCULUGU_GRUPLARI } from "@/lib/kazanim/kurallar";
@@ -64,7 +64,6 @@ import {
   ogrenciTemsilciligiAtayabilirMi,
   type TemsilcilikRolu,
   projeYoneticisiMi,
-  yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import {
@@ -1020,28 +1019,25 @@ export default async function OgrencilerSayfasi({
 
   return (
     <div className="space-y-6">
-      {yolIziAdimlari && <YolIzi adimlar={yolIziAdimlari} />}
+      {yolIziAdimlari && <KirintiYolu basamaklar={yolIziAdimlari} />}
 
       <SayfaBasligi
         /*
-          GERİ BAĞLANTISI ROLE GÖRE (26 Ağustos 2026 · istek: "en üstte Yönetim
-          Paneli linki var, basınca boş sayfa geliyor, profil sayfasına
-          dönsün").
+          GERİ BAĞLANTISI YOK, ŞERİT VAR (29 Ağustos 2026 · istek: "yönetim
+          panelindeki tüm kartlara uygula").
 
-          Bağlantı herkese "Yönetim Paneli" diyordu; oysa danışman öğretmen o
-          panoyu AÇAMIYOR (bkz. yonetimPanosuGorebilirMi — pano ona ilinin
-          tamamını gösterirdi) ve tıklayınca "erişim yetkiniz yok" kartından
-          başka bir şey görmüyordu. Bu ekrana onun geldiği yer Panel'deki
-          "Öğrencilerim" kartı, dolayısıyla dönüşü de Panel.
+          Panodan gelen kullanıcının yolu yukarıdaki kırıntı şeridinde duruyor
+          (kırılımdan gelindiyse il/ilçe/okul basamaklarıyla birlikte); burada
+          bir de "← Yönetim Paneli" basmak aynı yolu iki kez yazardı.
 
-          Koordinatör ve merkez için değişen bir şey yok: onlar buraya gerçekten
-          Yönetim Paneli'nden geliyor.
+          PANOYU AÇAMAYAN KULLANICIDA ŞERİT BASILMAZ (danışman öğretmen —
+          bkz. app/panel/envanter-yolu.ts; 26 Ağustos 2026 · istek: "en üstte
+          Yönetim Paneli linki var, basınca boş sayfa geliyor, profil sayfasına
+          dönsün"). Onun bu ekrana geldiği yer Panel'deki kart, dolayısıyla
+          dönüşü de Panel — şeridin `null` döndüğü tek hâl bu ve geri bağlantısı
+          da tam orada devreye giriyor.
         */
-        geri={
-          yonetimPanosuGorebilirMi(kullanici)
-            ? { yol: "/panel/yonetim", etiket: "Yönetim Paneli" }
-            : { yol: "/panel", etiket: "Panel" }
-        }
+        geri={yolIziAdimlari ? null : { yol: "/panel", etiket: "Panel" }}
         /*
           BAŞLIK KAPSAMI SÖYLER (26 Ağustos 2026 · istek: "üstteki öğrenciler
           yazısı öğrencilerim olsun").
@@ -1653,6 +1649,22 @@ export default async function OgrencilerSayfasi({
                   taşımıyor.
                 */}
                 {/*
+                  MENTÖRLÜK, ÇALIŞMA GRUPLARININ HEMEN YANINDA (26 Ağustos 2026 ·
+                  istek: "Çalışma grupları bu sutunun yanına mentörlük durumu
+                  olsun"); 29 Ağustos 2026'da ikisinin sırası değişti
+                  (istek: "Çalışma grubu temsilcisi · Mentörlük bu iki sutunun
+                  yerini değiştir"), komşuluk korundu. Komşuluk bilinçli: mentörlüğün kapsamı da çalışma
+                  gruplarından oluşuyor (bkz. mentorlukKabulEdilirMi), yani iki
+                  sütun aynı soruyu iki açıdan cevaplıyor — "hangi alanlarda
+                  çalışıyor" ve "o alanlarda yol gösteriyor mu".
+
+                  SÜTUN HERKESE BASILIR, DÜĞMELER DEĞİL: durum bir bilgidir ve
+                  koordinatör de merkez de ilindeki mentörleri görebilmeli;
+                  karar ise yalnızca öğrencinin kendi danışmanının
+                  (bkz. MentorlukHucresi).
+                */}
+                <th className="px-4 py-3 font-medium">Mentörlük</th>
+                {/*
                   BAŞLIK "ÇALIŞMA GRUBU TEMSİLCİSİ" (27 Ağustos 2026 · istek:
                   "bu sütunun adı Çalışma grupları · Çalışma grubu temsilcisi
                   olsun").
@@ -1668,20 +1680,6 @@ export default async function OgrencilerSayfasi({
                 <th className="px-4 py-3 font-medium">
                   Çalışma grubu temsilcisi
                 </th>
-                {/*
-                  MENTÖRLÜK, ÇALIŞMA GRUPLARININ HEMEN YANINDA (26 Ağustos 2026 ·
-                  istek: "Çalışma grupları bu sutunun yanına mentörlük durumu
-                  olsun"). Komşuluk bilinçli: mentörlüğün kapsamı da çalışma
-                  gruplarından oluşuyor (bkz. mentorlukKabulEdilirMi), yani iki
-                  sütun aynı soruyu iki açıdan cevaplıyor — "hangi alanlarda
-                  çalışıyor" ve "o alanlarda yol gösteriyor mu".
-
-                  SÜTUN HERKESE BASILIR, DÜĞMELER DEĞİL: durum bir bilgidir ve
-                  koordinatör de merkez de ilindeki mentörleri görebilmeli;
-                  karar ise yalnızca öğrencinin kendi danışmanının
-                  (bkz. MentorlukHucresi).
-                */}
-                <th className="px-4 py-3 font-medium">Mentörlük</th>
                 {danismanlikYonetebilir && (
                   <th className="px-4 py-3 font-medium">Danışmanlık</th>
                 )}
@@ -1745,14 +1743,6 @@ export default async function OgrencilerSayfasi({
                       {ogrenci.il?.ad ?? "—"}
                       {ogrenci.ilce?.ad ? ` / ${ogrenci.ilce.ad}` : ""}
                     </td>
-                    <td className="px-4 py-3 text-metin-yumusak">
-                      <CalismaGrubuTemsilciligi
-                        ogrenci={{ ...ogrenci, gorevRolleri: gorevler }}
-                        kullanici={kullanici}
-                        gruplar={gruplar}
-                        donusYolu={donusYolu}
-                      />
-                    </td>
                     <td className="px-4 py-3">
                       <MentorlukHucresi
                         ogrenciId={ogrenci.id}
@@ -1778,6 +1768,14 @@ export default async function OgrencilerSayfasi({
                             ogrenci,
                           )
                         }
+                        donusYolu={donusYolu}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-metin-yumusak">
+                      <CalismaGrubuTemsilciligi
+                        ogrenci={{ ...ogrenci, gorevRolleri: gorevler }}
+                        kullanici={kullanici}
+                        gruplar={gruplar}
                         donusYolu={donusYolu}
                       />
                     </td>

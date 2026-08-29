@@ -558,33 +558,14 @@ export function ToplamSeridi({
   );
 }
 
-/** Kırılımın neresinde olunduğunu gösteren yol izi. */
-export function YolIzi({
-  adimlar,
-}: {
-  adimlar: readonly { etiket: string; yol?: string }[];
-}) {
-  return (
-    <nav aria-label="Yol izi" className="text-sm text-metin-yumusak">
-      <ol className="flex flex-wrap items-center gap-1">
-        {adimlar.map((adim, sira) => (
-          <li key={adim.etiket} className="flex items-center gap-1">
-            {sira > 0 && (
-              <ChevronRight size={14} className="shrink-0" aria-hidden />
-            )}
-            {adim.yol ? (
-              <Link
-                href={adim.yol}
-                className="underline underline-offset-2 hover:text-metin"
-              >
-                {adim.etiket}
-              </Link>
-            ) : (
-              <span className="text-metin">{adim.etiket}</span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
+/*
+  YOL İZİ BİLEŞENİ KALKTI (29 Ağustos 2026 · istek: "yönetim panelindeki tüm
+  kartlara uygula").
+
+  Panelde iki ayrı şerit bileşeni vardı: buradaki `YolIzi` (ChevronRight ile
+  "Yönetim Paneli › Bolu") ve `components/ui.tsx`ʼteki `KirintiYolu` ("/" ile).
+  Aynı işi iki farklı görünümle yapıyorlardı; öğrenci listesi gibi bir ekranda
+  hangisinin basılacağı süzgeçlere göre değişiyordu, yani kullanıcı aynı
+  ekranda iki farklı şerit görebiliyordu. Basamak yapısı ({ etiket, yol? })
+  zaten birebir aynıydı — çağıranların tümü KirintiYolu'na geçti.
+*/
