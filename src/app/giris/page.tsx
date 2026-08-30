@@ -35,6 +35,11 @@ import { girisEylemi } from "./eylemler";
  * görüp ne yapabildiğidir. Gruplama sabit listeden değil veritabanındaki aktif
  * rollerden gelir: bir öğretmen danışmanlık görevini bıraktığında kartı
  * kendiliğinden son gruba düşer.
+ *
+ * TEK İSTİSNA, HENÜZ HİÇ GİRMEMİŞ ÖĞRETMEN: kaydı olmadığı için rolü de
+ * yoktur, ama ilk girişinde danışman olacaktır (bkz. lib/kullanici/sagla.ts).
+ * Ekran bunu önden gösterir, yoksa listede giriş yapıldığı anda kaybolan bir
+ * "görev almamış öğretmen" grubu dururdu (bkz. senaryoBelirle).
  */
 
 export const dynamic = "force-dynamic";
@@ -75,10 +80,21 @@ const SENARYO_TANIMLARI = [
     seritSinifi: "border-l-rol-ogrenci-metin",
   },
   {
+    /*
+      27 Ağustos 2026 · istek: "bu onay var buna gerek yok, sisteme giriş
+      yapınca direk danışman olsun". Açıklama, kalkan "görevi işaretle"
+      düğmesini anlatmayı sürdürüyordu.
+
+      GRUP ARTIK ÇOĞU KURULUMDA BOŞ ve boş grup hiç basılmıyor (aşağıda
+      `grup.length === 0` dalı): okulu kayıtlı öğretmen, giriş yapmamış olsa
+      bile danışman grubunda listeleniyor (bkz. senaryoBelirle). Başlık
+      silinmedi çünkü iki gerçek durum kaldı — okulsuz kayıt ve görevini
+      bırakmış öğretmen.
+    */
     kod: "gorevsiz",
     baslik: "Görev almamış öğretmen",
     aciklama:
-      "Sisteme girer ama hiçbir öğrenci verisi göremez; danışmanlık görevini Panelim ekranından kendisi işaretler. İşaretlediği anda kartı bu gruptan çıkar, üstteki \"Danışman öğretmen\" grubuna geçer.",
+      "Sisteme girer ama hiçbir öğrenci verisi göremez. Danışmanlık görevi ilk girişte kendiliğinden açıldığı için burada yalnızca okul kaydı eksik olan (görev okula bağlandığı için rol verilemez) ya da görevini bırakmış öğretmen kalır.",
     Ikon: Building2 as Ikon,
     seritSinifi: "border-l-cizgi",
   },
@@ -202,12 +218,48 @@ export default async function GirisSayfasi({
     rolHaritasi.set(anahtar, [...(rolHaritasi.get(anahtar) ?? []), rol]);
   }
 
+  /*
+   * KAYDI OLANLAR — "hiç girmemiş" ile "girmiş ama rolsüz" farkı.
+   *
+   * Rol tablosu bu iki durumu ayırt etmiyor: ikisinde de aktif rol yok. Ama
+   * anlamları zıt. Kaydı hiç olmayan öğretmen ilk girişinde DANIŞMAN olacak
+   * (bkz. lib/kullanici/sagla.ts); kaydı olup rolü olmayan öğretmen ise görevi
+   * BIRAKMIŞ kişidir ve girişi onu yeniden danışman yapmaz.
+   */
+  const kayitliKullanicilar = await prisma.kullanici.findMany({
+    select: { authProviderId: true },
+  });
+  const kayitliMi = new Set(kayitliKullanicilar.map((k) => k.authProviderId));
+
+  /**
+   * Kimlik giriş yaptığında DANIŞMAN rolü kendiliğinden açılacak mı?
+   *
+   * 27 Ağustos 2026 · istek: "sisteme giriş yapınca direk danışman olsun".
+   * Koşullar sağlama koduyla birebir aynı olmalı, yoksa ekran giriş sonrası
+   * gerçekleşmeyecek bir söz vermiş olur.
+   */
+  function girisDanismanYaparMi(kimlik: AuthKimlik): boolean {
+    return (
+      kimlik.tip === "OGRETMEN" &&
+      kimlik.kurumKodu !== null &&
+      !kayitliMi.has(kimlik.authProviderId)
+    );
+  }
+
   function senaryoBelirle(kimlik: AuthKimlik): SenaryoKodu {
     const roller = rolHaritasi.get(kimlik.authProviderId) ?? [];
     if (roller.some((r) => r.rolKodu === "PROJE_YONETICISI")) return "yegitek";
     if (roller.some((r) => r.rolKodu === "IL_KOORDINATOR")) return "il";
     if (roller.some((r) => r.rolKodu === "DANISMAN")) return "okul";
     if (kimlik.tip === "OGRENCI") return "ogrenci";
+    /*
+     * HENÜZ GİRMEMİŞ ÖĞRETMEN DANIŞMAN GRUBUNDA (30 Ağustos 2026 · istek:
+     * "görev almamış öğretmen diye bir şey yok artık hepsi danışman
+     * statüsünde"). Rol veritabanında değil çünkü kişi hiç giriş yapmadı;
+     * kartına basıldığı anda oluşacak. Son grupta bırakmak, ekranın kalkmış
+     * bir akışı (öğretmenin görevi kendisi işaretlemesi) anlatması olurdu.
+     */
+    if (girisDanismanYaparMi(kimlik)) return "okul";
     return "gorevsiz";
   }
 

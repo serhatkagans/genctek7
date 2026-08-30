@@ -6,7 +6,9 @@ import { prisma } from "../db";
  *
  * İlk girişte kullanıcı oluşturulur. Rol tayini:
  *   - Öğrenci  → OGRENCI rolü
- *   - Öğretmen → ROLSÜZ; danışman listesine girmek için kendisi işaretlemeli
+ *   - Öğretmen → okulu kayıtlıysa DANISMAN (27 Ağustos 2026'dan beri ilk
+ *                girişte kendiliğinden; ayrıntı aşağıdaki blokta), okulu
+ *                yoksa ROLSÜZ
  *   - Personel → ROLSÜZ; IL_KOORDINATOR ve PROJE_YONETICISI asla otomatik
  *                verilmez, elle atanır
  *

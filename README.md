@@ -186,7 +186,9 @@ bıraktığında kartı kendiliğinden son gruba düşer.
 | Öğrenci | `OGRENCI` | Ekrana hiç erişemez | Kendi profili, danışman ve çalışma grubu seçimi, faaliyete başvuru |
 
 Beşinci bir durum daha var: görev almamış öğretmen sisteme girer ama hiçbir
-öğrenci verisi göremez; danışmanlığı profilinden kendisi işaretler.
+öğrenci verisi göremez. Danışmanlık görevi ilk girişte kendiliğinden açılır
+(27 Ağustos 2026), bu yüzden geriye yalnızca okul kaydı eksik olan — görev bir
+okula bağlandığı için rol verilemez — ya da görevini bırakmış öğretmen kalır.
 
 Adlandırma: okul düzeyindeki sorumlu giriş ekranında "okul koordinatörü" olarak
 anılır (kurumsal dilde bu yerleşik karşılık), diğer ekranlarda ve bildirimlerde

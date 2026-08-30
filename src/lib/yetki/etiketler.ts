@@ -96,8 +96,10 @@ export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
 };
 
 /**
- * Kullanıcının rol etiketi. Rolsüz öğretmen de sistemde görünür; danışman
- * listesine girmek için kendisi işaretlemek zorundadır.
+ * Kullanıcının rol etiketi. Rolsüz öğretmen de sistemde görünür; 27 Ağustos
+ * 2026'dan beri rol ilk girişte kendiliğinden verildiği için bu etiket
+ * yalnızca okul kaydı eksik olan ya da görevini bırakmış öğretmene çıkar
+ * (bkz. lib/kullanici/sagla.ts).
  */
 export function kullaniciRolEtiketi(kullanici: OturumKullanicisi): string {
   if (kullanici.roller.length === 0) {

@@ -1,5 +1,16 @@
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
+import { SINIF_IKINCIL_BUTON } from "@/components/ui";
 import { uygulamaYolu } from "@/lib/ortam";
+
+/*
+ * Excel düğmesi ikincil düğmenin ÖLÇÜLERİNİ paylaşır (aynı yükseklik, aynı
+ * yuvarlaklık) ama rengi ve gölgesiyle öne çıkar. Sınıf, SINIF_IKINCIL_BUTON'a
+ * ek yazılarak değil ayrı yazılarak kuruldu: aynı özelliğin (metin rengi) iki
+ * kez geçtiği bir sınıf dizisinde hangisinin kazandığı Tailwind'de sıraya değil
+ * stil dosyasındaki sıraya bakar — sessizce yanlış rengi verebilirdi.
+ */
+const SINIF_EXCEL_BUTON =
+  "inline-flex items-center gap-2 rounded-kutu border border-cizgi-guclu bg-kart px-4 py-2.5 text-sm font-semibold text-vurgu-metin shadow-kart transition hover:border-vurgu hover:bg-zemin focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-vurgu";
 
 /**
  * Liste ekranlarının indirme bağlantısı (15 Ağustos 2026).
@@ -26,10 +37,15 @@ import { uygulamaYolu } from "@/lib/ortam";
  * güzel duruyor, CSV sönük kalmış"). İlk hâlde CSV, altı çizili küçük gri bir
  * metindi ve devre dışı bırakılmış gibi görünüyordu — oysa çalışan bir seçenek.
  *
- * Şimdi kendi çerçevesi olan bir rozet: Excel bağlantısıyla aynı yükseklikte,
- * aynı hizada, ama vurgu rengi taşımıyor. Sıra hâlâ okunuyor (varsayılan
- * Excel, CSV yanında duran alternatif) ama ikincisi "kapalı" izlenimi
- * vermiyor.
+ * İKİSİ DE ARTIK DÜĞME (30 Ağustos 2026 · istekler: "excel indiri güzel buton
+ * haline getirsen" · "yandaki csv indiri de güzel buton yap"). İkisi de metin
+ * bağlantısıydı; liste ekranlarında süzgeç düğmelerinin yanında duran, tıklanır
+ * görünmeyen iki satırdı.
+ *
+ * SIRA KORUNUYOR — aynı boyda iki düğme "hangisi varsayılan" sorusunu yeniden
+ * açardı: Excel kalın yazı, vurgu rengi ve gölge taşıyor; CSV panelin standart
+ * ikincil düğmesi (SINIF_IKINCIL_BUTON). Aynı yükseklik ve aynı hizadalar, yani
+ * CSV yine "kapalı" görünmüyor.
  *
  * ---------------------------------------------------------------------------
  * `<a>` VE `uygulamaYolu` — `<Link>` DEĞİL
@@ -54,21 +70,19 @@ export function DisaAktarmaBagi({
   etiket?: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <a
-        href={uygulamaYolu(yol)}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin"
-      >
-        <Download size={15} aria-hidden />
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <a href={uygulamaYolu(yol)} className={SINIF_EXCEL_BUTON}>
+        <Download size={16} aria-hidden />
         {etiket}
         {kayitSayisi === undefined ? "" : ` (${kayitSayisi} kayıt)`}
       </a>
       <a
         href={uygulamaYolu(csvYolu(yol))}
         title={`${etiket} — CSV biçiminde`}
-        className="rounded-full border border-cizgi px-2.5 py-0.5 text-xs font-medium text-metin transition hover:border-vurgu hover:text-vurgu-metin"
+        className={SINIF_IKINCIL_BUTON}
       >
-        CSV
+        <FileText size={16} aria-hidden />
+        CSV indir
       </a>
     </span>
   );

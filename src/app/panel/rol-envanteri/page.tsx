@@ -197,16 +197,18 @@ export default async function RolEnvanteriSayfasi({
       />
 
       {/*
-        İKİ KIRILIM, İKİ DOSYA: il kırılımı ve okul kırılımı farklı satır
-        anlamı taşıyor (bir satır = bir il / bir okul). Tek dosyaya zorlanmaları
-        okul satırlarında koordinatör sütununu boş bırakırdı.
-      */}
-      {/*
         OKUL KIRILIMI BAĞLANTISI KALKTI (27 Ağustos 2026 · istek: "buna gerek
         yok · Okul kırılımını Excel indir"). Ekrandaki okul tablosuyla aynı
         turda gitti; ikisi de aynı ikinci soruyu soruyordu.
 
-        UYARI — İL KIRILIMINDA İLÇE VE OKUL SÜTUNU YOKTUR: satırı bir İL'dir
+        ETİKET ARTIK KIRILIM ADI TAŞIMIYOR (30 Ağustos 2026 · istek: "İl
+        kırılımını Excel indir … bunu listeyi excel olarak indir falan yap").
+        "İl kırılımı" adı yanındaki okul bağlantısından ayırmak içindi; o
+        bağlantı kalkınca tek başına kalan indirmeyi tarif etmiyor, ekranda
+        karşılığı olmayan bir ayrım soruyordu. Ekranda görünen liste zaten
+        illerin listesi.
+
+        UYARI — İNEN DOSYADA İLÇE VE OKUL SÜTUNU YOKTUR: satırı bir İL'dir
         (bkz. disa-aktar/route.ts · IL_SUTUNLARI). Okul bazlı döküm gerekirse
         Okullar ekranının kendi CSV çıktısı alınır. Route'un `?kirilim=okul`
         dalı SİLİNMEDİ; kalkan yalnızca buradaki kapı.
@@ -214,7 +216,7 @@ export default async function RolEnvanteriSayfasi({
       <p className="flex flex-wrap gap-6">
         <DisaAktarmaBagi
           yol="/panel/rol-envanteri/disa-aktar"
-          etiket="İl kırılımını Excel indir"
+          etiket="Listeyi Excel indir"
         />
       </p>
 
