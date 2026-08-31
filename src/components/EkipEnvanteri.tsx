@@ -14,6 +14,7 @@ import {
   EKIP_TURU_ETIKETLERI,
   ekipDanismansizMi,
 } from "@/lib/ekip/kurallar";
+import { KISI_SUZGEC_PARAMETRELERI } from "@/lib/kisi/il-suzgeci";
 import { projeYoneticisiMi } from "@/lib/yetki/izinler";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import type { SorguParametreleri } from "@/app/panel/ogrenciler/filtreler";
@@ -148,6 +149,32 @@ export async function EkipEnvanteri({
             <input type="hidden" name="danismansiz" value="1" />
           )}
           {suzgec.kapalilarMi && <input type="hidden" name="kapali" value="1" />}
+          {/*
+            AYNI ADRESTEKİ ÖBÜR LİSTENİN SÜZGEÇLERİ DE TAŞINIYOR (31 Ağustos
+            2026): Ekiplerim ekranında bu envanterin altında bir de il kişi
+            listesi var ve onun süzgeçleri `k` önekli parametrelerde duruyor
+            (bkz. lib/kisi/il-suzgeci.ts). Taşınmasalardı ekip adını arayan
+            kişi, aşağıdaki tabloda kurduğu süzgeci farkında olmadan
+            sıfırlardı — yukarıdaki iki gizli alanla aynı gerekçe.
+          */}
+          {Object.entries(parametreler)
+            .filter(
+              ([ad, deger]) =>
+                deger !== undefined &&
+                (KISI_SUZGEC_PARAMETRELERI as readonly string[]).includes(ad),
+            )
+            .flatMap(([ad, deger]) =>
+              (Array.isArray(deger) ? deger : [deger as string]).map(
+                (tek, sira) => (
+                  <input
+                    key={`${ad}-${sira}`}
+                    type="hidden"
+                    name={ad}
+                    value={tek}
+                  />
+                ),
+              ),
+            )}
           <label className="block">
             <span className="text-sm font-medium text-metin">Ekip adı ara</span>
             <input

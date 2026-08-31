@@ -89,6 +89,40 @@ export interface OzgecmisFotografi {
   veriUrl: string;
 }
 
+/**
+ * BELGENİN KÜNYESİ (31 Ağustos 2026 · istek: "wordün en altına bu özgeçmiş
+ * GençTek Akran Öğrenme Modeli ve Genç Bilişim Ekosistemi kayıtlarından …
+ * tarihinde oluşturulmuştur yazısı eklenecek … MEB YEĞİTEK genctek.eba.gov.tr
+ * linki … GençTek logosu ekle resim olsun").
+ *
+ * ESKİ CÜMLE "GençTek Bilgi Sistemi'ndeki profil kayıtlarından … üretildi"
+ * idi: belgenin kaynağını bir YAZILIMA bağlıyordu. Özgeçmişi okuyan kişi için
+ * kaynak yazılım değil PROGRAMDIR — kaydın nereden geldiği kadar hangi
+ * çalışmanın parçası olduğu da künyenin işi.
+ *
+ * ADRES YAZIYLA BASILIYOR, `<a>` DEĞİL — kayıt bağlantılarıyla aynı gerekçe:
+ * kâğıda dökülen bir CV'de tıklanamayan bir sözcük, adresi kaybetmek olurdu.
+ */
+const KUNYE_KURUM =
+  "T.C. Millî Eğitim Bakanlığı · Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü (YEĞİTEK)";
+const KUNYE_ADRES = "genctek.eba.gov.tr";
+
+/**
+ * Künyedeki logonun ölçüsü (piksel).
+ *
+ * KAYNAK GÖRSEL DİKEY: `public/genc.png` 2029×2469, yani boyu eninden uzun.
+ * Buradaki iki sayı o oranı koruyor (44 × 2029/2469 ≈ 36); biri elle
+ * değiştirilirse logo ezilir. Ölçünün NİYE yazılmak zorunda olduğu
+ * `altKunyeHtml` içinde anlatılıyor.
+ *
+ * BOY, KÜNYE METNİNİN KENDİSİNDEN: sağdaki üç satır 9 puntoluk metin
+ * yaklaşık 44 piksel tutuyor. Logo daha uzun olduğunda (ilk denemede 52'ydi)
+ * metnin altından taşıyor ve "hizasız" görünüyordu — iki blok aynı yükseklikte
+ * olunca ortalama da göze çarpmıyor.
+ */
+const LOGO_BOY = 44;
+const LOGO_EN = 36;
+
 export interface OzgecmisVerisi {
   adSoyad: string;
   /** Ad altındaki unvan satırı: "Öğrenci · 11-A". */
@@ -97,6 +131,21 @@ export interface OzgecmisVerisi {
   foto: OzgecmisFotografi | null;
   /** Fotoğrafsız kutuya basılan harfler. */
   basHarfler: string;
+  /**
+   * Belgenin altındaki GençTek logosu.
+   *
+   * KİŞİNİN FOTOĞRAFIYLA KARIŞTIRILMAMALI: bu, belgeyi üreten programın
+   * işareti ve herkeste aynı. Logo da fotoğraf gibi belgenin İÇİNE gömülü bir
+   * `data:` adresidir — dış adres, GençTek'e ulaşamayan bir bilgisayarda kırık
+   * görsel olurdu ve özgeçmiş elden ele dolaşan bir dosyadır.
+   *
+   * NİYE YİNE DE `null` OLABİLİR: `veri.ts` bugün her zaman doluyu veriyor
+   * (sabit derlemeye gömülü, bkz. lib/marka/logo.ts) ama bu dosya SAF ve
+   * belgenin logo olmadan da eksiksiz çıkması gerekiyor — künyenin kimlik
+   * bilgisi zaten yazıyla basılıyor. Alan zorunlu yapılsaydı, logosuz bir
+   * çağrı belgeyi hiç ürettirmezdi.
+   */
+  logo: OzgecmisFotografi | null;
   /** "Kimlik bilgileri" bölümü: okul, il/ilçe, sınıf/branş, dönem… */
   kimlik: OzgecmisKunyeSatiri[];
   /** "İletişim bilgilerim" bölümü: e-posta, telefon, mesleki bağlantılar. */
@@ -260,6 +309,74 @@ function baslikHtml(veri: OzgecmisVerisi): string {
 }
 
 /**
+ * BELGENİN ALT KÜNYESİ — logo solda, üç satır metin sağda.
+ *
+ * TABLO, belgedeki İKİNCİ ve son düzen tablosu (birincisi başlık). Gerekçe
+ * aynı: içerik sabit ve kısa, yani Word'ün uzun tabloları sayfa sonunda
+ * bölmesi riski yok. Logo yoksa sütun hiç basılmıyor — başlıktaki fotoğraf
+ * kutusunun aksine burada boş bir çerçeve tutmanın anlamı yok, künye kimliği
+ * zaten yazıyla söylüyor.
+ *
+ * ÜST ÇİZGİ VE GRİ RENK KORUNDU: künye gövdenin devamı değil, belgenin
+ * altına düşen bir dipnottur.
+ */
+function altKunyeHtml(veri: OzgecmisVerisi): string {
+  const metin = `<p style="margin:0;">Bu özgeçmiş GençTek Akran Öğrenme Modeli ve Genç Bilişim Ekosistemi kayıtlarından ${htmlKacir(veri.uretimTarihi)} tarihinde oluşturulmuştur.</p>
+<p style="margin:3pt 0 0 0;">${htmlKacir(KUNYE_KURUM)}</p>
+<p style="margin:1pt 0 0 0;">${htmlKacir(KUNYE_ADRES)}</p>`;
+
+  /*
+   * LOGONUN İKİ ÖLÇÜSÜ DE YAZILIYOR (31 Ağustos 2026 · istek: "logo sola
+   * sıkışık ve aşağı doğru çok uzun çıkıyor, logoyu küçültelim oraya sığsın").
+   *
+   * HATANIN SEBEBİ TEK BİR EKSİK ÖZNİTELİKTİ: yalnızca `width` verilmişti ve
+   * Word, HTML belgelerinde eksik ölçüyü oranla TAMAMLAMIYOR — görselin kendi
+   * pikselini kullanıyor. Kaynak dosya 2029×2469 (dikey), yani belgede 64
+   * piksel eninde ama 2469 piksel boyunda bir resim çıkıyordu: künyenin
+   * solunda sayfa boyu uzayan bir şerit. Tarayıcıda aynı HTML doğru
+   * görünüyordu, bu yüzden hata yalnızca indirilen dosyada belliydi.
+   *
+   * ÖLÇÜ KÜNYE METNİNE GÖRE (bkz. LOGO_BOY): logo, yanındaki üç satırla aynı
+   * yükseklikte.
+   *
+   * BAŞLIKTAKİ FOTOĞRAFTA İKİ ÖLÇÜ DE ZATEN VARDI (bkz. yukarısı) ve bu
+   * yüzden orada böyle bir sorun hiç görülmedi — kural artık iki resimde de
+   * aynı.
+   *
+   * =========================================================================
+   * HİZA: İKİ HÜCRE DE ORTALANIYOR, RESİM SATIR TABANINDAN KURTARILIYOR
+   * =========================================================================
+   * (31 Ağustos 2026 · istek: "logo sağdaki yazı ile aynı hizada olmaz mı,
+   * altta kalıyor biraz".)
+   *
+   * İki ayrı sebep logoyu aşağı itiyordu:
+   *
+   *   1. RESİM SATIR İÇİ BİR ÖĞE ve Word onu metin TABAN ÇİZGİSİNE oturtuyor;
+   *      tabanın altında kalan iniş payı kadar aşağı kayıyordu. Resim
+   *      `line-height:0` olan bir paragrafa alınıp `vertical-align:middle`
+   *      verilerek o pay kaldırıldı.
+   *   2. LOGO METİNDEN UZUNDU (52'ye 44) ve üstten hizalı iki blokta fazlalık
+   *      hep alta biniyordu. Ölçü metnin yüksekliğine indirildi.
+   *
+   * Hücreler artık `middle`: kalan birkaç piksellik fark, üstten hizada göze
+   * çarparken ortalamada iki blok da aynı eksende duruyor.
+   */
+  const logoSutunu = veri.logo
+    ? `<td style="width:${LOGO_EN + 12}px;padding:0 12pt 0 0;vertical-align:middle;"><p style="margin:0;line-height:0;"><img src="${veri.logo.veriUrl}" width="${LOGO_EN}" height="${LOGO_BOY}" alt="GençTek" style="width:${LOGO_EN}px;height:${LOGO_BOY}px;vertical-align:middle;" /></p></td>`
+    : "";
+
+  return `<table style="width:100%;border-collapse:collapse;margin-top:24pt;border-top:1pt solid ${CIZGI};">
+<tr>
+<td colspan="2" style="height:6pt;padding:0;font-size:1pt;">&nbsp;</td>
+</tr>
+<tr>
+${logoSutunu}
+<td style="vertical-align:middle;padding:0;font-size:9pt;color:${YUMUSAK};">${metin}</td>
+</tr>
+</table>`;
+}
+
+/**
  * Özgeçmişin Word gövdesi.
  *
  * BÖLÜM SIRASI PANELDEKİ SIRADIR: kimlik, hakkımda, iletişim, çalışma
@@ -346,9 +463,7 @@ ${bolum("GençTek yolculuğum", yolculukHtml)}
 ${bolum("Eklemek istedikleriniz", veri.ekNotu ? `<p style="margin:0;">${paragraf(veri.ekNotu)}</p>` : "")}
 ${veri.referanslar === null ? "" : bolum("Referanslarım", referanslarHtml)}
 
-<p style="margin-top:24pt;font-size:9pt;color:${YUMUSAK};border-top:1pt solid ${CIZGI};padding-top:6pt;">
-Bu özgeçmiş GençTek Bilgi Sistemi'ndeki profil kayıtlarından ${htmlKacir(veri.uretimTarihi)} tarihinde üretildi.
-</p>
+${altKunyeHtml(veri)}
 </body>
 </html>`;
 }

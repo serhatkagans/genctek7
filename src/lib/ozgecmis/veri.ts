@@ -7,13 +7,14 @@ import {
   BILISIM_YOLCULUGU_GRUPLARI,
   KATILIM_BICIMI_ETIKETLERI,
 } from "@/lib/kazanim/kurallar";
+import { GENCTEK_LOGOSU_VERI_URL } from "@/lib/marka/logo";
 import { basHarfler, mentorKapsamiYaz } from "@/lib/mentor/kurallar";
 import { referansSatiri } from "@/lib/referans/kurallar";
 import { tarihYaz } from "@/lib/tarih";
 import { ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
 import { YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
 import { yolculugumuGetir } from "@/lib/yolculuk/veri";
-import { ogrenciMi } from "@/lib/yetki/izinler";
+import { ogrenciMi, referansTutabilirMi } from "@/lib/yetki/izinler";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import type {
   OzgecmisBolumu,
@@ -177,10 +178,10 @@ export async function ozgecmisVerisiGetir(
           },
         },
         /*
-         * REFERANSLAR (28 Ağustos 2026). Öğretmende de seçiliyor ama aşağıda
-         * `null`a çevriliyor: sorguyu role göre ikiye bölmek, aynı sorgunun
-         * iki sürümünü doğururdu ve öğretmende satır zaten hiç yok (bölüm
-         * onun panelinde basılmıyor).
+         * REFERANSLAR (28 Ağustos 2026). Herkeste seçiliyor, kime basılacağına
+         * aşağıda karar veriliyor: sorguyu role göre ikiye bölmek, aynı
+         * sorgunun iki sürümünü doğururdu. Dış kullanıcıda satır zaten hiç yok
+         * (bölüm onun panelinde basılmıyor).
          */
         referanslar: {
           orderBy: { olusturmaTarihi: "asc" },
@@ -353,6 +354,13 @@ export async function ozgecmisVerisiGetir(
     unvan,
     foto: await fotografiGom(kayit.fotoDepolamaYolu, kayit.fotoMimeTipi),
     basHarfler: basHarfler(adSoyad),
+    /*
+     * LOGO HER BELGEDE VAR ve sabittir: dosya sisteminden okunmuyor, derleme
+     * zamanında gömülüyor (bkz. lib/marka/logo.ts). Kişinin fotoğrafındaki
+     * "okunamazsa null" hâli burada YOK — o dosya kullanıcıdan geliyor ve
+     * gerçekten eksik olabilir, bu ise programın kendi işareti.
+     */
+    logo: { veriUrl: GENCTEK_LOGOSU_VERI_URL },
     kimlik,
     iletisim,
     hakkinda: kayit.hakkinda,
@@ -375,16 +383,22 @@ export async function ozgecmisVerisiGetir(
       kapsam: KAPSAM_ETIKETLERI[katilim.kapsam],
     })),
     /*
-     * REFERANS BÖLÜMÜ YALNIZCA ÖĞRENCİDE VAR (bkz. kurallar.ts · referanslar):
-     * öğretmende `null` dönüyor ve başlık hiç basılmıyor — olmayan bir bölümü
-     * "Bilgi girilmemiş." ile basmak, doldurulması gereken bir alan sanılırdı.
+     * REFERANS BÖLÜMÜ ÖĞRETMENDE DE VAR (31 Ağustos 2026 · istek: "Öğretmene
+     * de referans ekleme olsun öğrenci gibi"). Koşul artık paneldeki bölümün
+     * koşuluyla AYNI fonksiyondan geliyor (referansTutabilirMi) — ikisi ayrı
+     * yazılsaydı biri değiştiğinde öbürü geride kalır ve öğretmen panelde
+     * doldurduğu kutuyu belgesinde bulamazdı.
+     *
+     * DIŞ KULLANICIDA (mezun, paydaş temsilcisi) HÂLÂ `null`: başlık hiç
+     * basılmıyor — olmayan bir bölümü "Bilgi girilmemiş." ile basmak,
+     * doldurulması gereken bir alan sanılırdı.
      *
      * ÜÇÜNCÜ KİŞİNİN İLETİŞİM BİLGİSİ BELGEYE GİRİYOR ve bu, kayıt yalnızca
      * sahibine görünürken bile doğru: özgeçmişi indiren kişi onu bilerek
      * paylaşıyor, referansını da bunun için yazmış (ekrandaki form
      * "referansınıza sorun" diyor).
      */
-    referanslar: ogrenciDir
+    referanslar: referansTutabilirMi(kullanici)
       ? kayit.referanslar.map((referans) => ({
           adSoyad: referans.adSoyad,
           kunye: referansSatiri(referans),

@@ -2,6 +2,13 @@ import { School, Search } from "lucide-react";
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
+  SutunMetinSuzgeci,
+  SutunSecimSuzgeci,
+  SutunSuzgecBoslugu,
+  SutunSuzgecDugmesi,
+  SutunSuzgecSatiri,
+} from "@/components/SutunSuzgeci";
+import {
   BilgiKutusu,
   Kart,
   KartBasligi,
@@ -25,6 +32,9 @@ import { okulSorgusu, okulSuzgeciniCoz } from "./filtreler";
 export const dynamic = "force-dynamic";
 
 const SAYFA_BOYUTU = 50;
+
+/** Sütun süzgeçlerinin bağlandığı form; bkz. components/SutunSuzgeci.tsx. */
+const SUZGEC_FORMU = "okul-suzgeci";
 const YOL = "/panel/okullar";
 
 /**
@@ -162,82 +172,32 @@ export default async function OkullarSayfasi({
       <Kart>
         {/* "Süzgeçler" → "Filtreler" (26 Ağustos 2026 · istek). */}
         <KartBasligi baslik="Filtreler" Ikon={Search} />
-        <form method="get" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block">
-            <span className="text-sm font-medium text-metin">
-              Okul / ilçe / kurum kodu
-            </span>
-            <input
-              type="search"
-              name="ara"
-              defaultValue={suzgec.ara ?? ""}
-              placeholder="Örn. Şeyh İsa ya da 758715"
-              className={SINIF_GIRDI}
-            />
-          </label>
+        {/*
+          İL, İLÇE VE OKUL TÜRÜ SÜZGEÇLERİ SÜTUN BAŞLIKLARINA TAŞINDI
+          (31 Ağustos 2026 · istek: "alt taraftaki İl / İlçe / Okul / Tür /
+          Kurum kodu alanları filtreli olsun"), yanlarına iki yeni sütun
+          süzgeci eklendi (okul adı, kurum kodu).
 
-          {merkezMi && (
-            <label className="block">
-              <span className="text-sm font-medium text-metin">İl</span>
-              <select
-                name="il"
-                defaultValue={suzgec.ilKodu ?? ""}
-                className={SINIF_GIRDI}
-              >
-                <option value="">İl seçin</option>
-                {iller.map((il) => (
-                  <option key={il.ilKodu} value={il.ilKodu}>
-                    {il.ad}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          KARTTAN SİLİNDİLER, KOPYALANMADILAR: aynı `name` iki denetimde
+          bulunsaydı form ikisini de gönderir ve sütundaki kutuya yazan kişi
+          karttaki boş kutunun kazandığını görürdü (gerekçenin tamamı
+          components/SutunSuzgeci.tsx içinde).
 
-          <label className="block">
-            <span className="text-sm font-medium text-metin">İlçe</span>
-            <select
-              name="ilce"
-              defaultValue={suzgec.ilceKodu ?? ""}
-              className={SINIF_GIRDI}
-              disabled={ilceler.length === 0}
-            >
-              <option value="">Tüm ilçeler</option>
-              {ilceler.map((ilce) => (
-                <option key={ilce.ilceKodu} value={ilce.ilceKodu}>
-                  {ilce.ad}
-                </option>
-              ))}
-            </select>
-          </label>
+          KARTTA YALNIZCA SÜTUNU OLMAYAN SÜZGEÇ KALIYOR: "Danışman öğretmen"
+          bir sütunu süzmüyor, satırın TÜMÜNÜ süzüyor (danışmanlı/danışmansız
+          okullar) — Danışman sütununun altına konsaydı sayı süzgeci sanılırdı.
 
-          <label className="block">
-            <span className="text-sm font-medium text-metin">Okul türü</span>
-            <select
-              name="okulTuru"
-              defaultValue={suzgec.okulTuru ?? ""}
-              className={SINIF_GIRDI}
-            >
-              <option value="">Tüm türler</option>
-              {/*
-                LİSTE STANDART TÜRLERLE BİRLEŞTİRİLİYOR (26 Ağustos 2026 ·
-                istek: "Okul türü alanına diğer okul türlerini ekleyelim meslek
-                lisesi imamhatip lisesi falan en son da diğer olsun").
-
-                Aşağıdaki sorgu yalnızca ildeki KAYITLI okulların türlerini
-                döndürüyor; ilinde henüz sisteme girmemiş bir meslek lisesi
-                varsa o tür süzgeçte hiç görünmüyordu. Birleştirme, veriden
-                gelen türleri de koruyor — gerekçesi lib/okul/turler.ts'te.
-              */}
-              {okulTuruSecenekleri(turler.map((tur) => tur.okulTuru)).map(
-                (tur) => (
-                  <option key={tur} value={tur}>
-                    {tur}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
+          GENEL "ara" KUTUSU DA KALKTI: üç şeye birden bakıyordu (okul adı,
+          ilçe adı, kurum kodu) ve üçünün de artık kendi sütunu var. Bir arama
+          kutusu ile üç sütun süzgecini yan yana tutmak, aynı soruyu iki farklı
+          yerden sormak olurdu. Parametre kural katmanında DURUYOR (`ara`):
+          dışa aktarma yolu ve eski yer imleri onu göndermeye devam edebilir.
+        */}
+        <form
+          id={SUZGEC_FORMU}
+          method="get"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
 
           {/*
             DANIŞMAN SÜZGECİ (27 Ağustos 2026 · istek: "filtreye danışmanlı
@@ -316,6 +276,89 @@ export default async function OkullarSayfasi({
                     <th className="py-2 pr-4 font-medium">Danışman</th>
                     <th className="py-2 font-medium">Öğrenci</th>
                   </tr>
+
+                  {/*
+                    SÜZGEÇ SATIRI — başlıkların hemen altında, istekte sayılan
+                    beş sütunda dolu: İl, İlçe, Okul, Tür, Kurum kodu. Sayım
+                    sütunlarında (Öğretmen, Danışman, Öğrenci) süzgeç yok;
+                    onları süzmek "kaçtan büyük" gibi bir karşılaştırma
+                    gerektirirdi ve kimse istemedi. Son hücrede görünmeyen gönder
+                    düğmesi duruyor (bkz. components/SutunSuzgeci.tsx): süzgeçler
+                    kendiliğinden çalışıyor, düğme yalnızca JavaScript kapalıyken
+                    Enter'ın çalışması için var.
+
+                    İL HÜCRESİ YALNIZCA MERKEZDE DOLU: koordinatörün listesi
+                    zaten kendi iliyle sınırlı (bkz. filtreler.ts ·
+                    okulSuzgeciniCoz) ve süzgeç ona tek seçenekli bir kutu
+                    gösterirdi.
+
+                    İLÇE, İL SEÇİLMEDEN KAPALI: ilçe listesi ilden türüyor ve
+                    boş bir açılır liste, seçenek yokmuş gibi değil bozukmuş
+                    gibi okunurdu.
+                  */}
+                  <SutunSuzgecSatiri>
+                    {merkezMi ? (
+                      <SutunSecimSuzgeci
+                        form={SUZGEC_FORMU}
+                        ad="il"
+                        deger={suzgec.ilKodu}
+                        bosEtiket="Tüm iller"
+                        etiket="İl"
+                        secenekler={iller.map((il) => ({
+                          deger: il.ilKodu,
+                          etiket: il.ad,
+                        }))}
+                        className="py-2 pr-4"
+                      />
+                    ) : (
+                      <SutunSuzgecBoslugu className="py-2 pr-4" />
+                    )}
+                    <SutunSecimSuzgeci
+                      form={SUZGEC_FORMU}
+                      ad="ilce"
+                      deger={suzgec.ilceKodu}
+                      bosEtiket="Tüm ilçeler"
+                      etiket="İlçe"
+                      devreDisi={ilceler.length === 0}
+                      secenekler={ilceler.map((ilce) => ({
+                        deger: ilce.ilceKodu,
+                        etiket: ilce.ad,
+                      }))}
+                      className="py-2 pr-4"
+                    />
+                    <SutunMetinSuzgeci
+                      form={SUZGEC_FORMU}
+                      ad="okul"
+                      deger={suzgec.okulAdi}
+                      ipucu="Okul adı"
+                      className="py-2 pr-4"
+                    />
+                    <SutunSecimSuzgeci
+                      form={SUZGEC_FORMU}
+                      ad="okulTuru"
+                      deger={suzgec.okulTuru}
+                      bosEtiket="Tüm türler"
+                      etiket="Okul türü"
+                      secenekler={okulTuruSecenekleri(
+                        turler.map((tur) => tur.okulTuru),
+                      )
+                        .filter((tur) => tur !== "")
+                        .map((tur) => ({ deger: tur, etiket: tur }))}
+                      className="py-2 pr-4"
+                    />
+                    <SutunMetinSuzgeci
+                      form={SUZGEC_FORMU}
+                      ad="kurumKodu"
+                      deger={suzgec.kurumKodu}
+                      ipucu="Kurum kodu"
+                      className="py-2 pr-4"
+                    />
+                    <SutunSuzgecDugmesi
+                      form={SUZGEC_FORMU}
+                      colSpan={3}
+                      className="py-2 pr-4"
+                    />
+                  </SutunSuzgecSatiri>
                 </thead>
                 <tbody>
                   {okullar.map((okul) => (

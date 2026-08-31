@@ -407,6 +407,40 @@ describe("doğrudan yazışma", () => {
     ).toBe(true);
   });
 
+  it("aynı ekipteki kişiyle okul farkı gözetilmeden yazışılır", () => {
+    /*
+     * 31 Ağustos 2026 · istek: "bireysel ve toplu mesaj atabilsin ekiptekilere".
+     * Ekip zaten onaysız bir kanaldır (ekip sohbeti); toplu kanalı açık olan
+     * iki kişiye birebir yazışmayı yasaklamak tutarsız olurdu.
+     */
+    expect(
+      dogrudanYazisilabilirMi(
+        girdi({ hedefKurumKodu: 200, ayniEkiptenMi: true }),
+      ).olurMu,
+    ).toBe(true);
+  });
+
+  it("ekip bağı bildirilmezse kapı kapalı kalır", () => {
+    /*
+     * Alan isteğe bağlı ve varsayılanı `false`: bilgiyi vermeyen çağıran dar
+     * tarafta kalıyor, geniş tarafta değil.
+     */
+    expect(
+      dogrudanYazisilabilirMi(girdi({ hedefKurumKodu: 200 })).olurMu,
+    ).toBe(false);
+    expect(
+      dogrudanYazisilabilirMi(
+        girdi({ hedefKurumKodu: 200, ayniEkiptenMi: false }),
+      ).olurMu,
+    ).toBe(false);
+  });
+
+  it("kendine ekip üzerinden de mesaj gönderilemez", () => {
+    expect(
+      dogrudanYazisilabilirMi(girdi({ hedefId: 1, ayniEkiptenMi: true })).olurMu,
+    ).toBe(false);
+  });
+
   it("okulsuz iki kişi aynı okuldan sayılmaz", () => {
     /*
      * Mezun ve paydaşın kurum kodu YOKTUR. `null === null` ile karar

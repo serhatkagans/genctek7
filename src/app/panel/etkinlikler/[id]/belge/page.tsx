@@ -19,7 +19,7 @@ import {
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
-import { faaliyetRaporuYazabilirMi } from "@/lib/yetki/izinler";
+import { faaliyetBelgesiUretebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export default async function BelgeSayfasi({
 
   const faaliyet = await gorunurFaaliyetGetir(kullanici, Number.parseInt(id, 10));
   if (!faaliyet) notFound();
-  if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) notFound();
+  if (!faaliyetBelgesiUretebilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) notFound();
   if (!tur || !belgeTuruMu(tur)) notFound();
 
   /*

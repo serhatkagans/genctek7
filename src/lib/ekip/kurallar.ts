@@ -175,6 +175,27 @@ export const EKIP_TURLERI: readonly EkipTuru[] = [
   "DIGER",
 ];
 
+/**
+ * EKİP KURMA FORMUNDA SEÇİLEBİLEN TÜRLER (31 Ağustos 2026 · istek: "okul
+ * seçimi kapanacak Okul").
+ *
+ * `EKIP_TURLERI`DEN AYRI BİR LİSTE ve ayrılığın sebebi şu: o liste enum'un
+ * TAMAMIDIR ve üç işi daha var — `ekipTuruGecerliMi` doğrulaması, envanterin
+ * tür süzgeci ve rozet etiketleri. OKUL_TAKIMI oradan silinseydi kurulmuş okul
+ * takımları "geçersiz tür" sayılır, süzgeçten ve rozetlerinden düşerdi.
+ *
+ * ÇIKARILAN TEK TÜR OKUL_TAKIMI ve gerekçesi kaçınılmaz: türü zorunlu bir okul
+ * bağı var (`ck_ekip_okul_takimi_kurum`) ve okul seçimi formdan kalktı. Türün
+ * listede kalması, seçildiğinde her seferinde hata veren bir seçenek demekti.
+ *
+ * Süzgeç listesinde olduğu gibi ÇIKARARAK kuruluyor, elle sayarak değil:
+ * enum'a yeni bir tür eklendiğinde formda kendiliğinden görünmesi doğru
+ * varsayılan.
+ */
+export const EKIP_FORM_TURLERI: readonly EkipTuru[] = EKIP_TURLERI.filter(
+  (tur) => tur !== "OKUL_TAKIMI",
+);
+
 export function ekipTuruGecerliMi(deger: string): deger is EkipTuru {
   return (EKIP_TURLERI as readonly string[]).includes(deger);
 }

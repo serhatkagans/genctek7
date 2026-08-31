@@ -1,8 +1,10 @@
 import {
-  aliciOzeti,
   DUYURU_HEDEF_ETIKETLERI,
+  DUYURU_HEDEFLERI,
   duyuruHedefiMi,
   duyuruyuCoz,
+  topluHedefAnahtari,
+  topluHedefiCoz,
 } from "@/lib/bildirim/toplu";
 
 /**
@@ -101,18 +103,75 @@ describe("duyuruHedefiMi", () => {
   });
 });
 
-describe("aliciOzeti", () => {
-  const sayilar = { ogrenci: 120, ogretmen: 30 };
-
-  it("öğrenci hedefinde yalnızca öğrencileri sayar", () => {
-    expect(aliciOzeti("OGRENCI", sayilar)).toBe("120 kişi");
+describe("topluHedefiCoz / topluHedefAnahtari", () => {
+  it("sabit kitleleri tanır", () => {
+    expect(topluHedefiCoz("OGRENCI")).toEqual({ tip: "OGRENCI" });
+    expect(topluHedefiCoz("IL_TEMSILCISI")).toEqual({ tip: "IL_TEMSILCISI" });
+    expect(topluHedefiCoz("ILCE_TEMSILCISI")).toEqual({
+      tip: "ILCE_TEMSILCISI",
+    });
   });
 
-  it("öğretmen hedefinde yalnızca öğretmenleri sayar", () => {
-    expect(aliciOzeti("OGRETMEN", sayilar)).toBe("30 kişi");
+  it("ekip ve topluluk anahtarını kimliğiyle çözer", () => {
+    expect(topluHedefiCoz("EKIP:12")).toEqual({ tip: "EKIP", id: 12 });
+    expect(topluHedefiCoz("GRUP:3")).toEqual({ tip: "GRUP", id: 3 });
   });
 
-  it("herkes hedefinde ikisini toplar", () => {
-    expect(aliciOzeti("HERKES", sayilar)).toBe("150 kişi");
+  it("anahtar üretimi çözümlemenin tersidir", () => {
+    for (const anahtar of ["OGRENCI", "HERKES", "EKIP:12", "GRUP:3"]) {
+      const hedef = topluHedefiCoz(anahtar);
+      expect(hedef).not.toBeNull();
+      if (hedef) expect(topluHedefAnahtari(hedef)).toBe(anahtar);
+    }
+  });
+
+  it("kimliği olmayan ya da bozuk anahtarı reddeder", () => {
+    /*
+     * Anahtar kurcalanabilir bir form alanından geliyor: "sayıya benzeyen her
+     * şeyi" kabul eden bir çözümleyici, kapsam kontrolü olmayan bir kayda
+     * gönderim denenmesine yol açardı.
+     */
+    for (const bozuk of [
+      "EKIP",
+      "EKIP:",
+      "EKIP:0",
+      "EKIP:-1",
+      "EKIP:abc",
+      "EKIP:1.5",
+      "VELI",
+      "VELI:1",
+      "",
+    ]) {
+      expect(topluHedefiCoz(bozuk)).toBeNull();
+    }
+  });
+});
+
+describe("duyuruyuCoz · izinli hedefler", () => {
+  it("izin listesinde olmayan hedefi reddeder", () => {
+    /*
+     * Biçimi geçerli ama KAPSAM DIŞI hedef: başka ilin ekibi. Ekranda hiç
+     * görünmeyen bir seçeneğin elle kurulmuş bir istekle geri gelebilmesi,
+     * kaldırılmamış olması demektir.
+     */
+    const sonuc = duyuruyuCoz(
+      { ...GECERLI, hedef: "EKIP:99" },
+      ["OGRENCI", "EKIP:12"],
+    );
+    expect(sonuc.olurMu).toBe(false);
+    if (!sonuc.olurMu) expect(sonuc.neden).toContain("gönderemezsiniz");
+  });
+
+  it("izin listesindeki ekip hedefini kabul eder", () => {
+    const sonuc = duyuruyuCoz({ ...GECERLI, hedef: "EKIP:12" }, ["EKIP:12"]);
+    expect(sonuc.olurMu).toBe(true);
+    if (sonuc.olurMu) expect(sonuc.hedef).toBe("EKIP:12");
+  });
+
+  it("liste verilmezse yalnızca sabit kitleler geçerlidir", () => {
+    expect(duyuruyuCoz({ ...GECERLI, hedef: "EKIP:12" }).olurMu).toBe(false);
+    for (const hedef of DUYURU_HEDEFLERI) {
+      expect(duyuruyuCoz({ ...GECERLI, hedef }).olurMu).toBe(true);
+    }
   });
 });

@@ -452,6 +452,20 @@ export interface PaydasListeFiltreleri {
   tur?: PaydasTuru | null;
   /** Kurum adı, yetkili kişi ya da iş birliği alanında geçen metin. */
   ara?: string | null;
+  /**
+   * YALNIZCA KURUM ADINDA arama (31 Ağustos 2026 · istek: "Kurum / Tür / İl —
+   * bunlar filtreli").
+   *
+   * NİYE `ara`DAN AYRI: `ara` üç alana birden bakıyor (kurum, yetkili kişi, iş
+   * birliği alanı) ve genel arama kutusunun karşılığı. Sütun süzgeci ise
+   * SÜTUNUN kendisini süzüyor — "Kurum" başlığının altındaki kutuya yazılan
+   * metin, yetkili kişinin adında eşleşip kurumla ilgisiz bir satır
+   * döndürseydi süzgeç yalan söylerdi.
+   *
+   * İkisi bir arada kullanılabilir ve ikisi de daraltır: koşullar `AND`
+   * zincirine ayrı ayrı giriyor.
+   */
+  kurum?: string | null;
   /** Pasife alınmış kayıtlar da listelensin mi? */
   pasifleriDeGoster?: boolean;
 }
@@ -464,6 +478,9 @@ export function paydasListeFiltresi(
 
   if (filtreler.ilKodu) kosullar.push({ ilKodu: filtreler.ilKodu });
   if (filtreler.tur) kosullar.push({ tur: filtreler.tur });
+  if (filtreler.kurum) {
+    kosullar.push({ ad: { contains: filtreler.kurum, mode: "insensitive" } });
+  }
   if (!filtreler.pasifleriDeGoster) kosullar.push({ aktif: true });
   if (filtreler.ara) {
     kosullar.push({

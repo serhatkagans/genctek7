@@ -56,6 +56,7 @@ import {
   paydasGorebilirMi,
   projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
+  topluMesajGonderebilirMi,
   yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
 
@@ -593,6 +594,34 @@ export default async function YonetimSayfasi({
             menüden kaldır"). Aynı üç ekranın iki kapısı vardı; kapı artık
             burası. Sayfalar ve yetkileri değişmedi.
           */}
+          {/*
+            TOPLU MESAJ (31 Ağustos 2026 · istekler: "il koordinatörü yönetim
+            panelinde toplu mesaj kartı ekle, ilindeki tüm öğrenciler, tüm
+            öğretmenler, ilçe temsilcisi, il temsilcisi, eklediği ekiplere ayrı
+            ayrı her ekip için ayrı toplu mesaj" · "proje yöneticisi de sadece
+            öğrenci ve öğretmenlere değil ekiplere topluluklara ayrı ayrı toplu
+            mesaj atabilsin").
+
+            KART "Erişim Kayıtları / Sistem Ayarları" ÜÇLÜSÜNDEN ÇIKARILDI:
+            orada `rolEnvanteriGorebilirMi` ile basılıyordu, yani yalnızca
+            merkezde. Kendi izin kapısı var (`topluMesajGonderebilirMi`) çünkü
+            kitle artık gönderenin kapsamı kadar — koordinatörün mesajı ilini
+            aşmıyor. Aynı kapıyı paylaşsalardı koordinatöre toplu mesaj açmak,
+            ona bildirim şablonlarını ve erişim kayıtlarını da açardı.
+          */}
+          {topluMesajGonderebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Toplu Mesaj"
+              aciklama={
+                merkezMi
+                  ? "Öğrencilere, öğretmenlere, ekiplere ve topluluklara ayrı ayrı bildirim"
+                  : "İlinizdeki öğrenci, öğretmen, temsilci ve ekiplere ayrı ayrı bildirim"
+              }
+              Ikon={Megaphone}
+              yol="/panel/duyurular"
+              ton="notr"
+            />
+          )}
           {rolEnvanteriGorebilirMi(kullanici) && (
             <>
               <KisayolKarti
@@ -600,13 +629,6 @@ export default async function YonetimSayfasi({
                 aciklama="Kimin hangi kaydı görüntülediği — KVKK denetimi"
                 Ikon={ShieldCheck}
                 yol="/panel/erisim-loglari"
-                ton="notr"
-              />
-              <KisayolKarti
-                baslik="Mesaj Gönder"
-                aciklama="Seçilen kitleye toplu bildirim ve duyuru"
-                Ikon={Megaphone}
-                yol="/panel/duyurular"
                 ton="notr"
               />
               <KisayolKarti

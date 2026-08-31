@@ -150,3 +150,63 @@ describe("okulKosulu · danışman durumu", () => {
     });
   });
 });
+
+/**
+ * SÜTUN SÜZGEÇLERİ (31 Ağustos 2026 · istek: "alt taraftaki İl / İlçe / Okul /
+ * Tür / Kurum kodu alanları filtreli olsun").
+ *
+ * İkisi de genel `ara` kutusundan AYRI: `ara` üç şeye birden bakıyor (okul adı,
+ * ilçe adı, kurum kodu) ve sütun süzgeci olarak kullanılsaydı "Okul" başlığının
+ * altına yazılan metin ilçe adında eşleşip ilgisiz bir satır döndürürdü.
+ */
+describe("okulKosulu · sütun süzgeçleri", () => {
+  it("okul adını YALNIZCA okul adında arar", () => {
+    const kosul = okulKosulu(suzgec({ okulAdi: "şeyh isa" }));
+
+    expect(kosul.ad).toEqual({ contains: "şeyh isa", mode: "insensitive" });
+    // İlçe dalı `ara`nın işi; sütun süzgeci ona bulaşmıyor.
+    expect(kosul.OR).toBeUndefined();
+  });
+
+  it("boş ve yalnızca boşluktan oluşan değeri sorguya koymaz", () => {
+    expect(okulKosulu(suzgec({ okulAdi: "   " })).ad).toBeUndefined();
+    expect(okulKosulu(suzgec({ kurumKodu: "  " })).kurumKodu).toBeUndefined();
+  });
+
+  it("tam kurum kodunda tek kayda iner", () => {
+    expect(okulKosulu(suzgec({ kurumKodu: "758715" })).kurumKodu).toBe(758715);
+  });
+
+  it("yarım kurum kodunu ÖN EK aralığına çevirir", () => {
+    /*
+     * Kod bir tamsayı sütunu; "758 ile başlayanlar" metin işlemiyle
+     * sorulamıyor. 6 haneli kodda "758" → [758000, 759000).
+     */
+    expect(okulKosulu(suzgec({ kurumKodu: "758" })).kurumKodu).toEqual({
+      gte: 758000,
+      lt: 759000,
+    });
+  });
+
+  it("basamak arttıkça aralık daralır", () => {
+    expect(okulKosulu(suzgec({ kurumKodu: "7587" })).kurumKodu).toEqual({
+      gte: 758700,
+      lt: 758800,
+    });
+  });
+
+  it("rakam dışında karakter içeren kodu yok sayar", () => {
+    // Süzgeç yalnızca daralttığı için geçersiz girdiyi reddetmek yerine yok
+    // saymak yeterli — aynı ölçü paydaş tür süzgecinde de var.
+    expect(okulKosulu(suzgec({ kurumKodu: "75a" })).kurumKodu).toBeUndefined();
+  });
+
+  it("okul adı ve kurum kodu birlikte daraltır", () => {
+    const kosul = okulKosulu(
+      suzgec({ okulAdi: "anadolu", kurumKodu: "758715" }),
+    );
+
+    expect(kosul.ad).toEqual({ contains: "anadolu", mode: "insensitive" });
+    expect(kosul.kurumKodu).toBe(758715);
+  });
+});

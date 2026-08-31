@@ -5,11 +5,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { belgeKapisi } from "@/lib/belge/kapi";
 import { tarihYaz } from "@/lib/tarih";
-import {
-  danismanMi,
-  ilKoordinatoruMu,
-  projeYoneticisiMi,
-} from "@/lib/yetki/izinler";
+import { belgeUretenRoldeMi } from "@/lib/yetki/izinler";
 import { raporlanabilirFaaliyetFiltresi } from "@/lib/yetki/kapsam";
 
 export const dynamic = "force-dynamic";
@@ -38,18 +34,51 @@ export const dynamic = "force-dynamic";
 export default async function BelgelerGirisSayfasi() {
   const kullanici = await oturumKullanicisiZorunlu();
 
-  if (
-    !danismanMi(kullanici) &&
-    !ilKoordinatoruMu(kullanici) &&
-    !projeYoneticisiMi(kullanici)
-  ) {
+  /*
+   * ÜRETEMEYEN KİŞİ EKRANI GÖRÜR AMA LİSTEYİ GÖRMEZ (31 Ağustos 2026 ·
+   * istekler: "Öğretmen de belge oluşturamasın … öğretmenin belge üretme
+   * butonları pasif olsun" · "Bu yazı katılım ve teşekkür belgesi oluşturmak
+   * için il koordinatörleri ile iletişim kurunuz olsun").
+   *
+   * NİYE 404 DEĞİL: ekran sol menüde duruyor ve öğretmen oraya tıklamaya devam
+   * ediyor. Sayfayı kapatmak, tıkladığı yerin kaybolması demekti; kişinin
+   * sorusu ("belgeyi nasıl aldıracağım") ise cevapsız kalırdı. Aynı ölçü
+   * etkinlik sayfasındaki pasif düğmede de var — kapı kapalı olduğunu ve
+   * anahtarın kimde olduğunu söylüyor.
+   *
+   * ÖĞRETMEN 31 AĞUSTOS'A KADAR LİSTEYİ GÖRÜYORDU: koşul "danışman VEYA
+   * koordinatör VEYA merkez" idi. Artık tek soru rol
+   * (bkz. lib/yetki/izinler.ts · belgeUretenRoldeMi) ve kapı, etkinlik başına
+   * sorulan kapıyla aynı kararı veriyor — biri açıp öbürü kapatmıyor.
+   */
+  if (!belgeUretenRoldeMi(kullanici)) {
     return (
-      <Kart>
-        <KartBasligi
+      <div className="space-y-6">
+        <SayfaBasligi
           baslik="Belge oluştur"
-          aciklama="Bu ekran danışman öğretmen, il koordinatörü ve proje yöneticisine açıktır."
+          aciklama="Katılım ve teşekkür belgesi oluşturmak için il koordinatörleri ile iletişim kurunuz."
+          /*
+            GERİ BAĞLANTISI ETKİNLİKLER (31 Ağustos 2026 · istek: "Öğretmen
+            belge oluştura basınca navigasyon profile gidiyor, o etkinliklere
+            gidecek navigasyon").
+
+            Varsayılan "← Profil"di ve kişiyi GELDİĞİ yere değil bir üst
+            basamağa atıyordu — üstelik Profil sol menüde zaten duruyor, yani
+            bağlantı hiçbir yeni yol açmıyordu. Bu ekranın konusu etkinlikler:
+            listelediği her satır bir etkinlik ve satırların gittiği yer de
+            etkinlik ekranları. Geri bağlantısının işi, ekrandan konusunun
+            durduğu yere dönmektir (aynı ölçü Yönetim panelinden açılan
+            ekranlarda da uygulanıyor, bkz. components/ui.tsx · SayfaBasligi).
+          */
+          geri={{ yol: "/panel/etkinlikler", etiket: "Etkinlikler" }}
         />
-      </Kart>
+
+        <Kart className="text-metin-yumusak">
+          Belgeler il koordinatörleri tarafından oluşturulur. Etkinliğin
+          yoklamasını alıp bilgi raporunu sisteme eklediğinizde belge adımı
+          koordinatörünüze düşer.
+        </Kart>
+      </div>
     );
   }
 
@@ -121,15 +150,40 @@ export default async function BelgelerGirisSayfasi() {
       <SayfaBasligi
         baslik="Belge oluştur"
         aciklama="Katılım ve teşekkür belgesi vermek istediğiniz etkinliği seçin."
+        /*
+          GERİ BAĞLANTISI ETKİNLİKLER (31 Ağustos 2026 · istek: "Öğretmen
+          belge oluştura basınca navigasyon profile gidiyor, o etkinliklere
+          gidecek navigasyon").
+
+          Varsayılan "← Profil"di ve kişiyi GELDİĞİ yere değil bir üst
+          basamağa atıyordu — üstelik Profil sol menüde zaten duruyor, yani
+          bağlantı hiçbir yeni yol açmıyordu. Bu ekranın konusu etkinlikler:
+          listelediği her satır bir etkinlik ve satırların gittiği yer de
+          etkinlik ekranları. Geri bağlantısının işi, ekrandan konusunun
+          durduğu yere dönmektir (aynı ölçü Yönetim panelinden açılan
+          ekranlarda da uygulanıyor, bkz. components/ui.tsx · SayfaBasligi).
+        */
+        geri={{ yol: "/panel/etkinlikler", etiket: "Etkinlikler" }}
       />
 
+      {/*
+        KUTU TEK CÜMLEYE İNDİ (31 Ağustos 2026 · istek: "Bu yazı yerine belge
+        oluşturabilmesi için etkinlik bilgi raporunun sisteme eklenmiş olması
+        gerekmektedir yazsın").
+
+        Eski metin dört şeyi birden anlatıyordu: iki ön koşul, yazdırma akışı
+        ve erişim kaydı. Üçü de EKRANIN KENDİSİNDE zaten görünüyor — raporsuz
+        etkinlikler ayrı başlıkta ve "raporu yazılmadı" notuyla listeleniyor,
+        yoklama koşulu belge ekranında satır satır söyleniyor, yazdırma akışını
+        da belge ekranı yazıyor. Kapağın üstündeki uyarı kutusu bunları
+        okunmadan geçilen bir paragrafa çeviriyordu.
+
+        Geriye kutuyu haklı çıkaran tek bilgi kalıyor: listede aradığı
+        etkinliği bulamayan kişinin sebebi.
+      */}
       <BilgiKutusu cesit="uyari">
-        Belge, kişinin GençTek Yolculuğu&apos;na katılım düşürür. Bu yüzden iki
-        ön koşulu var: etkinliğin <strong>raporu yazılmış</strong> olmalı ve
-        kişi <strong>yoklamada &quot;geldi&quot;</strong> işaretlenmiş olmalı.
-        Belgeler resmî şablon üzerine basılır ve tarayıcının{" "}
-        <strong>Yazdır → PDF olarak kaydet</strong> akışıyla indirilir. Kimin
-        kime belge ürettiği erişim kayıtlarına yazılır.
+        Belge oluşturabilmesi için etkinlik bilgi raporunun sisteme eklenmiş
+        olması gerekmektedir.
       </BilgiKutusu>
 
       {faaliyetler.length === 0 ? (

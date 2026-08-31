@@ -1,4 +1,5 @@
 import {
+  EKIP_FORM_TURLERI,
   EKIP_TURLERI,
   buEkibiYonetebilirMi,
   ekipAdiniCoz,
@@ -203,5 +204,25 @@ describe("ekipTuruGecerliMi", () => {
   it("uydurma değeri reddeder", () => {
     expect(ekipTuruGecerliMi("OKUL")).toBe(false);
     expect(ekipTuruGecerliMi("")).toBe(false);
+  });
+});
+
+describe("EKIP_FORM_TURLERI", () => {
+  /*
+   * 31 Ağustos 2026 · istek: "okul seçimi kapanacak Okul". Okul bağı zorunlu
+   * olan tür, okul seçilemeyen bir formda seçilebilir kalırsa her denemede
+   * hata veren bir seçenek olurdu.
+   */
+  it("okul takımını formdan çıkarır, enumda bırakır", () => {
+    expect(EKIP_FORM_TURLERI).not.toContain("OKUL_TAKIMI");
+    expect(EKIP_TURLERI).toContain("OKUL_TAKIMI");
+    expect(ekipTuruGecerliMi("OKUL_TAKIMI")).toBe(true);
+  });
+
+  it("kalan türlerin hepsi formda durur", () => {
+    for (const tur of EKIP_TURLERI) {
+      if (tur === "OKUL_TAKIMI") continue;
+      expect(EKIP_FORM_TURLERI).toContain(tur);
+    }
   });
 });

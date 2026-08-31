@@ -103,6 +103,7 @@ import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
 import { CV_EK_NOTU_AZAMI } from "@/lib/ogrenci/cv-kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
+import { okulTemsilcileriniGetir } from "@/lib/rol/okul-temsilcisi";
 import { prisma } from "@/lib/db";
 import { seritteGosterilecekler } from "@/lib/faaliyet/takvim";
 import {
@@ -126,6 +127,7 @@ import {
   koordinatorIlKodu,
   mentorlukBasvurabilirMi,
   ogrenciMi,
+  referansTutabilirMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import {
@@ -422,7 +424,7 @@ export default async function PanelSayfasi({
    * Sıra ekleme sırasıdır (bkz. şema · KullaniciReferansi): liste elle
    * sıralanacak kadar uzun değil.
    */
-  const referanslar = ogrenciMi(kullanici)
+  const referanslar = referansTutabilirMi(kullanici)
     ? await prisma.kullaniciReferansi.findMany({
         where: { kullaniciId: kullanici.id },
         orderBy: { olusturmaTarihi: "asc" },
@@ -650,6 +652,38 @@ export default async function PanelSayfasi({
   const ilKoordinatorum = koordinatorGosterilir
     ? await ilKoordinatoruOzeti(kullanici.ilKodu as string)
     : null;
+
+  /*
+   * "OKUL TEMSİLCİM" KARTI (31 Ağustos 2026 · istek: "Öğrenci panelinde
+   * danışman öğretmeni kartının yanına okul temsilcim kartı eklensin").
+   *
+   * İL KOORDİNATÖRÜ KARTIYLA AYNI SORUYU okulun ölçeğinde soruyor: "burada
+   * kime bağlıyım". İkisi arasındaki fark muhatabın kim olduğu — koordinatör
+   * bir öğretmen, okul temsilcisi bir AKRAN. Öğrencinin okul içindeki ilk
+   * muhatabı odur ve adını bilmediği sürece ona gidemez.
+   *
+   * YALNIZCA ÖĞRENCİDE: okul temsilciliği bir öğrenci görevidir ve karşılığı
+   * öğretmende yok — öğretmenin okuldaki muhatabı okul idaresidir.
+   *
+   * TEMSİLCİNİN KENDİSİ DIŞARIDA: kendi adını "okul temsilcim" başlığı
+   * altında okumak bilgi değil, tuhaflık olurdu. Aynı eleme koordinatör
+   * kartında da var (koordinatorGosterilir).
+   *
+   * KART OKUL KAYDI OLMAYAN ÖĞRENCİDE DE BASILMAZ: temsilcilik bir okula
+   * bağlanıyor, okulu bilinmeyen öğrencinin temsilcisi de hesaplanamaz.
+   */
+  const okulTemsilcileri =
+    ogrenciMi(kullanici) && kullanici.kurumKodu !== null
+      ? await okulTemsilcileriniGetir(
+          kullanici.kurumKodu,
+          kullanici.egitimOgretimYili,
+        )
+      : [];
+
+  const okulTemsilcisiGosterilir =
+    ogrenciMi(kullanici) &&
+    kullanici.kurumKodu !== null &&
+    !okulTemsilcileri.some((temsilci) => temsilci.id === kullanici.id);
 
   const simdi = new Date();
 
@@ -1230,6 +1264,35 @@ export default async function PanelSayfasi({
               */
               yol="/panel/danisman-secim"
             />
+            {/*
+              OKUL TEMSİLCİM — DANIŞMANIN HEMEN YANINDA (31 Ağustos 2026 ·
+              istek: "danışman öğretmeni kartının yanına okul temsilcim kartı
+              eklensin").
+
+              Yer tesadüf değil: ızgaranın bu ilk üç kartı öğrencinin
+              MUHATAPLARINI sayıyor — il koordinatörü (il), danışman öğretmen
+              (okuldaki öğretmeni), okul temsilcisi (okuldaki akranı). Sayım
+              kartları ("Çalışma gruplarım", "Öz değerlendirmelerim") bunların
+              ardından geliyor ve farklı bir soruya cevap veriyor.
+
+              TON NÖTR, DANIŞMAN KARTININ AKSİNE ATANMAMIŞKEN DE SARI DEĞİL:
+              danışmanı olmayan öğrencinin önünde yapacağı bir iş var (kendi
+              danışmanını seçiyor), temsilcisi olmayanın ise yok — görevi
+              öğretmeni ya da koordinatör veriyor. Sarı, kişiye ait olmayan bir
+              eksiği ona borç gibi gösterirdi.
+            */}
+            {okulTemsilcisiGosterilir && (
+              <OlcumKarti
+                baslik="Okul temsilcim"
+                Ikon={UserRound}
+                deger={
+                  okulTemsilcileri.length === 0
+                    ? "Atanmadı"
+                    : `${okulTemsilcileri[0].ad} ${okulTemsilcileri[0].soyad}`
+                }
+                yol="/panel/okul-temsilcim"
+              />
+            )}
             {/*
               KART ADLARI TEK KALIPTA (25 Ağustos 2026 · istek: "öğrenci
               kartlarının ismi standart olsun: Çalışma gruplarım, Öz
@@ -2280,9 +2343,16 @@ export default async function PanelSayfasi({
         referanslar bölümü ekleyelim. Referans için ad soyad telefon kurum
         eposta").
 
-        YALNIZCA ÖĞRENCİDE: istek öğrenci için geldi ve referans, bir CV'nin
-        parçası olarak işe yarıyor. Tablo kullanıcıya bağlı, yani öğretmene de
-        açılmak istenirse tek koşul değişiyor (bkz. şema · KullaniciReferansi).
+        ÖĞRETMENDE DE VAR (31 Ağustos 2026 · istek: "Öğretmene de referans
+        ekleme olsun öğrenci gibi"). 28 Ağustos'taki not "öğretmene de açılmak
+        istenirse tek koşul değişiyor" diyordu; değişen tam olarak o koşul
+        oldu. Referans üretilen özgeçmişin parçası ve özgeçmiş öğretmende de
+        üretiliyor — bölümün onda olmaması, aynı belgeyi iki ayrı iskeletle
+        çıkarıyordu. Bölümün içi, sınırı ve doğrulaması aynı (bkz.
+        lib/yetki/izinler.ts · referansTutabilirMi).
+
+        DIŞ KULLANICI (mezun, paydaş temsilcisi) DIŞARIDA: satırlar üçüncü
+        kişilerin iletişim bilgisi ve o kapıyı açmak ayrı bir karar.
 
         EN ALTTA, DÜZENLENEBİLİR BÖLÜMLERİN SONUNDA (28 Ağustos 2026 · istek:
         "profilde bu görünmüyor en alta gelecekti"). Önce İletişim
@@ -2297,7 +2367,7 @@ export default async function PanelSayfasi({
         yok — kişi kaç referans yazdığını bilmek için açmak zorunda değil,
         kimlerin telefonunun ekranda durduğunu ise kendisi seçmeli.
       */}
-      {ogrenciMi(kullanici) && (
+      {referansTutabilirMi(kullanici) && (
         <KatlanabilirKart
           baslik="Referanslarım"
           /*

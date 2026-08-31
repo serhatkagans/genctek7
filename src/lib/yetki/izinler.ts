@@ -76,6 +76,30 @@ export function disKullaniciMi(kullanici: OturumKullanicisi): boolean {
 }
 
 /**
+ * Profilinde REFERANS tutabilir mi?
+ *
+ * ÖĞRETMEN 31 AĞUSTOS 2026'DA İÇERİ ALINDI (istek: "Öğretmene de referans
+ * ekleme olsun öğrenci gibi"). Bölüm 28 Ağustos'ta yalnızca öğrenciye
+ * açılmıştı ve gerekçesi "istek öğrenci için geldi" idi — bir kural değil, bir
+ * kapsam. Referans, üretilen özgeçmişin parçası ve özgeçmiş öğretmende de
+ * üretiliyor; bölümün onda olmaması, aynı belgenin iki iskeletle çıkması
+ * demekti.
+ *
+ * DIŞ KULLANICI DIŞARIDA (mezun, paydaş temsilcisi): kayıt ÜÇÜNCÜ BİR KİŞİNİN
+ * iletişim bilgisidir ve tabloya kimin yazabildiği dar başlamıştı. Onlara
+ * açmak ayrı bir karar — bugün kimse istemedi ve istenmemiş bir yetki için
+ * üçüncü kişilerin telefonlarını toplayan bir kutu açılmaz.
+ *
+ * SINIR VE DOĞRULAMA DEĞİŞMİYOR: en fazla üç satır, telefon ya da e-postadan
+ * en az biri zorunlu (bkz. lib/referans/kurallar.ts). Rol, kaç referans
+ * tutulacağını değiştirmiyor — bir öğretmenin referansı da bir öğrencininki
+ * kadar yer tutar.
+ */
+export function referansTutabilirMi(kullanici: OturumKullanicisi): boolean {
+  return !disKullaniciMi(kullanici);
+}
+
+/**
  * EBA dışı giriş başvurularını görme ve karara bağlama yetkisi.
  *
  * Yalnızca proje yöneticisi: talebin kendisi böyle ("onayı proje yöneticisine
@@ -574,6 +598,75 @@ export function faaliyetRaporuYazabilirMi(
   if (!ilKoordinatoruMu(kullanici)) return false;
   const faaliyetIli = faaliyet.kapsamIlKodu ?? faaliyet.ilKodu;
   return faaliyetIli !== null && koordinatorIlKodu(kullanici) === faaliyetIli;
+}
+
+/**
+ * KATILIM / TEŞEKKÜR BELGESİ ÜRETEBİLİR Mİ?
+ *
+ * ---------------------------------------------------------------------------
+ * YALNIZCA İL KOORDİNATÖRÜ VE PROJE YÖNETİCİSİ (31 Ağustos 2026)
+ * ---------------------------------------------------------------------------
+ * İki istek bu kapıyı aynı gün iki kez daralttı:
+ *   · "Öğrenci açtığı etkinlik için belge oluşturamasın … etkinliği öğrenci
+ *     oluştursa bile il koordinatörü belge oluşturabilsin o etkinliğe dair."
+ *   · "Öğretmen de belge oluşturamasın, sadece koordinatör ve proje
+ *     yöneticileri belge üretebilsin."
+ *
+ * Belge, rapor ve yoklama 12 Ağustos'tan beri TEK soruyla açılıyordu: "bu
+ * etkinliğin hakkında beyanda bulunabilecek kişi mi" (bkz.
+ * faaliyetRaporuYazabilirMi). Üçü aynı kaldığı sürece bu doğruydu; artık
+ * değil — belge ötekilerden BAŞKA bir şey yapıyor.
+ *
+ * Rapor bir BEYANDIR: etkinliği yürüten kişi ne olduğunu yazar, yanlışsa
+ * kendisi hesap verir. Belge ise bir ONAY: karşı tarafın GençTek Yolculuğu'na
+ * katılım düşürüyor ve elden ele dolaşan resmî şablonlu bir kâğıt olarak
+ * GençTek adına söz veriyor. Bu imzanın sahibi, etkinliği yürüten kişi değil
+ * PROGRAMIN SORUMLUSUDUR.
+ *
+ * ---------------------------------------------------------------------------
+ * ETKİNLİĞİ AÇAN KİŞİ BURAYA GİRMİYOR — bilerek
+ * ---------------------------------------------------------------------------
+ * Kapı `ekYukleyebilirMi`yi ÇAĞIRMIYOR; onu çağırsaydı "etkinliği açan kişi"
+ * kolu geri gelir ve öğrenci de öğretmen de kendi etkinliğine belge basardı.
+ * Bugün etkinliği kim açarsa açsın, belgeyi ilin koordinatörü üretiyor.
+ *
+ * Yoklama ve rapor DOKUNULMADI: etkinliği yürüten öğretmen (ya da öğrenci)
+ * kimin geldiğini işaretlemeye ve ne olduğunu yazmaya devam ediyor. Onlar
+ * beyan, belge onay — ve belgenin ön koşulu zaten o beyanın yazılmış olması
+ * (bkz. lib/belge/kapi.ts · belgeKapisi).
+ *
+ * ---------------------------------------------------------------------------
+ * KOORDİNATÖRDE İL KOŞULU VAR
+ * ---------------------------------------------------------------------------
+ * `faaliyetRaporuYazabilirMi`nin koordinatör kolundaki ölçünün aynısı: kendi
+ * ilindeki etkinlik. Başka ilin koordinatörü, o ilin öğrencisine GençTek
+ * katılımı düşüremez. Proje yöneticisinde koşul yok — merkezin tek bir ile
+ * bağlılığı yok.
+ */
+export function faaliyetBelgesiUretebilirMi(
+  kullanici: OturumKullanicisi,
+  faaliyet: FaaliyetKapsami,
+): boolean {
+  if (projeYoneticisiMi(kullanici)) return true;
+  if (!ilKoordinatoruMu(kullanici)) return false;
+
+  const faaliyetIli = faaliyet.kapsamIlKodu ?? faaliyet.ilKodu;
+  return faaliyetIli !== null && koordinatorIlKodu(kullanici) === faaliyetIli;
+}
+
+/**
+ * BELGE ÜRETEBİLEN BİR ROLDE Mİ? — etkinlikten bağımsız soru.
+ *
+ * "Belge oluştur" giriş ekranı (`/panel/belgeler`) hangi etkinliğe bakacağını
+ * daha bilmiyor; sorusu "bu kişi hiç belge üretebilir mi". Etkinlik başına
+ * sorulan kapı bunun üstüne biniyor ve ondan DARDIR (il koşulu orada).
+ *
+ * İkisi ayrı ayrı yazılmıyor: bu fonksiyon rolü, öteki rolü VE kapsamı
+ * soruyor. Giriş ekranı yalnızca rolü sorabilir çünkü listelediği etkinlikler
+ * zaten kapsam filtresinden geçiyor.
+ */
+export function belgeUretenRoldeMi(kullanici: OturumKullanicisi): boolean {
+  return ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
 }
 
 export function ekYukleyebilirMi(
@@ -1167,6 +1260,29 @@ export function hataKayitlariniGorebilirMi(
   kullanici: OturumKullanicisi,
 ): boolean {
   return projeYoneticisiMi(kullanici);
+}
+
+/**
+ * TOPLU MESAJ GÖNDEREBİLİR Mİ? (31 Ağustos 2026 · istek: "il koordinatörü
+ * yönetim panelinde toplu mesaj kartı ekle, ilindeki tüm öğrenciler, tüm
+ * öğretmenler, ilçe temsilcisi, il temsilcisi, eklediği ekiplere ayrı ayrı
+ * her ekip için ayrı toplu mesaj").
+ *
+ * `sistemAyarlariniYonetebilirMi`DEN AYRILDI ve ayrılması şarttı: toplu duyuru
+ * o güne kadar sistem ayarlarıyla aynı kapıdan geçiyordu ("herkese giden metin,
+ * merkezin işi"). Artık kitle GÖNDERENİN KAPSAMI kadar — koordinatörün mesajı
+ * kendi ilini aşmıyor. Aynı izin fonksiyonu kullanılsaydı koordinatöre toplu
+ * mesaj açmak, ona bildirim şablonlarını ve çalışma gruplarını da açmak
+ * olurdu.
+ *
+ * KAPSAMIN KENDİSİ BURADA SORULMUYOR: kimin hangi kitleye yazabileceğine
+ * lib/bildirim/toplu-alicilar.ts karar veriyor ve gönderim eylemi o listeyi
+ * yeniden üretip anahtarı orada arıyor — ekranda görünmek yetki değildir.
+ */
+export function topluMesajGonderebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici) || ilKoordinatoruMu(kullanici);
 }
 
 /** Sistem ayarları, çalışma grupları ve etkinlik programları merkezden yönetilir. */

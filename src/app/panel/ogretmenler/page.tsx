@@ -8,6 +8,15 @@ import {
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
+  SutunMetinSuzgeci,
+  SutunSecimSuzgeci,
+  SutunSuzgecBoslugu,
+  SutunSuzgecDugmesi,
+  SutunSuzgecHucresi,
+  SutunSuzgecSatiri,
+  SuzgecSecimKutusu,
+} from "@/components/SutunSuzgeci";
+import {
   Kart,
   KartBasligi,
   KirintiYolu,
@@ -63,6 +72,9 @@ const SINIF_SECIM =
 const SINIF_SAYFA_BUTON =
   "inline-flex items-center gap-1 rounded-md border border-cizgi px-3 py-1.5 text-sm font-medium text-metin transition hover:bg-zemin";
 
+/** Sütun süzgeçlerinin bağlandığı form; bkz. components/SutunSuzgeci.tsx. */
+const SUZGEC_FORMU = "ogretmen-suzgeci";
+
 const SAYFA_BOYUTU = 50;
 
 function sayfaBaglantisi(
@@ -92,41 +104,24 @@ function sayfaBaglantisi(
  * ile açıkça yazılıyor) — branşı girilmemiş öğretmen, yön ne olursa olsun
  * listenin sonunda.
  */
-const SIRALAMALAR = {
-  "ad-az": "Ad soyad · A → Z",
-  "ad-za": "Ad soyad · Z → A",
-  "brans-az": "Branş · A → Z",
-  "brans-za": "Branş · Z → A",
-  "okul-az": "Okul · A → Z",
-  "okul-za": "Okul · Z → A",
-} as const;
-
-type OgretmenSiralamasi = keyof typeof SIRALAMALAR;
-
-function ogretmenSiralamasiCoz(deger: string | null): OgretmenSiralamasi {
-  return deger !== null && deger in SIRALAMALAR
-    ? (deger as OgretmenSiralamasi)
-    : "ad-az";
-}
-
-function ogretmenSirasi(
-  siralama: OgretmenSiralamasi,
-): Prisma.KullaniciOrderByWithRelationInput[] {
-  const yon = siralama.endsWith("-za") ? ("desc" as const) : ("asc" as const);
-  const adSoyad = [{ ad: yon }, { soyad: yon }];
-
-  if (siralama.startsWith("brans")) {
-    return [{ brans: { sort: yon, nulls: "last" } }, { ad: "asc" }, { soyad: "asc" }];
-  }
-  if (siralama.startsWith("okul")) {
-    return [
-      { kurum: { ad: yon } },
-      { ad: "asc" },
-      { soyad: "asc" },
-    ];
-  }
-  return adSoyad;
-}
+/*
+ * SIRALAMA SÜZGECİ KALDIRILDI (31 Ağustos 2026 · istek: "bu sayfada sıralama
+ * filtresini kaldır").
+ *
+ * Altı seçenekli bir açılır liste vardı (ad/branş/okul × A→Z, Z→A) ve
+ * `SIRALAMALAR`, `ogretmenSiralamasiCoz`, `ogretmenSirasi` üçlüsüyle
+ * kuruluyordu. Üçü de silindi; geride "her zaman varsayılanı döndüren" bir
+ * çözümleyici bırakmak, okuyan kişiye hâlâ bir seçim varmış izlenimi verirdi.
+ *
+ * SIRA SABİTLENDİ: ad, sonra soyad, A→Z. Listenin işi bir kişiyi BULMAK ve
+ * alfabetik sıra bunun için yeterli; sütun süzgeçleri geldiği için "branşa göre
+ * sırala" da artık "branşı süz" ile karşılanıyor — sıralama, aradığı branşı
+ * listenin ortasında bulmayı gerektiriyordu, süzgeç doğrudan gösteriyor.
+ */
+const OGRETMEN_SIRASI: Prisma.KullaniciOrderByWithRelationInput[] = [
+  { ad: "asc" },
+  { soyad: "asc" },
+];
 
 export default async function OgretmenlerSayfasi({
   searchParams,
@@ -150,7 +145,6 @@ export default async function OgretmenlerSayfasi({
   const filtreler = ogretmenFiltreleriniCoz(parametreler);
   const filtreVar = ogretmenFiltresiVarMi(filtreler);
 
-  const siralama = ogretmenSiralamasiCoz(tekil(parametreler.sirala));
   const koordinatorIli = koordinatorIlKodu(kullanici);
   const seciliIl = filtreler.ilKodu ?? koordinatorIli;
 
@@ -193,7 +187,27 @@ export default async function OgretmenlerSayfasi({
       ad: true,
       soyad: true,
       brans: true,
-      kurum: { select: { ad: true, okulTuru: true } },
+      /*
+        OKULUN İL VE İLÇESİ DE ÇEKİLİYOR (31 Ağustos 2026 · istek: "sütunda
+        sadece il adı çıkıyor, il / ilçe adı olsun").
+
+        SEBEP VERİDEYDİ: kullanıcı kaydındaki `ilce_kodu` çoğu öğretmende BOŞ
+        (413 kayıttan 55'inde il bile yok) — e-Okul senkronu kişiye ilçe
+        yazmıyor, ilçe OKULUN kaydında duruyor. Hücre kişinin kendi alanına
+        bakıyordu ve o boş olduğu için yalnızca il basılıyordu.
+
+        SIRA ÖNEMLİ: önce kişinin kendi alanı, yoksa okulunkine düşülüyor.
+        Tersi olsaydı, okulu değiştirilmiş ama kaydı güncellenmemiş bir
+        öğretmende ekran kişinin kaydıyla çelişirdi.
+      */
+      kurum: {
+        select: {
+          ad: true,
+          okulTuru: true,
+          il: { select: { ad: true } },
+          ilce: { select: { ad: true } },
+        },
+      },
       /*
         İLETİŞİM SÜTUNLARI (27 Ağustos 2026 · istek: "öğretmenin eposta adresi
         ve telefon sütunlarını ekle").
@@ -241,7 +255,7 @@ export default async function OgretmenlerSayfasi({
         },
       },
     },
-    orderBy: ogretmenSirasi(siralama),
+    orderBy: OGRETMEN_SIRASI,
   });
 
   await erisimLoglaCoklu(
@@ -310,7 +324,16 @@ export default async function OgretmenlerSayfasi({
         }
       />
 
-      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart">
+      {/*
+        FORMA `id` VERİLDİ (31 Ağustos 2026): sütun süzgeçleri tablonun içinde,
+        yani bu formun DIŞINDA duruyor ve ona `form="ogretmen-suzgeci"` ile
+        bağlanıyor (bkz. components/SutunSuzgeci.tsx).
+      */}
+      <form
+        id={SUZGEC_FORMU}
+        method="get"
+        className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
+      >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -328,97 +351,20 @@ export default async function OgretmenlerSayfasi({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {yerFiltresiVar && (
-            <>
-              <label className="block">
-                <span className={SINIF_ETIKET}>İl</span>
-                <select
-                  name="il"
-                  defaultValue={filtreler.ilKodu ?? ""}
-                  className={SINIF_SECIM}
-                  disabled={iller.length <= 1}
-                >
-                  <option value="">
-                    {iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"}
-                  </option>
-                  {iller.map((il) => (
-                    <option key={il.ilKodu} value={il.ilKodu}>
-                      {il.ad}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          {/*
+            İL, İLÇE, OKUL, OKUL TÜRÜ, BRANŞ VE AD SÜZGEÇLERİ SÜTUN
+            BAŞLIKLARINA TAŞINDI (31 Ağustos 2026 · istek: "bu sayfada aynı" —
+            Okullar ekranındaki sütun süzgeçlerinin aynısı).
 
-              <label className="block">
-                <span className={SINIF_ETIKET}>İlçe</span>
-                <select
-                  name="ilce"
-                  defaultValue={filtreler.ilceKodu ?? ""}
-                  className={SINIF_SECIM}
-                  disabled={ilceler.length === 0}
-                >
-                  <option value="">
-                    {ilceler.length === 0 ? "Önce il seçin" : "Tüm ilçeler"}
-                  </option>
-                  {ilceler.map((ilce) => (
-                    <option key={ilce.ilceKodu} value={ilce.ilceKodu}>
-                      {ilce.ad}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            KARTTAN SİLİNDİLER, KOPYALANMADILAR: aynı `name` iki denetimde
+            bulunsaydı form ikisini de gönderir ve sütundaki kutuya yazan kişi
+            karttaki boş kutunun kazandığını görürdü (gerekçenin tamamı
+            components/SutunSuzgeci.tsx içinde).
 
-              <label className="block">
-                <span className={SINIF_ETIKET}>Okul</span>
-                <select
-                  name="okul"
-                  defaultValue={
-                    filtreler.kurumKodu ? String(filtreler.kurumKodu) : ""
-                  }
-                  className={SINIF_SECIM}
-                  disabled={okullar.length === 0}
-                >
-                  <option value="">
-                    {okullar.length === 0 ? "Önce il seçin" : "Tüm okullar"}
-                  </option>
-                  {okullar.map((okul) => (
-                    <option key={okul.kurumKodu} value={okul.kurumKodu}>
-                      {okul.ad}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          )}
-
-          <label className="block">
-            <span className={SINIF_ETIKET}>Okul türü</span>
-            <select
-              name="okulTuru"
-              defaultValue={filtreler.okulTuru ?? ""}
-              className={SINIF_SECIM}
-            >
-              <option value="">Tüm okul türleri</option>
-              {/* Seçenekler Okullar ekranıyla aynı kaynaktan — bkz. lib/okul/turler.ts. */}
-              {okulTuruSecenekleri(okulTurleri).map((tur) => (
-                <option key={tur} value={tur}>
-                  {tur}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className={SINIF_ETIKET}>Branş</span>
-            <input
-              type="text"
-              name="brans"
-              placeholder="Bilişim Teknolojileri"
-              defaultValue={filtreler.brans ?? ""}
-              className={SINIF_SECIM}
-            />
-          </label>
-
+            KARTTA YALNIZCA SÜTUNU OLMAYAN SÜZGEÇ KALIYOR: "Görev aldığı yıl"
+            bir sütunu süzmüyor — görev yılları sütunu 27 Ağustos'ta listeden
+            kalktı ve bilgi öğretmenin kendi katkı kartında duruyor.
+          */}
           <label className="block">
             <span className={SINIF_ETIKET}>Görev aldığı yıl</span>
             <select
@@ -435,37 +381,6 @@ export default async function OgretmenlerSayfasi({
             </select>
           </label>
 
-          {/*
-            SIRALAMA SÜZGEÇ FORMUNUN İÇİNDE: ayrı bir denetim olsaydı sıralamayı
-            değiştiren kişinin süzgeçleri sıfırlanırdı — form `method="get"` ve
-            gönderdiği şey sayfanın tüm sorgu dizesi. Aynı çözüm rol
-            envanterinde de var.
-          */}
-          <label className="block">
-            <span className={SINIF_ETIKET}>Sırala</span>
-            <select
-              name="sirala"
-              defaultValue={siralama}
-              className={SINIF_SECIM}
-            >
-              {Object.entries(SIRALAMALAR).map(([deger, etiket]) => (
-                <option key={deger} value={deger}>
-                  {etiket}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className={SINIF_ETIKET}>Ad veya soyad</span>
-            <input
-              type="text"
-              name="ara"
-              placeholder="Ara"
-              defaultValue={filtreler.ara ?? ""}
-              className={SINIF_SECIM}
-            />
-          </label>
         </div>
 
         {/*
@@ -505,7 +420,6 @@ export default async function OgretmenlerSayfasi({
               <tr>
                 <th className="px-4 py-3 font-medium">Ad Soyad</th>
                 <th className="px-4 py-3 font-medium">Branş</th>
-                <th className="px-4 py-3 font-medium">Okul</th>
                 <th className="px-4 py-3 font-medium">İl / İlçe</th>
                 {/*
                   "GÖREV" SÜTUNU YERİNE "OKUL TÜRÜ" (27 Ağustos 2026 · istek:
@@ -522,11 +436,115 @@ export default async function OgretmenlerSayfasi({
                   kartında görev dönemleri yazıyor.
                 */}
                 <th className="px-4 py-3 font-medium">Okul türü</th>
+                {/*
+                  OKUL SÜTUNU İKİ SÜTUN SAĞA ALINDI (31 Ağustos 2026 · istek:
+                  "listede okul adı iki sütun sağa kaysın, il ilçe ve okul
+                  türünden sonra gelsin").
+
+                  YENİ SIRA DARDAN GENİŞE DEĞİL, GENİŞTEN DARA: önce kişinin
+                  kendisi (ad, branş), sonra yeri (il/ilçe → okul türü → okul).
+                  Okul adı, il ve türüyle birlikte okunduğunda anlam kazanan en
+                  dar basamak; başta durduğunda satırın en uzun hücresi olarak
+                  kişiyle yer bilgisinin arasına giriyordu.
+
+                  SÜZGEÇ SATIRI DA AYNI SIRAYA TAŞINDI: sütun süzgeci, altında
+                  durduğu sütunu süzmezse başlıklar yalan söyler.
+                */}
+                <th className="px-4 py-3 font-medium">Okul</th>
                 <th className="px-4 py-3 font-medium">Öğrenci</th>
                 <th className="px-4 py-3 font-medium">Okul sorumlusu</th>
                 <th className="px-4 py-3 font-medium">Telefon</th>
                 <th className="px-4 py-3 font-medium">E-posta</th>
               </tr>
+
+              {/*
+                SÜZGEÇ SATIRI. Süzgeci olan sütunlar Okullar ekranıyla aynı
+                mantıkla seçildi: kişiyi ve okulunu DARALTAN alanlar. Öğrenci
+                sayısı, okul sorumlusu, telefon ve e-posta boş kalıyor —
+                sayıyı süzmek karşılaştırma gerektirir, iletişim alanları ise
+                aramanın değil ulaşmanın konusu.
+
+                İL/İLÇE TEK HÜCREDE İKİ KUTU: sütun başlığı da tek ("İl /
+                İlçe"). İl seçilmeden ilçe kapalı — ilçe listesi ilden türüyor.
+
+                OKUL BİR AÇILIR LİSTE, metin kutusu değil: filtre kurum
+                KODUYLA çalışıyor (`okul` parametresi bir sayıdır, bkz.
+                filtreler.ts) ve okul adı yazdırmak, aynı adı taşıyan iki
+                okulu ayırt edemezdi.
+              */}
+              <SutunSuzgecSatiri>
+                <SutunMetinSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="ara"
+                  deger={filtreler.ara}
+                  ipucu="Ad veya soyad"
+                />
+                <SutunMetinSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="brans"
+                  deger={filtreler.brans}
+                  ipucu="Branş"
+                />
+                {yerFiltresiVar ? (
+                  <SutunSuzgecHucresi>
+                    <SuzgecSecimKutusu
+                      form={SUZGEC_FORMU}
+                      ad="il"
+                      deger={filtreler.ilKodu}
+                      bosEtiket={
+                        iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"
+                      }
+                      etiket="İl"
+                      devreDisi={iller.length <= 1}
+                      secenekler={iller.map((il) => ({
+                        deger: il.ilKodu,
+                        etiket: il.ad,
+                      }))}
+                    />
+                    <SuzgecSecimKutusu
+                      form={SUZGEC_FORMU}
+                      ad="ilce"
+                      deger={filtreler.ilceKodu}
+                      bosEtiket={
+                        ilceler.length === 0 ? "Önce il seçin" : "Tüm ilçeler"
+                      }
+                      etiket="İlçe"
+                      devreDisi={ilceler.length === 0}
+                      secenekler={ilceler.map((ilce) => ({
+                        deger: ilce.ilceKodu,
+                        etiket: ilce.ad,
+                      }))}
+                    />
+                  </SutunSuzgecHucresi>
+                ) : (
+                  <SutunSuzgecBoslugu />
+                )}
+                <SutunSecimSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="okulTuru"
+                  deger={filtreler.okulTuru}
+                  bosEtiket="Tüm okul türleri"
+                  etiket="Okul türü"
+                  secenekler={okulTuruSecenekleri(okulTurleri)
+                    .filter((tur) => tur !== "")
+                    .map((tur) => ({ deger: tur, etiket: tur }))}
+                />
+                <SutunSecimSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="okul"
+                  deger={
+                    filtreler.kurumKodu ? String(filtreler.kurumKodu) : null
+                  }
+                  bosEtiket={okullar.length === 0 ? "Önce il seçin" : "Tüm okullar"}
+                  etiket="Okul"
+                  devreDisi={okullar.length === 0}
+                  secenekler={okullar.map((okul) => ({
+                    deger: String(okul.kurumKodu),
+                    etiket: okul.ad,
+                  }))}
+                />
+                <SutunSuzgecDugmesi form={SUZGEC_FORMU} colSpan={4} />
+              </SutunSuzgecSatiri>
             </thead>
             <tbody>
               {ogretmenler.map((ogretmen) => {
@@ -552,14 +570,18 @@ export default async function OgretmenlerSayfasi({
                       {ogretmen.brans ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {ogretmen.kurum?.ad ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-metin-yumusak">
-                      {ogretmen.il?.ad ?? "—"}
-                      {ogretmen.ilce?.ad ? ` / ${ogretmen.ilce.ad}` : ""}
+                      {ogretmen.il?.ad ?? ogretmen.kurum?.il?.ad ?? "—"}
+                      {(() => {
+                        const ilce =
+                          ogretmen.ilce?.ad ?? ogretmen.kurum?.ilce?.ad;
+                        return ilce ? ` / ${ilce}` : "";
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
                       {ogretmen.kurum?.okulTuru ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-metin-yumusak">
+                      {ogretmen.kurum?.ad ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
                       {ogretmen._count.danismanAtamalari}

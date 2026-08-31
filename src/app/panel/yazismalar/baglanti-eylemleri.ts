@@ -6,6 +6,10 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { BILDIRIM_KODLARI, bildirimGonder } from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
 import { dogrudanYazisilabilirMi } from "@/lib/iletisim/kurallar";
+import {
+  koordinatorIlKodu,
+  projeYoneticisiMi,
+} from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi } from "@/lib/yetki/tipler";
 
@@ -102,12 +106,55 @@ export async function dogrudanYazismaAcEylemi(veri: FormData): Promise<void> {
     hataylaDon(YOL, "Bu kullanıcıya şu anda mesaj gönderilemiyor.");
   }
 
+  /*
+   * AYNI EKİPTEN Mİ? (31 Ağustos 2026 · istek: "Ekibindeki herkesi görsün
+   * tıklanınca ve bireysel ve toplu mesaj atabilsin ekiptekilere").
+   *
+   * İKİ HÂL DE SAYILIYOR ve ikisi tek sorguda:
+   *   · ÜYE–ÜYE — iki taraf da AÇIK bir ekibin üyesi. Ekip sohbetinde zaten
+   *     birbirlerine yazıyorlar.
+   *   · YÖNETİCİ–ÜYE — ekibi kuran il koordinatörü (ya da merkez) ekibin
+   *     üyesi olmayabilir; `ekipSohbetiOkuyabilirMi` onu ekibin bir parçası
+   *     sayıyor ve buradaki kapı da aynı kitleyi tanımalı. Saymasaydı,
+   *     ekibini kuran koordinatör üyelerine birebir yazamazdı — isteğin tam
+   *     olarak istediği şey bu.
+   *
+   * KAPALI EKİP SAYILMIYOR: arşive dönmüş bir ekip yeni bir kanal açmaz
+   * (ekipSohbetineYazabilirMi ile aynı ayrım).
+   *
+   * KAPSAM VERİTABANINDAN: hedefin ekip üyeliği de, oturumdaki kişinin ekiple
+   * ilişkisi de burada sorulur — ekrandan gelen bir "ekipId" değerine
+   * güvenilseydi, hiç üyesi olmadığı bir ekibin kimliğini yazan kişi ilin
+   * herhangi bir öğrencisine yazışma açabilirdi.
+   */
+  const yonetilenEkipKosulu = projeYoneticisiMi(kullanici)
+    ? // Merkez her ekibi yönetir; ek bir daraltma yok.
+      [{}]
+    : (() => {
+        const ilKodu = koordinatorIlKodu(kullanici);
+        // Koordinatör değilse yönetilen ekip YOKTUR — koşul hiç eklenmiyor.
+        return ilKodu ? [{ ilKodu }] : [];
+      })();
+
+  const ortakEkip = await prisma.ekip.findFirst({
+    where: {
+      aktif: true,
+      uyeler: { some: { kullaniciId: hedef.id } },
+      OR: [
+        { uyeler: { some: { kullaniciId: kullanici.id } } },
+        ...yonetilenEkipKosulu,
+      ],
+    },
+    select: { id: true },
+  });
+
   const karar = dogrudanYazisilabilirMi({
     isteyenId: kullanici.id,
     hedefId: hedef.id,
     isteyenKurumKodu: kullanici.kurumKodu,
     hedefKurumKodu: hedef.kurumKodu,
     hedefOkulTemsilcisiMi: hedef.gorevRolleri.length > 0,
+    ayniEkiptenMi: ortakEkip !== null,
   });
   if (!karar.olurMu) {
     hataylaDon(YOL, karar.neden ?? "Bu kişiyle doğrudan yazışamazsınız.");

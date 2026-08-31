@@ -27,7 +27,7 @@ import { prisma } from "@/lib/db";
 import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
-import { faaliyetRaporuYazabilirMi } from "@/lib/yetki/izinler";
+import { faaliyetBelgesiUretebilirMi } from "@/lib/yetki/izinler";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export default async function BelgelerSayfasi({
 
   const faaliyet = await gorunurFaaliyetGetir(kullanici, Number.parseInt(id, 10));
   if (!faaliyet) notFound();
-  if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) notFound();
+  if (!faaliyetBelgesiUretebilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) notFound();
 
   /*
    * RAPOR KAPISI (12 Ağustos 2026 · istek: "etkinlik raporu yazılmadan belge

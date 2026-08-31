@@ -1,6 +1,7 @@
 import { BadgeCheck, Filter, ShieldQuestion, UserCog, X } from "lucide-react";
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
+import { OtomatikSecimKutusu } from "@/components/SuzgecOtomatikSecim";
 import {
   BilgiKutusu,
   Kart,
@@ -408,21 +409,29 @@ export default async function GorevRolleriSayfasi({
             <>
               <label className="block">
                 <span className={SINIF_ETIKET}>İl</span>
-                <select
-                  name="il"
-                  defaultValue={filtreler.ilKodu ?? ""}
-                  className={SINIF_SECIM}
-                  disabled={iller.length <= 1}
-                >
-                  <option value="">
-                    {iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"}
-                  </option>
-                  {iller.map((il) => (
-                    <option key={il.ilKodu} value={il.ilKodu}>
-                      {il.ad}
-                    </option>
-                  ))}
-                </select>
+                {/*
+                  İL SEÇİLİR SEÇİLMEZ SÜZÜYOR (31 Ağustos 2026 · istek: "önce
+                  ili seçiyorum ilçe seçilemiyor … dinamik olamaz mı"): hemen
+                  altındaki ilçe ve okul kutuları sunucuda, seçili ile göre
+                  hazırlanıyor ve il gönderilmeden ikisi de kapalı kalıyordu.
+                  Kutu kendi formunu gönderiyor; "Filtrele" düğmesi yerinde
+                  duruyor ve JavaScript kapalıyken ekran eskisi gibi çalışıyor
+                  (bkz. components/SuzgecOtomatikSecim.tsx).
+                */}
+                <OtomatikSecimKutusu
+                  ad="il"
+                  deger={filtreler.ilKodu}
+                  bosEtiket={
+                    iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"
+                  }
+                  etiket="İl"
+                  devreDisi={iller.length <= 1}
+                  sinif={SINIF_SECIM}
+                  secenekler={iller.map((il) => ({
+                    deger: il.ilKodu,
+                    etiket: il.ad,
+                  }))}
+                />
               </label>
 
               <label className="block">

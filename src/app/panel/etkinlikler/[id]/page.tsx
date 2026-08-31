@@ -84,6 +84,7 @@ import {
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
+  faaliyetBelgesiUretebilirMi,
   faaliyetRaporuYazabilirMi,
   ilKoordinatoruMu,
   projeYoneticisiMi,
@@ -561,12 +562,34 @@ export default async function FaaliyetDetaySayfasi({
   const yoklamaSayilari = yoklamaOzeti(yoklamaListesi);
 
   /*
+   * BELGE ÜRETİMİ YÜRÜTÜCÜLÜKTEN DAR (31 Ağustos 2026 · istek: "Öğrenci
+   * açtığı etkinlik için belge oluşturamasın … etkinliği öğrenci oluştursa
+   * bile il koordinatörü belge oluşturabilsin o etkinliğe dair").
+   *
+   * Yoklama ve bilgi notu `yurutucuMu` ile açık kalıyor — etkinliği yürüten
+   * öğrenci kimin geldiğini işaretlemeye ve ne olduğunu yazmaya devam ediyor.
+   * Belge ayrı bir kapıdan geçiyor çünkü ayrı bir şey: beyan değil ONAY
+   * (bkz. lib/yetki/izinler.ts · faaliyetBelgesiUretebilirMi).
+   */
+  const belgeUretebilir = faaliyetBelgesiUretebilirMi(kullanici, kapsamBilgisi);
+
+  /*
    * Belge kapısı EKRANDA da sorulur ki kullanıcı kapalı bir yola tıklamasın;
    * asıl engel belge üreten yollarda (bkz. lib/belge/kapi.ts · belgeKapisi).
    */
-  const belgeKapisiKarari = yurutucuMu
+  const belgeKapisiKarari = belgeUretebilir
     ? belgeKapisi({ raporVarMi: await faaliyetRaporuVarMi(faaliyet.id) })
     : { olurMu: false, neden: null };
+
+  /*
+   * PASİF DÜĞMENİN ALTINDAKİ TEK CÜMLE. Yetki engeli ÖNCE geliyor: yetkisi
+   * olmayan kişiye "önce raporu yazın" demek, kapanınca düğmenin açılacağını
+   * söylemek olurdu — oysa açılmaz. Rapor engeli ise yalnızca yetkisi olana
+   * gösteriliyor ve orada gerçekten yapılacak bir iş var.
+   */
+  const belgeEngeli = belgeUretebilir
+    ? belgeKapisiKarari.neden
+    : "Katılım ve teşekkür belgelerini il koordinatörü oluşturur. Yoklamayı tamamlayıp bilgi raporunu sisteme eklediğinizde belge adımı ona düşer.";
 
   const paydaslar = await prisma.faaliyetPaydas.findMany({
     where: { faaliyetId: faaliyet.id },
@@ -1552,7 +1575,19 @@ export default async function FaaliyetDetaySayfasi({
       {yurutucuMu && (
         <KatlanabilirKart
           baslik="Belgeleme"
-          aciklama="Sıra: yoklama → bilgi notu → belge. Belge, kişinin GençTek Yolculuğu'na katılım düşürdüğü için son adımdır."
+          /*
+            AÇIKLAMA SIRAYI DEĞİL SORUMLULUĞU ANLATIYOR (31 Ağustos 2026 ·
+            istek: "Bu açıklama değişecek, etkinlik il koordinatörü tarafından
+            sistemden onaylanır. Katılım belgeleri il koordinatörleri
+            tarafından oluşturulur. Şeklinde olacak").
+
+            Eski cümle "yoklama → bilgi notu → belge" sırasını yazıyordu ve
+            bunu HERKESE aynı şekilde söylüyordu. Belge artık öğrencide
+            basılmadığına göre (bkz. belgeUretebilir) sırayı okuyan kişi son
+            adımın kendisinde olmadığını cümleden anlayamazdı. Yeni cümle onu
+            söylüyor: belgenin muhatabı il koordinatörüdür.
+          */
+          aciklama="Etkinlik il koordinatörü tarafından sistemden onaylanır. Katılım belgeleri il koordinatörleri tarafından oluşturulur."
           Ikon={Award}
           duzenlenebilir
         >
@@ -1670,7 +1705,22 @@ export default async function FaaliyetDetaySayfasi({
             soruluyor (bkz. lib/belge/kapi.ts) — kapalı düğme bir güvenlik
             önlemi değil, kullanıcıyı boşuna tıklatmama nezaketi.
           */}
-          {belgeKapisiKarari.olurMu ? (
+          {/*
+            YETKİSİ OLMAYANA DÜĞME PASİF BASILIYOR, GİZLENMİYOR (31 Ağustos
+            2026 · istek: "öğretmenin belge üretme butonları pasif olsun").
+
+            Kısa bir süre düğme yerine yalnızca bir cümle basılıyordu; gerekçe
+            "kapalı düğme, bir eksiğini tamamlarsan açılır demektir" idi.
+            İstek bunun tersini söylüyor ve haklı: düğme hiç görünmeyince
+            etkinliğin belge diye bir adımı olduğu da görünmüyordu. Öğretmen o
+            adımın VARLIĞINI bilmeli — yoklamayı ve raporu onun için yazıyor.
+
+            İKİ AYRI SEBEP, İKİ AYRI CÜMLE: rapor kapısı "bir eksik var" der ve
+            eksiği kapatacak kişi odur; yetki kapısı "bu adım senin değil" der
+            ve muhatabı gösterir. Aynı pasif düğmenin altında ikisi
+            karışmasın diye gerekçe ayrı hesaplanıyor.
+          */}
+          {belgeUretebilir && belgeKapisiKarari.olurMu ? (
             <Link
               href={`/panel/etkinlikler/${faaliyet.id}/belgeler`}
               className={SINIF_IKINCIL_BUTON}
@@ -1682,16 +1732,14 @@ export default async function FaaliyetDetaySayfasi({
             <span
               className={`${SINIF_IKINCIL_BUTON} cursor-not-allowed opacity-50`}
               aria-disabled
-              title={belgeKapisiKarari.neden ?? undefined}
+              title={belgeEngeli ?? undefined}
             >
               <Award size={16} aria-hidden />
               Katılım / teşekkür belgesi
             </span>
           )}
-          {!belgeKapisiKarari.olurMu && (
-            <p className="mt-3 text-sm text-metin-yumusak">
-              {belgeKapisiKarari.neden}
-            </p>
+          {belgeEngeli && (
+            <p className="mt-3 text-sm text-metin-yumusak">{belgeEngeli}</p>
           )}
         </KatlanabilirKart>
       )}

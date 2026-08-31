@@ -362,6 +362,14 @@ export function baglantiIstegiGonderilebilirMi(girdi: {
  *     sistemin dışında zaten var olan bir teması sistem içinde yasaklamaktı.
  *   · OKUL TEMSİLCİSİ — görevi tam olarak "kendisine ulaşılabilmesi"dir;
  *     temsilciye yazmak için onay istemek, görevi işlevsiz bırakıyordu.
+ *   · AYNI EKİP (31 Ağustos 2026 · istek: "Ekibindeki herkesi görsün
+ *     tıklanınca ve bireysel ve toplu mesaj atabilsin ekiptekilere") — ekip
+ *     zaten onaysız bir yazışma kanalıdır: üyeler ekip sohbetinde birbirlerine
+ *     yazıyor (bkz. lib/ekip/kurallar.ts · ekipSohbetineYazabilirMi) ve o
+ *     kanalı açan karar, ilin koordinatörünün kişileri aynı ekibe koymuş
+ *     olmasıdır. Toplu kanalı açık olan iki kişiye birebir yazışmayı
+ *     yasaklamak, aynı iki kişiyi aynı odada tutup fısıldaşmalarını yasaklamak
+ *     gibiydi — üstelik ikisi de aynı gözetime tabi.
  *
  * GÖZETİM DEĞİŞMEDİ: bu yolla açılan yazışmayı da danışman öğretmen, il
  * koordinatörü ve proje yöneticisi okuyabiliyor (bkz. yazismaKapsamFiltresi).
@@ -377,6 +385,15 @@ export function dogrudanYazisilabilirMi(girdi: {
   hedefKurumKodu: number | null;
   /** Hedef, yürürlükteki dönemde okul temsilcisi mi? */
   hedefOkulTemsilcisiMi: boolean;
+  /**
+   * İki taraf AÇIK bir ekipte birlikte mi (ya da isteyen o ekibi yönetiyor mu)?
+   *
+   * İSTEĞE BAĞLI ALAN ve varsayılanı `false`: kararı soran her çağıran ekip
+   * bağını hesaplamak zorunda değil — panodaki kişi listesi gibi ekiplerle
+   * hiç ilgilenmeyen yollar eskisi gibi çalışıyor. Bilgiyi VERMEYEN çağıran
+   * dar tarafta kalıyor, geniş tarafta değil.
+   */
+  ayniEkiptenMi?: boolean;
 }): { olurMu: boolean; neden?: string } {
   if (girdi.isteyenId === girdi.hedefId) {
     return { olurMu: false, neden: "Kendinize mesaj gönderemezsiniz." };
@@ -386,7 +403,7 @@ export function dogrudanYazisilabilirMi(girdi: {
     girdi.isteyenKurumKodu !== null &&
     girdi.isteyenKurumKodu === girdi.hedefKurumKodu;
 
-  if (ayniOkul || girdi.hedefOkulTemsilcisiMi) {
+  if (ayniOkul || girdi.hedefOkulTemsilcisiMi || girdi.ayniEkiptenMi === true) {
     return { olurMu: true };
   }
 

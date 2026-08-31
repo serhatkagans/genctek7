@@ -25,6 +25,9 @@ export function okulSuzgeciniCoz(
     ilceKodu: tekil(parametreler.ilce),
     okulTuru: tekil(parametreler.okulTuru),
     ara: tekil(parametreler.ara),
+    // Sütun süzgeçleri; `ara`dan ayrı tutulur (bkz. yonetim-kurallari.ts).
+    okulAdi: tekil(parametreler.okul),
+    kurumKodu: tekil(parametreler.kurumKodu),
     /*
       EKİP SÜZGECİ BU EKRANDAN KALKTI (27 Ağustos 2026 · istek: "bunları sil ·
       Ekip tanımlanan / Ekip tanımlanmayan"). Kural katmanındaki `ekipDurumu`
@@ -64,6 +67,8 @@ export function okulSorgusu(
   if (suzgec.ilceKodu) sorgu.set("ilce", suzgec.ilceKodu);
   if (suzgec.okulTuru) sorgu.set("okulTuru", suzgec.okulTuru);
   if (suzgec.ara) sorgu.set("ara", suzgec.ara);
+  if (suzgec.okulAdi) sorgu.set("okul", suzgec.okulAdi);
+  if (suzgec.kurumKodu) sorgu.set("kurumKodu", suzgec.kurumKodu);
   if (suzgec.danismanDurumu && suzgec.danismanDurumu !== "hepsi") {
     sorgu.set("danisman", suzgec.danismanDurumu);
   }

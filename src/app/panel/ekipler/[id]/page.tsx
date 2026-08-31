@@ -1,4 +1,4 @@
-import { ArrowLeft, MessageSquare, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, MessageSquare, Send, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RolEtiketi } from "@/components/RolEtiketi";
@@ -31,6 +31,7 @@ import {
 } from "@/lib/ekip/aday-suzgeci";
 import { okulTuruSecenekleri } from "@/lib/okul/turler";
 import { tarihSaatYaz } from "@/lib/tarih";
+import { dogrudanYazismaAcEylemi } from "../../yazismalar/baglanti-eylemleri";
 import {
   ekibeUyeEkleEylemi,
   ekibiKapatEylemi,
@@ -328,6 +329,22 @@ export default async function EkipSayfasi({
           Ikon={Users}
         />
         {/*
+          ÜYE LİSTESİ HEM TOPLU HEM BİREYSEL KANALIN KAPISI (31 Ağustos 2026 ·
+          istek: "Ekibindeki herkesi görsün tıklanınca ve bireysel ve toplu
+          mesaj atabilsin ekiptekilere").
+
+          TOPLU KANAL YUKARIDAKİ SOHBET: ekibe yazılan bir mesaj bütün üyelerin
+          okuduğu mesajdır ve ayrıca bir "toplu mesaj" düğmesi eklemek aynı işi
+          iki kapıya bölerdi. Kitlesel BİLDİRİM göndermek isteyen koordinatörün
+          yolu ise Yönetim Paneli · Toplu Mesaj — orada bu ekip tek başına bir
+          alıcı grubudur (bkz. lib/bildirim/toplu-alicilar.ts).
+
+          BİREYSEL KANAL SATIRIN KENDİSİNDE: aşağıdaki "Mesaj" düğmesi kişiyle
+          birebir yazışmayı açıyor. Onay kapısı bu ikisi için zaten kapalı
+          değil — aynı ekipte olmak, kanalı açan karardır (bkz.
+          lib/iletisim/kurallar.ts · dogrudanYazisilabilirMi).
+        */}
+        {/*
           ÜYE LİSTESİ ÇIKTISI BURAYA TAŞINDI (26 Ağustos 2026 · istek: "İşlemler
           altında görüntüleme ve excel simgeleri var küçük … simge olanı
           kaldır").
@@ -379,15 +396,31 @@ export default async function EkipSayfasi({
                     {tarihSaatYaz(eklenmeTarihi)} tarihinde eklendi
                   </span>
                 </span>
-                {yonetebilir && ekip.aktif && (
-                  <form action={ekiptenUyeCikarEylemi}>
-                    <input type="hidden" name="ekipId" value={ekip.id} />
-                    <input type="hidden" name="kullaniciId" value={uye.id} />
-                    <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                      Çıkar
-                    </button>
-                  </form>
-                )}
+                <span className="flex flex-wrap items-center gap-2">
+                  {/*
+                    KENDİNE MESAJ DÜĞMESİ BASILMIYOR: kural da izin vermiyor
+                    ("Kendinize mesaj gönderemezsiniz") ve tıklanınca hata
+                    veren bir düğme, olmayan düğmeden kötüdür.
+                  */}
+                  {uye.id !== kullanici.id && (
+                    <form action={dogrudanYazismaAcEylemi}>
+                      <input type="hidden" name="hedefId" value={uye.id} />
+                      <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                        <Send size={15} aria-hidden />
+                        Mesaj
+                      </button>
+                    </form>
+                  )}
+                  {yonetebilir && ekip.aktif && (
+                    <form action={ekiptenUyeCikarEylemi}>
+                      <input type="hidden" name="ekipId" value={ekip.id} />
+                      <input type="hidden" name="kullaniciId" value={uye.id} />
+                      <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                        Çıkar
+                      </button>
+                    </form>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

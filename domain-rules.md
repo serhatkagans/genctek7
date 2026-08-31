@@ -738,7 +738,7 @@ Bölümler Panelim'de **katlı** gelir: orası kullanıcının ilk gördüğü e
 | **Kazanım kayıtları** (7 açık tür) | Öğrenci beyanı, `kullanici_kazanim` | Yalnızca öğrencinin kendisi |
 | **Rotam** (hedefler) | Öğrenci beyanı, `kullanici_hedefi` | Yalnızca öğrencinin kendisi — **başkası göremez** |
 | **Özgeçmiş (CV)** | Öğrencinin yüklediği dosya | Yalnızca öğrencinin kendisi |
-| **Referanslarım** | Öğrenci beyanı, `kullanici_referansi` | Yalnızca öğrencinin kendisi — **başkası göremez** (satırın içi üçüncü bir kişinin iletişim bilgisi) |
+| **Referanslarım** | Kişinin kendi beyanı, `kullanici_referansi` (öğrenci **ve öğretmen**) | Yalnızca kaydın sahibi — **başkası göremez** (satırın içi üçüncü bir kişinin iletişim bilgisi) |
 
 ### Katılım artık BELGEDEN doğar (7 Ağustos 2026)
 
@@ -770,7 +770,18 @@ Belge, katılımın **dolaylı** kanıtıydı ve iki yönden eksikti: belge bas�
 |---|---|---|---|
 | Yoklama | Etkinliği yürüten kişi (`faaliyetRaporuYazabilirMi`) | Etkinlik sayfası · Yoklama kartı | Etkinlik bitmiş ve iptal değil |
 | Rapor | Aynı kişi | Etkinlik raporu ekranı | Etkinlik bitmiş |
-| Belge | Aynı kişi | Belgeler ekranı | **Rapor yazılmış** + kişi yoklamada **"geldi"** |
+| Belge | **Yalnızca il koordinatörü ve proje yöneticisi** (`faaliyetBelgesiUretebilirMi`) | Belgeler ekranı | **Rapor yazılmış** + kişi yoklamada **"geldi"** |
+
+**Belge, yoklama ve rapordan AYRI bir kapıdan geçer (31 Ağustos 2026).** İki istek kapıyı aynı gün iki kez daralttı: *"Öğrenci açtığı etkinlik için belge oluşturamasın … etkinliği öğrenci oluştursa bile il koordinatörü belge oluşturabilsin o etkinliğe dair."* ve *"Öğretmen de belge oluşturamasın, sadece koordinatör ve proje yöneticileri belge üretebilsin."*
+
+Üç adım 12 Ağustos'tan beri tek soruyla açılıyordu ve o zaman doğruydu. Artık değil: rapor bir **beyandır** (etkinliği yürüten kişi ne olduğunu yazar, yanlışsa kendisi hesap verir), belge ise bir **onaydır** — karşı tarafın GençTek Yolculuğu'na katılım düşürür ve elden ele dolaşan resmî şablonlu bir kâğıt olarak GençTek adına söz verir. Bu imzanın sahibi etkinliği yürüten kişi değil, **programın sorumlusudur**.
+
+- **"Etkinliği açan kişi" kolu kapıdan tümüyle çıktı.** `faaliyetBelgesiUretebilirMi`, `ekYukleyebilirMi`yi çağırmaz; çağırsaydı hem öğrenci hem öğretmen kendi etkinliğine belge basardı. Etkinliği kim açarsa açsın belgeyi ilin koordinatörü üretir.
+- **Yoklama ve rapor yürütücüde açık kalır:** etkinliği yürüten öğretmen (ya da öğrenci) kimin geldiğini işaretlemeye ve ne olduğunu yazmaya devam eder. Belgenin ön koşulu zaten o beyanın yazılmış olmasıdır.
+- **Koordinatörde il koşulu vardır**, proje yöneticisinde yoktur: başka ilin koordinatörü o ilin öğrencisine GençTek katılımı düşüremez; merkezin tek bir ile bağlılığı yoktur.
+- Kapı ekranda değil **belge üreten üç yolun hepsinde** sorulur (`belge/page.tsx`, `belge/toplu/page.tsx`, `belgeler/page.tsx`).
+- **Üretemeyen kişiye düğme pasif basılır, gizlenmez** (istek: *"öğretmenin belge üretme butonları pasif olsun"*). Düğme hiç görünmeyince etkinliğin belge diye bir adımı olduğu da görünmüyordu; öğretmen yoklamayı ve raporu o adım için yazıyor. Pasif düğmenin altındaki cümle **iki ayrı sebebi karıştırmaz**: yetki engeli "bu adım senin değil" der ve muhatabı gösterir, rapor engeli "bir eksik var" der ve eksiği kapatacak kişi odur. Yetki engeli önce gelir — yetkisi olmayana "önce raporu yazın" demek, kapanınca düğmenin açılacağını söylemek olurdu.
+- **`/panel/belgeler` giriş ekranı 404 vermez:** ekran sol menüde durur ve öğretmen oraya tıklamaya devam eder. Üretemeyen kişiye liste yerine muhatabını söyleyen bir cümle basılır (`belgeUretenRoldeMi`).
 
 **Yoklamanın üç hâli var:** `true` geldi · `false` gelmedi · `NULL` yoklama alınmadı. Üçüncüsü ayrı tutulur; "alınmadı" ile "gelmedi" aynı sayılsaydı yoklama almayan her etkinlik bütün katılımcılarının kazanılmış katılımını silerdi. Eski başvurular `NULL` kalır ve onlarda eski kural yürümeye devam eder.
 
@@ -857,14 +868,20 @@ Serbest metin değil **hedef listesidir**: her hedefin başlığı, isteğe bağ
 - **Ad soyad zorunlu; telefon ile e-postadan en az biri zorunlu.** Ulaşılamayan bir referans, referans değildir. İkisini birden zorunlu tutmak ise doğru bilgiyi geri çevirirdi — bir öğretmenin okul e-postasını verip cep numarasını paylaşmak istememesi olağan. Kısıt hem uygulama katmanında hem veritabanında (`ck_referans_iletisim`).
 - **Kurum isteğe bağlı:** emekli bir öğretmenin ya da aile dostu bir mühendisin kurumu olmayabilir; zorunlu olsaydı kişi olmayan bir kurum adı uydururdu. Unvan da bu alana yazılabilir, beşinci bir sütun açılmadı.
 - **Telefonda maske yok:** "0 (532) 111 22 33" ile "+90 532 111 22 33" aynı numaradır. Aranan tek şey içinde yeterince rakam olması — harf dolu bir kutu numara değildir.
-- **En fazla 5 referans.** Bir CV'nin taşıyabileceğinden zaten fazla; sınırın asıl işi listeyi bir iletişim defterine dönüşmekten alıkoymak.
+- **En fazla 3 referans** (31 Ağustos 2026'da 5'ten indi · istek: *"yeni referans eklenebilsin max 3 referans eklenebilsin"*). Sınırın işi listeyi bir iletişim defterine dönüşmekten alıkoymak. **Yalnızca eklemeye bakar:** sınırın üstünde kalmış kayıtlar silinmez, sahibi düzenlemeye devam eder.
 - **Düzenleme yok, sil ve yeniden yaz:** dört kısa alan için her satırın altına ikinci bir form basmak düzeltmenin kendisinden pahalı (aynı karar Rotam hedeflerinde de verildi).
 
 **SATIRIN İÇİ ÜÇÜNCÜ BİR KİŞİNİN KİŞİSEL VERİSİDİR** ve bütün görünürlük kararı buradan çıkıyor: telefon ve e-posta öğrencinin değil, referans gösterilen kişinin bilgisi ve o kişinin sistemde kaydı olmayabilir. Kayıt bu yüzden `kullanici_hedefi` gibi kişiye özel — danışman, koordinatör ve merkez ekranlarında **görünmüyor**. Görünseydi sistem, izni alınmamış üçüncü kişilerin iletişim bilgilerinden oluşan, il çapında süzülebilen bir rehbere dönüşürdü; kazanım kayıtlarından (danışman görür) ayrıldığı nokta budur. Aynı sebeple erişim kaydına referansın **adı yazılmaz**, yalnızca "bir referans eklendi" — denetim kaydı, veriyi ikinci bir yere kopyalamamalı.
 
 Bilgi tek yerden dışarı çıkıyor: kişinin kendi ürettiği **özgeçmiş** (bkz. "Profilden üretilen özgeçmiş"). Orada da doğru, çünkü belgeyi indiren kişi onu bilerek paylaşıyor ve referansını bunun için yazmış — ekrandaki form da "eklemeden önce referansınıza sorun" diyor. Sistem izni doğrulayamaz; söyleyebileceği tek şey sorumluluğun kimde olduğudur.
 
-**Bölüm yalnızca öğrencide basılıyor** ama tablo `kullanici`ya bakıyor: öğretmen ileride kendi referanslarını tutmak isterse şema değişmiyor, rol kısıtı verinin şeklinden değil ekranın kararından geliyor.
+**Bölüm öğretmende de var (31 Ağustos 2026).** İstek: *"Öğretmene de referans ekleme olsun öğrenci gibi"* ve *"öğretmenin referansı da özgeçmiş oluşturdaki word dosyasına gelsin"*. 28 Ağustos'taki not "öğretmen ileride kendi referanslarını tutmak isterse şema değişmiyor" diyordu; değişen tam olarak o ekran kararı oldu — tabloya dokunulmadı.
+
+Gerekçe: referans üretilen özgeçmişin parçası ve **özgeçmiş öğretmende de üretiliyor**. Bölümün onda olmaması, aynı belgenin iki ayrı iskeletle çıkması demekti. Sınır, doğrulama ve görünürlük kuralları aynı — rol, kaç referans tutulacağını değiştirmiyor.
+
+Koşul tek bir yerden okunuyor (`referansTutabilirMi`): paneldeki bölüm, özgeçmişin veri katmanı ve belgedeki başlık aynı fonksiyonu soruyor. Ayrı ayrı yazılsaydı biri değiştiğinde öbürü geride kalır ve öğretmen, panelde doldurduğu kutuyu belgesinde bulamazdı.
+
+**Dış kullanıcı (mezun, paydaş temsilcisi) dışarıda:** satırlar üçüncü kişilerin iletişim bilgisi ve o kapıyı açmak ayrı bir karar — bugün kimse istemedi. Onlarda bölüm `null` döner ve belgede başlık hiç basılmaz.
 
 ### Özgeçmiş (CV)
 
@@ -881,7 +898,7 @@ Yukarıdaki maddeler kişinin **yüklediği** dosyayı anlatıyor; bu ayrı bir 
 
 **Düğme vitrindedir** (28 Ağustos 2026 · istek: "nerdev cv indir butonu bannera koy"). İlk hâlde "Özgeçmişim (CV)" kartının içindeydi; o kart kapalı bir katlanır kutu olduğu için bağlantı hiç görünmüyordu. Düğmenin metni **"Özgeçmiş oluştur"**: belge o an profildeki kayıtlardan üretiliyor, hazır duran bir ek indirilmiyor — "indir" deseydi kişinin kendi yüklediği CV dosyasıyla karışırdı. Kartta yalnızca bir işaret satırı kaldı — düğmeyi orada da basmak, "Panoya git"in kaldırılma gerekçesiyle aynı sakıncayı doğururdu (aynı işi yapan ikinci kapı).
 
-Belgeye giren bölümler paneldeki bölümlerin tamamı ve **aynı sıradadır**: sol üstte fotoğraf, yanında ad ve unvan; sonra Kimlik bilgileri, Hakkımda, İletişim bilgilerim, Çalışma gruplarım, Mentörlük, kayıt grupları (Ürünlerim · Deneyimlerim · Topluluklarım / Ekiplerim / Kulüplerim), GençTek etkinlik katılımları, Nişanlar ve — yalnızca öğrencide — Referanslarım.
+Belgeye giren bölümler paneldeki bölümlerin tamamı ve **aynı sıradadır**: sol üstte fotoğraf, yanında ad ve unvan; sonra Kimlik bilgileri, Hakkımda, İletişim bilgilerim, Çalışma gruplarım, Mentörlük, kayıt grupları (Ürünlerim · Deneyimlerim · Topluluklarım / Ekiplerim / Kulüplerim), GençTek etkinlik katılımları, Nişanlar ve — dış kullanıcı hariç — Referanslarım.
 
 **Boş alan da basılır** (28 Ağustos 2026 · istek: "profildeki tüm alanlar boş girilse de cv de olsun … zaten doldurmuşsa da karşılığı olsun"). İlk sürüm boş bölümü hiç basmıyordu; gerekçe "kayıt yok satırı CV'yi eksikler listesi gibi okutur" idi ve istek bunun tersini söyledi — haklı olarak: belge profilin karşılığı olacaksa profilde duran her başlık belgede de durmalı, yoksa iki kişinin CV'si aynı sistemden farklı iskeletlerle çıkar ve okuyan, bölümün "boş mu yok mu" olduğunu ayırt edemez. Değeri olmayan künye satırı `—`, kaydı olmayan bölüm "Bilgi girilmemiş." ile basılıyor; sessiz bırakmak belgenin yarım üretildiği izlenimi verirdi. İletişimin altı satırı (e-posta, telefon, GitHub, kişisel site, LinkedIn, Instagram) her CV'de aynı şekilde duruyor.
 

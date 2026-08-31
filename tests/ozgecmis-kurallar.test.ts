@@ -31,6 +31,7 @@ function veri(ozellikler: Partial<OzgecmisVerisi> = {}): OzgecmisVerisi {
     unvan: "Öğrenci · 11-A",
     foto: null,
     basHarfler: "AY",
+    logo: null,
     kimlik: [
       { etiket: "Okul / kurum", deger: "Beşiktaş Anadolu Lisesi" },
       { etiket: "İlçe", deger: "" },
@@ -225,6 +226,49 @@ describe("özgeçmiş belgesi", () => {
 });
 
 /**
+ * ALT KÜNYE (31 Ağustos 2026 · istek: "wordün en altına bu özgeçmiş GençTek
+ * Akran Öğrenme Modeli ve Genç Bilişim Ekosistemi kayıtlarından … tarihinde
+ * oluşturulmuştur yazısı eklenecek, alttaki yazı değişecek, MEB YEĞİTEK
+ * genctek.eba.gov.tr linki, GençTek logosu ekle resim olsun").
+ */
+describe("alt künye", () => {
+  it("belgenin kaynağını programın adıyla yazar", () => {
+    const html = ozgecmisWordHtml(veri());
+    expect(html).toContain(
+      "GençTek Akran Öğrenme Modeli ve Genç Bilişim Ekosistemi kayıtlarından",
+    );
+    expect(html).toContain("28.08.2026 tarihinde oluşturulmuştur");
+  });
+
+  it("eski 'Bilgi Sistemi' cümlesini artık basmaz", () => {
+    // Cümle DEĞİŞTİ, ikinci bir künye olarak eklenmedi: iki farklı kaynak
+    // beyanı taşıyan bir belge, hangisinin geçerli olduğunu söylemez.
+    expect(ozgecmisWordHtml(veri())).not.toContain("Bilgi Sistemi");
+  });
+
+  it("MEB · YEĞİTEK künyesini ve adresi basar", () => {
+    const html = ozgecmisWordHtml(veri());
+    expect(html).toContain("Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü");
+    expect(html).toContain("genctek.eba.gov.tr");
+  });
+
+  it("logo verildiğinde gömülü görsel olarak basılır", () => {
+    const html = ozgecmisWordHtml(
+      veri({ logo: { veriUrl: "data:image/png;base64,LOGOVERISI" } }),
+    );
+    expect(html).toContain('src="data:image/png;base64,LOGOVERISI"');
+  });
+
+  it("logo okunamadığında künye yalnızca yazıyla basılır", () => {
+    // Logo yüzünden özgeçmiş üretilememesi kabul edilemez bir takas olurdu:
+    // dosya okunamadığında künyenin metni yerinde kalıyor.
+    const html = ozgecmisWordHtml(veri({ logo: null }));
+    expect(html).not.toContain("<img src=\"data:image/png");
+    expect(html).toContain("genctek.eba.gov.tr");
+  });
+});
+
+/**
  * REFERANSLAR (28 Ağustos 2026 · istek: "Öğrenciler için profile referanslar
  * bölümü ekleyelim. Referans için ad soyad telefon kurum eposta").
  *
@@ -273,5 +317,48 @@ describe("dosya adı", () => {
 
   it("hiçbir harf kalmazsa da geçerli bir ad üretir", () => {
     expect(ozgecmisDosyaAdi("...")).toBe("ozgecmis-genctek");
+  });
+});
+
+describe("künyedeki logo", () => {
+  /*
+   * 31 Ağustos 2026 · istek: "logo sola sıkışık ve aşağı doğru çok uzun
+   * çıkıyor, logoyu küçültelim oraya sığsın".
+   *
+   * Word, HTML belgelerinde eksik ölçüyü ORANLA TAMAMLAMIYOR: yalnızca `width`
+   * verilince görselin kendi pikselini (2469) boy sayıyor ve künyenin solunda
+   * sayfa boyu uzayan bir şerit çıkıyordu. Bu testin koruduğu şey ölçünün
+   * değeri değil, İKİSİNİN BİRDEN yazılması.
+   */
+  const logoEtiketi = (html: string): string =>
+    html.match(/<img[^>]+alt="GençTek"[^>]*>/)?.[0] ?? "";
+
+  it("logoya hem en hem boy yazar", () => {
+    const etiket = logoEtiketi(
+      ozgecmisWordHtml(veri({ logo: { veriUrl: "data:image/png;base64,AAAA" } })),
+    );
+    expect(etiket).toContain('width="36"');
+    expect(etiket).toContain('height="44"');
+    expect(etiket).toContain("height:44px");
+  });
+
+  it("logoyu satır tabanından kurtarıp künyeyle aynı eksene alır", () => {
+    /*
+     * Resim satır içi bir öğe ve Word onu taban çizgisine oturtuyor; iniş payı
+     * kadar aşağı kayıyordu. `line-height:0` paragrafı ve `middle` hizası o
+     * payı kaldırıyor — hücrelerin ikisi de ortalanmış olmalı.
+     */
+    const html = ozgecmisWordHtml(
+      veri({ logo: { veriUrl: "data:image/png;base64,AAAA" } }),
+    );
+    expect(logoEtiketi(html)).toContain("vertical-align:middle");
+    expect(html).toContain('<p style="margin:0;line-height:0;">');
+    expect(html).not.toContain("vertical-align:top;padding:0;font-size:9pt");
+  });
+
+  it("logo yoksa künye yine eksiksiz basılır", () => {
+    const html = ozgecmisWordHtml(veri({ logo: null }));
+    expect(html).not.toContain('alt="GençTek"');
+    expect(html).toContain("genctek.eba.gov.tr");
   });
 });

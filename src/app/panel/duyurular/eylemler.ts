@@ -6,17 +6,28 @@ import type { DuyuruFormDurumu } from "@/components/DuyuruFormu";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { topluDuyuruGonder } from "@/lib/bildirim/gonder";
 import { duyuruyuCoz } from "@/lib/bildirim/toplu";
-import { prisma } from "@/lib/db";
-import { sistemAyarlariniYonetebilirMi } from "@/lib/yetki/izinler";
+import {
+  topluAliciListesi,
+  topluHedefSecenekleri,
+} from "@/lib/bildirim/toplu-alicilar";
+import { topluMesajGonderebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
 
 /**
- * Toplu duyuru gönderimi — yalnızca proje yöneticisi.
+ * Toplu mesaj gönderimi — proje yöneticisi ve il koordinatörü.
  *
- * Yetki kapısı `sistemAyarlariniYonetebilirMi`: duyuru da bildirim şablonu gibi
- * TÜM kullanıcılara giden bir metindir ve aynı sorumluluk düzeyindedir. Ayrı
- * bir izin fonksiyonu açmak, aynı kararı iki yerde tutmak olurdu.
+ * KAPI DEĞİŞTİ (31 Ağustos 2026 · istek: "il koordinatörü yönetim panelinde
+ * toplu mesaj kartı ekle"). Eskiden `sistemAyarlariniYonetebilirMi` idi ve
+ * gerekçesi "duyuru da bildirim şablonu gibi TÜM kullanıcılara giden bir
+ * metindir"di. O gerekçe koordinatör için geçerli değil: onun mesajı ilini
+ * aşmıyor. Ayrı izin fonksiyonu açıldı (`topluMesajGonderebilirMi`), çünkü
+ * aynısını kullanmak koordinatöre şablonları ve çalışma gruplarını da açardı.
+ *
+ * KİTLE KAPSAMDAN ÜRETİLİYOR: hangi hedefe yazabileceğine
+ * lib/bildirim/toplu-alicilar.ts karar veriyor ve o liste ekran basılırken de
+ * gönderim sırasında da AYNI fonksiyondan çıkıyor — ekranda görünmek yetki
+ * değildir, listede olmayan anahtar burada reddediliyor.
  */
 
 const YOL = "/panel/duyurular";
@@ -47,8 +58,10 @@ export async function duyuruGonderEylemi(
   veri: FormData,
 ): Promise<DuyuruFormDurumu> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!sistemAyarlariniYonetebilirMi(kullanici)) {
-    throw new YetkiHatasi("Toplu duyuruyu yalnızca proje yöneticisi gönderir.");
+  if (!topluMesajGonderebilirMi(kullanici)) {
+    throw new YetkiHatasi(
+      "Toplu mesajı proje yöneticisi ve il koordinatörü gönderebilir.",
+    );
   }
 
   // Kullanıcının yazdıkları: her ret yolunda forma geri konuyor.
@@ -58,59 +71,38 @@ export async function duyuruGonderEylemi(
     icerik: String(veri.get("icerik") ?? ""),
   };
 
-  const karar = duyuruyuCoz({
-    ...degerler,
-    onaylandiMi: veri.get("onay") === "evet",
-  });
+  /*
+   * İZİNLİ HEDEFLER GÖNDERENİN KAPSAMINDAN: `EKIP:12` anahtarı biçim olarak
+   * her koordinatörde geçerli görünür, kapsam olarak yalnızca ilinin ekibinde.
+   * Liste burada yeniden üretiliyor — formdaki seçeneklere güvenilseydi,
+   * elle kurulmuş bir istek başka ilin ekibine mesaj atardı.
+   */
+  const secenekler = await topluHedefSecenekleri(kullanici);
+  const karar = duyuruyuCoz(
+    { ...degerler, onaylandiMi: veri.get("onay") === "evet" },
+    secenekler.map((secenek) => secenek.deger),
+  );
   if (!karar.olurMu) return hatayla(karar.neden, degerler);
 
   /*
-   * Alıcılar ROLDEN okunur, kullanıcı tipinden değil: "öğretmen" diye bir rol
-   * yok, öğretmen olmak öğrenci OLMAMAKtır (danışman, koordinatör, personel).
-   * Pasif kullanıcıya duyuru gitmez.
-   *
-   * DIŞ KULLANICILAR (mezun, paydaş temsilcisi) "öğretmen" kümesinden AÇIKÇA
-   * çıkarılır: koşul yalnızca "öğrenci değil" deseydi okul kadrosuna giden bir
-   * duyuru mezunlara da giderdi. "Tümü" seçildiğinde ise alırlar — orada kasıt
-   * zaten herkestir.
+   * ALICILAR TEK YERDEN: sayıyı ekranda gösteren fonksiyonla aynı koşulu
+   * kullanıyor (bkz. toplu-alicilar.ts). Koşul burada elle yazılsaydı ekranda
+   * "312 kişi" yazıp 400 kişiye giden bir duyuru mümkün olurdu.
    */
-  const ogrenciKosulu = {
-    aktif: true,
-    roller: { some: { rolKodu: "OGRENCI" as const, bitisTarihi: null } },
-  };
-  const ogretmenKosulu = {
-    aktif: true,
-    roller: {
-      none: {
-        rolKodu: {
-          in: ["OGRENCI" as const, "MEZUN" as const, "PAYDAS_TEMSILCISI" as const],
-        },
-        bitisTarihi: null,
-      },
-    },
-  };
+  const alicilar = await topluAliciListesi(kullanici, karar.hedef);
+  if (!alicilar) {
+    return hatayla("Bu alıcı grubuna toplu mesaj gönderemezsiniz.", degerler);
+  }
 
-  const nerede =
-    karar.hedef === "OGRENCI"
-      ? ogrenciKosulu
-      : karar.hedef === "OGRETMEN"
-        ? ogretmenKosulu
-        : { aktif: true };
-
-  const alicilar = await prisma.kullanici.findMany({
-    where: nerede,
-    select: { id: true },
-  });
-
-  if (alicilar.length === 0) {
+  if (alicilar.idler.length === 0) {
     return hatayla(
-      "Seçtiğiniz gruba uyan aktif kullanıcı yok; duyuru gönderilmedi.",
+      "Seçtiğiniz gruba uyan aktif kullanıcı yok; mesaj gönderilmedi.",
       degerler,
     );
   }
 
   const sonuc = await topluDuyuruGonder({
-    aliciIdleri: alicilar.map((alici) => alici.id),
+    aliciIdleri: alicilar.idler,
     baslik: karar.baslik,
     icerik: karar.icerik,
   });
@@ -120,7 +112,12 @@ export async function duyuruGonderEylemi(
     islem: "DEGISIKLIK",
     hedefTip: "BILDIRIM_SABLONU",
     hedefId: "TOPLU_DUYURU",
-    detay: `Toplu duyuru gönderildi (${karar.hedef}, ${sonuc.bildirimSayisi} kişi): ${karar.baslik}`,
+    /*
+      DENETİM KAYDINA HAM ANAHTAR DEĞİL ETİKET YAZILIYOR: "EKIP:12" satırı,
+      kaydı altı ay sonra okuyan kişiye hiçbir şey söylemez; ekip o tarihe
+      kadar kapanmış bile olabilir.
+    */
+    detay: `Toplu mesaj gönderildi (${alicilar.etiket}, ${sonuc.bildirimSayisi} kişi): ${karar.baslik}`,
   });
 
   revalidatePath(YOL);

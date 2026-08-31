@@ -293,6 +293,24 @@ export interface OkulSuzgeci {
   /** Okul adı ya da ilçe adı içinde arama. */
   ara?: string | null;
   /**
+   * SÜTUN SÜZGEÇLERİ (31 Ağustos 2026 · istek: "alt taraftaki İl / İlçe / Okul
+   * / Tür / Kurum kodu alanları filtreli olsun").
+   *
+   * NİYE `ara`DAN AYRI İKİ ALAN: `ara` üç şeye birden bakıyor — okul adı, ilçe
+   * adı ve (tam eşleşmeyle) kurum kodu. Genel arama kutusunun karşılığı olarak
+   * doğru; sütun süzgeci olarak değil. "Okul" başlığının altına yazılan metin
+   * ilçe adında eşleşip başka bir okulu döndürseydi süzgeç yalan söylerdi.
+   *
+   * `kurumKodu` METİN OLARAK TUTULUYOR, sayı olarak değil: kişi yazarken
+   * "7587" gibi yarım bir kod bırakabilir ve kodun BAŞLANGICINA göre süzmek,
+   * tam eşleşmeden daha kullanışlı (bkz. okulKosulu). Sayıya çevrilemeyen
+   * değer koşulu hiç açmıyor.
+   *
+   * Üçü de birlikte kullanılabilir; hepsi `AND` ile daraltıyor.
+   */
+  okulAdi?: string | null;
+  kurumKodu?: string | null;
+  /**
    * Okulda tanımlı ekip var mı (Aşama 5 ile açıldı).
    *
    * Manisa panelindeki "Ekip Tanımlanan / Ekip Tanımlanmayan" sekmelerinin
@@ -328,6 +346,36 @@ export function danismanDurumuGecerliMi(
   );
 }
 
+/**
+ * Kurum kodunun ÖN EKİNE göre aralık koşulu.
+ *
+ * Kod bir tamsayı sütunu; "758 ile başlayanlar" sorusu metin işlemiyle
+ * sorulamıyor. Basamak sayısından aralık hesaplanıyor: 6 haneli kodlarda "758"
+ * → [758000, 758999]. Tam kod yazıldığında aralık tek kayda iniyor.
+ *
+ * KODUN UZUNLUĞU SABİT VARSAYILIYOR (6 hane, MEB kurum kodu). Daha uzun bir
+ * değer yazıldığında aralık hesabı boşa çıkmasın diye o durumda TAM EŞLEŞMEYE
+ * düşüyor.
+ *
+ * Rakam dışında karakter içeren değer koşulu hiç açmıyor: süzgeç yalnızca
+ * daralttığı için geçersiz girdiyi reddetmek yerine yok saymak yeterli (aynı
+ * ölçü paydaş tür süzgecinde de var).
+ */
+const KURUM_KODU_BASAMAK = 6;
+
+function okulKodAraligi(deger?: string | null): Prisma.KurumWhereInput {
+  const sade = deger?.trim() ?? "";
+  if (!sade || !/^\d+$/.test(sade)) return {};
+
+  if (sade.length >= KURUM_KODU_BASAMAK) {
+    return { kurumKodu: Number(sade) };
+  }
+
+  const carpan = 10 ** (KURUM_KODU_BASAMAK - sade.length);
+  const alt = Number(sade) * carpan;
+  return { kurumKodu: { gte: alt, lt: alt + carpan } };
+}
+
 export function okulKosulu(suzgec: OkulSuzgeci): Prisma.KurumWhereInput {
   const ara = suzgec.ara?.trim();
 
@@ -351,6 +399,22 @@ export function okulKosulu(suzgec: OkulSuzgeci): Prisma.KurumWhereInput {
       : suzgec.danismanDurumu === "danismansiz"
         ? { kullanicilar: { none: SAYIMDA_DANISMAN } }
         : {}),
+    ...(suzgec.okulAdi?.trim()
+      ? {
+          ad: {
+            contains: suzgec.okulAdi.trim(),
+            mode: "insensitive" as const,
+          },
+        }
+      : {}),
+    /*
+     * KURUM KODU ÖN EK EŞLEŞMESİ. Kod bir sayı sütunu, yani `contains`
+     * kullanılamıyor; metin olarak süzmek için `startsWith` gerekirdi ve o da
+     * sayıda yok. Çözüm ARALIK: "758" yazan kişi 758000–758999 arasını
+     * istiyor. Basamak sayısı arttıkça aralık daralıyor ve tam kod yazıldığında
+     * tek kayda iniyor.
+     */
+    ...okulKodAraligi(suzgec.kurumKodu),
     ...(ara
       ? {
           OR: [

@@ -12,6 +12,13 @@ import {
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
+  SutunMetinSuzgeci,
+  SutunSecimSuzgeci,
+  SutunSuzgecBoslugu,
+  SutunSuzgecDugmesi,
+  SutunSuzgecSatiri,
+} from "@/components/SutunSuzgeci";
+import {
   BilgiKutusu,
   Kart,
   KartBasligi,
@@ -46,6 +53,9 @@ import { paydasEkleEylemi, paydasOnayEylemi } from "./eylemler";
 import { paydasFiltreleriniCoz, paydasFiltresiVarMi } from "./filtreler";
 
 export const dynamic = "force-dynamic";
+
+/** Sütun süzgeçlerinin bağlandığı form; bkz. components/SutunSuzgeci.tsx. */
+const SUZGEC_FORMU = "paydas-suzgeci";
 
 /**
  * İl bazlı paydaş envanteri — analiz dokümanı Bölüm 3.
@@ -331,7 +341,18 @@ export default async function PaydaslarSayfasi({
         </div>
       )}
 
-      <form method="get" className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart">
+      {/*
+        FORMA `id` VERİLDİ (31 Ağustos 2026): sütun süzgeçleri tablonun içinde,
+        yani bu formun DIŞINDA duruyor ve ona `form="paydas-suzgeci"` ile
+        bağlanıyor (bkz. components/SutunSuzgeci.tsx). Tek form olması şart —
+        iki ayrı form olsaydı sütundan süzen kişinin buradaki aramasi
+        sıfırlanırdı.
+      */}
+      <form
+        id={SUZGEC_FORMU}
+        method="get"
+        className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
+      >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -348,41 +369,20 @@ export default async function PaydaslarSayfasi({
           )}
         </div>
 
+        {/*
+          İL VE PAYDAŞ TÜRÜ SÜZGEÇLERİ SÜTUN BAŞLIKLARINA TAŞINDI (31 Ağustos
+          2026 · istek: "Kurum / Tür / İl — bunlar filtreli").
+
+          KARTTAN SİLİNDİLER, KOPYALANMADILAR: aynı `name` iki denetimde
+          bulunsaydı form ikisini de gönderir, sunucu ilkini alır ve sütundaki
+          kutuya yazan kişi karttaki boş kutunun kazandığını görürdü (gerekçenin
+          tamamı components/SutunSuzgeci.tsx içinde).
+
+          Kartta yalnızca SÜTUNU OLMAYAN süzgeç kalıyor: "Ara" üç alana birden
+          bakıyor (kurum, yetkili kişi, iş birliği alanı) ve tek bir sütunun
+          altına sığmıyor.
+        */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {merkezMi && (
-            <label className="block">
-              <span className={SINIF_ETIKET}>İl</span>
-              <select
-                name="il"
-                defaultValue={filtreler.ilKodu ?? ""}
-                className={SINIF_SECIM}
-              >
-                <option value="">Tüm iller</option>
-                {iller.map((il) => (
-                  <option key={il.ilKodu} value={il.ilKodu}>
-                    {il.ad}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <label className="block">
-            <span className={SINIF_ETIKET}>Paydaş türü</span>
-            <select
-              name="tur"
-              defaultValue={filtreler.tur ?? ""}
-              className={SINIF_SECIM}
-            >
-              <option value="">Tüm türler</option>
-              {PAYDAS_TURLERI.map((tur) => (
-                <option key={tur} value={tur}>
-                  {PAYDAS_TURU_ETIKETLERI[tur]}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <label className="block">
             <span className={SINIF_ETIKET}>Ara</span>
             <input
@@ -476,6 +476,58 @@ export default async function PaydaslarSayfasi({
                 */}
                 <th className="px-4 py-3 font-medium">Onay</th>
               </tr>
+
+              {/*
+                SÜZGEÇ SATIRI — başlıkların hemen altında. Süzgeci olan üç
+                sütun istekte sayılanlar: Kurum, Tür, İl. Kalanlar boş hücre
+                bırakılıyor ki sütunlar kaymasın; sonuncusunda görünmeyen gönder
+                düğmesi duruyor. Süzgeçler kendiliğinden çalışıyor (bkz.
+                components/SutunSuzgeci.tsx); düğme yalnızca JavaScript
+                kapalıyken metin kutusundan Enter'ın çalışması için var.
+
+                İL HÜCRESİ YALNIZCA MERKEZDE DOLU: koordinatörün listesi zaten
+                kendi iliyle sınırlı ve süzgeç ona tek seçenekli bir kutu
+                gösterirdi.
+              */}
+              <SutunSuzgecSatiri>
+                <SutunMetinSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="kurum"
+                  deger={filtreler.kurum}
+                  ipucu="Kurum adı"
+                />
+                <SutunSecimSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="tur"
+                  deger={filtreler.tur}
+                  bosEtiket="Tüm türler"
+                  etiket="Paydaş türü"
+                  secenekler={PAYDAS_TURLERI.map((tur) => ({
+                    deger: tur,
+                    etiket: PAYDAS_TURU_ETIKETLERI[tur],
+                  }))}
+                />
+                {merkezMi ? (
+                  <SutunSecimSuzgeci
+                    form={SUZGEC_FORMU}
+                    ad="il"
+                    deger={filtreler.ilKodu}
+                    bosEtiket="Tüm iller"
+                    etiket="İl"
+                    secenekler={iller.map((il) => ({
+                      deger: il.ilKodu,
+                      etiket: il.ad,
+                    }))}
+                  />
+                ) : (
+                  <SutunSuzgecBoslugu />
+                )}
+                <SutunSuzgecBoslugu />
+                <SutunSuzgecBoslugu />
+                <SutunSuzgecBoslugu />
+                <SutunSuzgecBoslugu />
+                <SutunSuzgecDugmesi form={SUZGEC_FORMU} />
+              </SutunSuzgecSatiri>
             </thead>
             <tbody>
               {paydaslar.map((paydas) => (

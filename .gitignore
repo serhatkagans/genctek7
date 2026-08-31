@@ -60,3 +60,10 @@ next-env.d.ts
 # Sunucudan çekilen kişi verisi (28 Ağustos 2026). GERÇEK KİŞİSEL VERİ taşır —
 # ad, soyad, e-posta, telefon. Depoya asla girmemeli; aktarım bitince silin.
 genctek-kisiler.json
+
+# İL KİŞİ LİSTESİ TASARIM GÖRSELİ (WhatsApp'tan gelen ekran görüntüsü).
+#
+# `/gorevlerim/` ile aynı gerekçe: depo GitHub'da HERKESE AÇIK ve bu, istenen
+# tablo düzeninin konuşulduğu çalışma malzemesi. Düzen koda ve
+# `lib/kisi/il-suzgeci.ts` içindeki karar yorumlarına geçti.
+/resimler/

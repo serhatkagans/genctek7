@@ -22,6 +22,8 @@ export function paydasFiltreleriniCoz(
     // değeri reddetmek yerine yok saymak yeterli.
     tur: tur && paydasTuruMu(tur) ? (tur as PaydasTuru) : null,
     ara: tekil(parametreler.ara),
+    // Sütun süzgeci; `ara`dan ayrı tutulur (bkz. kapsam.ts · kurum).
+    kurum: tekil(parametreler.kurum),
     pasifleriDeGoster: tekil(parametreler.pasif) === "1",
   };
 }

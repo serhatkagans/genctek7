@@ -6,10 +6,21 @@ import {
   Filter,
   Hourglass,
   UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
+import { OtomatikSecimKutusu } from "@/components/SuzgecOtomatikSecim";
+import {
+  SutunMetinSuzgeci,
+  SutunSecimSuzgeci,
+  SutunSuzgecBoslugu,
+  SutunSuzgecDugmesi,
+  SutunSuzgecHucresi,
+  SutunSuzgecSatiri,
+  SuzgecSecimKutusu,
+} from "@/components/SutunSuzgeci";
 import {
   BilgiKutusu,
   Kart,
@@ -77,6 +88,9 @@ import {
 } from "./filtreler";
 
 export const dynamic = "force-dynamic";
+
+/** Sütun süzgeçlerinin bağlandığı form; bkz. components/SutunSuzgeci.tsx. */
+const SUZGEC_FORMU = "ogrenci-suzgeci";
 
 /**
  * Öğrenci envanteri.
@@ -712,6 +726,27 @@ export default async function OgrencilerSayfasi({
   const filtreVar = filtreVarMi(filtreler);
 
   /*
+   * SINIF SÜZGECİNİN SEÇENEKLERİ (31 Ağustos 2026, sütun süzgeçleriyle
+   * birlikte karttan tabloya taşındı).
+   *
+   * ADRESTEN GELEN TANINMAYAN DEĞER DE LİSTEYE GİRİYOR: eski bir yer imi ya
+   * da elle yazılmış bir sorgu "10/B" gönderebilir. Seçenek eklenmezse süzgeç
+   * uygulanmış olduğu hâlde kutu "Tüm sınıflar" görünür ve kullanıcı eksik
+   * listeye bakıp nedenini anlayamazdı. Karar 10 Ağustos'ta verilmişti,
+   * taşınırken korundu.
+   */
+  const sinifSuzgecSecenekleri = [
+    ...SINIF_SECENEKLERI.map((secenek) => ({
+      deger: secenek.deger,
+      etiket: secenek.etiket,
+    })),
+    ...(filtreler.sinif &&
+    !SINIF_SECENEKLERI.some((secenek) => secenek.deger === filtreler.sinif)
+      ? [{ deger: filtreler.sinif, etiket: filtreler.sinif }]
+      : []),
+  ];
+
+  /*
    * Okul Temsilcisi sütunu, atama yetkisi OLABİLECEK kişilere basılır: danışman
    * öğretmen (kendi okulu) ve proje yöneticisi. İl koordinatörü bu sütunu
    * görmez — o, il ve ilçe temsilcisini Görev Rolleri ekranından atıyor ve
@@ -980,13 +1015,86 @@ export default async function OgrencilerSayfasi({
   });
 
   // Her veri görüntüleme işlemi loglanır.
+  /*
+   * ==========================================================================
+   * TOPLULUKLAR / EKİPLER LİSTESİ (31 Ağustos 2026 · istek: "burada alta bir
+   * liste daha ekle, öğrencilerinin girdiği topluluk ekip vs olsun")
+   * ==========================================================================
+   *
+   * KAPSAM ÜSTTEKİ LİSTEYLE AYNI (`nerede`): kayıtlar `kullanici` ilişkisi
+   * üzerinden o filtreye bağlanıyor. Ayrı bir kapsam koşulu yazılsaydı iki
+   * liste ayrışır ve alttaki, üstte hiç görünmeyen bir öğrencinin kaydını
+   * gösterebilirdi — kapsam filtresi bu ekranda tek bir yerden okunmalı.
+   *
+   * SÜZGEÇLER DE GEÇERLİ: `nerede` filtrelerin çözülmüş hâlini taşıyor, yani
+   * "9. sınıflar" süzülünce alttaki liste de 9. sınıfların toplulukları
+   * oluyor. İki liste aynı soruyu iki açıdan cevaplıyor; süzgeç yalnızca
+   * birine işleseydi hangisinin geçerli olduğu belirsiz kalırdı.
+   *
+   * SAYFALAMA YOK, TAVAN VAR: liste bir envanter değil, üstteki listenin yan
+   * okuması. İkinci bir sayfalama denetimi aynı ekranda iki "sonraki sayfa"
+   * düğmesi demekti ve hangisinin neyi çevirdiği karışırdı. Tavana dayanan
+   * kullanıcı süzgeçle daraltıyor — kart bunu yazıyor.
+   *
+   * KAYIT BEYANDIR, doğrulanmış bir üyelik değil (bkz. şema · KazanimTipi ·
+   * TOPLULUK). Kart başlığı bunu söylüyor ki liste bir "resmî ekip envanteri"
+   * sanılmasın; gerçek ekip kayıtları Ekipler ekranında.
+   */
+  const TOPLULUK_TAVANI = 100;
+
+  const topluluklar = await prisma.kullaniciKazanim.findMany({
+    where: { tip: "TOPLULUK", kullanici: nerede },
+    orderBy: [{ tarih: "desc" }, { olusturmaTarihi: "desc" }],
+    take: TOPLULUK_TAVANI,
+    select: {
+      id: true,
+      baslik: true,
+      aciklama: true,
+      tarih: true,
+      duzenleyen: true,
+      kullanici: {
+        select: {
+          id: true,
+          ad: true,
+          soyad: true,
+          sinif: true,
+          kurum: { select: { ad: true } },
+        },
+      },
+    },
+  });
+
+  const toplulukToplami = await prisma.kullaniciKazanim.count({
+    where: { tip: "TOPLULUK", kullanici: nerede },
+  });
+
+  /*
+   * ERİŞİM KAYDI İKİ LİSTEYİ DE KAPSIYOR ve kimlikler TEKİLLEŞTİRİLİYOR:
+   * alttaki listede görünen öğrenci üstteki sayfada da olabilir ve aynı
+   * görüntüleme iki kez yazılsaydı denetim kaydı, olmayan bir erişimi
+   * sayardı. Alt listede görünen ama üstteki SAYFADA olmayan öğrenci ise
+   * gerçekten görüntülenmiştir — adı ve okulu ekranda basılıyor.
+   */
+  const goruntulenenler = new Map<number, string>();
+  for (const ogrenci of ogrenciler) {
+    goruntulenenler.set(ogrenci.id, "Öğrenci listesi görüntülendi");
+  }
+  for (const kayit of topluluklar) {
+    if (!goruntulenenler.has(kayit.kullanici.id)) {
+      goruntulenenler.set(
+        kayit.kullanici.id,
+        "Öğrenci listesi · topluluk ve ekip kayıtları görüntülendi",
+      );
+    }
+  }
+
   await erisimLoglaCoklu(
-    ogrenciler.map((ogrenci) => ({
+    [...goruntulenenler].map(([hedefId, detay]) => ({
       kullaniciId: kullanici.id,
       islem: "GORUNTULEME" as const,
       hedefTip: "OGRENCI" as const,
-      hedefId: ogrenci.id,
-      detay: "Öğrenci listesi görüntülendi",
+      hedefId,
+      detay,
     })),
   );
 
@@ -1292,7 +1400,13 @@ export default async function OgrencilerSayfasi({
         </Kart>
       )}
 
+      {/*
+        FORMA `id` VERİLDİ (31 Ağustos 2026): sütun süzgeçleri tablonun içinde,
+        yani bu formun DIŞINDA duruyor ve ona `form="ogrenci-suzgeci"` ile
+        bağlanıyor (bkz. components/SutunSuzgeci.tsx).
+      */}
       <form
+        id={SUZGEC_FORMU}
         method="get"
         className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
       >
@@ -1314,44 +1428,47 @@ export default async function OgrencilerSayfasi({
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/*
-            AD ARAMASI FİLTRELERİN BAŞINDA (26 Ağustos 2026 · istek: "Ad
-            veya soyad bunu başa alalım aramada").
+            AD, İL, İLÇE, OKUL VE SINIF SÜZGEÇLERİ SÜTUN BAŞLIKLARINA TAŞINDI
+            (31 Ağustos 2026 · istek: "bu da aynı" — Okullar ve Öğretmenler
+            ekranındaki sütun süzgeçlerinin aynısı).
 
-            Kutu il, ilçe, okul ve çalışma grubu seçimlerinin ardında,
-            ızgaranın ortasındaydı. Oysa en sık yapılan iş bir kişiyi adıyla
-            bulmak; ötekiler listeyi daraltan seçimler ve daha seyrek
-            kullanılıyor.
+            KARTTAN SİLİNDİLER, KOPYALANMADILAR: aynı `name` iki denetimde
+            bulunsaydı form ikisini de gönderir ve sütundaki kutuya yazan kişi
+            karttaki boş kutunun kazandığını görürdü (gerekçenin tamamı
+            components/SutunSuzgeci.tsx içinde).
+
+            KARTTA YALNIZCA SÜTUNU OLMAYAN SÜZGEÇLER KALIYOR: eğitim-öğretim
+            yılı, görev/rol, çalışma grubu ve "Profilde ara". Dördü de satırın
+            TÜMÜNÜ süzüyor, tek bir sütunu değil — "Görev / rol" süzgeci
+            örneğin üç ayrı temsilcilik sütununa birden bakıyor.
           */}
-          <label className="block">
-            <span className={SINIF_ETIKET}>Ad veya soyad</span>
-            <input
-              type="text"
-              name="ara"
-              placeholder="Ara"
-              defaultValue={filtreler.ara ?? ""}
-              className={SINIF_SECIM}
-            />
-          </label>
-
           {yerFiltresiVar && (
             <>
               <label className="block">
                 <span className={SINIF_ETIKET}>İl</span>
-                <select
-                  name="il"
-                  defaultValue={filtreler.ilKodu ?? ""}
-                  className={SINIF_SECIM}
-                  disabled={iller.length <= 1}
-                >
-                  <option value="">
-                    {iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"}
-                  </option>
-                  {iller.map((il) => (
-                    <option key={il.ilKodu} value={il.ilKodu}>
-                      {il.ad}
-                    </option>
-                  ))}
-                </select>
+                {/*
+                  İL SEÇİLİR SEÇİLMEZ SÜZÜYOR (31 Ağustos 2026 · istek: "önce
+                  ili seçiyorum ilçe seçilemiyor … dinamik olamaz mı"): hemen
+                  altındaki ilçe ve okul kutuları sunucuda, seçili ile göre
+                  hazırlanıyor ve il gönderilmeden ikisi de kapalı kalıyordu.
+                  Kutu kendi formunu gönderiyor; "Filtrele" düğmesi yerinde
+                  duruyor ve JavaScript kapalıyken ekran eskisi gibi çalışıyor
+                  (bkz. components/SuzgecOtomatikSecim.tsx).
+                */}
+                <OtomatikSecimKutusu
+                  ad="il"
+                  deger={filtreler.ilKodu}
+                  bosEtiket={
+                    iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"
+                  }
+                  etiket="İl"
+                  devreDisi={iller.length <= 1}
+                  sinif={SINIF_SECIM}
+                  secenekler={iller.map((il) => ({
+                    deger: il.ilKodu,
+                    etiket: il.ad,
+                  }))}
+                />
               </label>
 
               <label className="block">
@@ -1396,47 +1513,6 @@ export default async function OgrencilerSayfasi({
             </>
           )}
 
-
-          {/*
-            SINIF ARTIK LİSTE (10 Ağustos 2026 · istek: "Sınıf alanı
-            açılabilir olsun, hazırlık, 9 10 11 12").
-
-            Serbest metin kutusuydu ve "11-A" mı "11" mi yazılacağı
-            kullanıcıya bırakılmıştı; yanlış yazan boş liste alıyordu. Süzgeç
-            İÇEREN eşleşmesi yaptığı için (kapsam.ts) seviye seçmek "11-A"yı
-            da "11/B"yi de kapsıyor.
-
-            HAZIRLIK "Haz" olarak süzülüyor: e-Okul'dan gelen değer "Hazırlık"
-            da olabilir "Haz-A" da; ortak ön ek ikisini de yakalar, tam metin
-            yalnızca birini yakalardı.
-          */}
-          <label className="block">
-            <span className={SINIF_ETIKET}>Sınıf</span>
-            <select
-              name="sinif"
-              defaultValue={filtreler.sinif ?? ""}
-              className={SINIF_SECIM}
-            >
-              <option value="">Tüm sınıflar</option>
-              {SINIF_SECENEKLERI.map((secenek) => (
-                <option key={secenek.deger} value={secenek.deger}>
-                  {secenek.etiket}
-                </option>
-              ))}
-              {/*
-                Adresten gelen ama listede olmayan değer (eski yer imi, elle
-                yazılmış sorgu) kendi seçeneği olarak eklenir: aksi halde
-                süzgeç uygulanmış olduğu hâlde liste "Tüm sınıflar" görünür ve
-                kullanıcı eksik listeye bakıp nedenini anlayamazdı.
-              */}
-              {filtreler.sinif &&
-                !SINIF_SECENEKLERI.some(
-                  (secenek) => secenek.deger === filtreler.sinif,
-                ) && (
-                  <option value={filtreler.sinif}>{filtreler.sinif}</option>
-                )}
-            </select>
-          </label>
 
           <label className="block">
             <span className={SINIF_ETIKET}>Eğitim-öğretim yılı</span>
@@ -1692,6 +1768,96 @@ export default async function OgrencilerSayfasi({
                   </th>
                 ))}
               </tr>
+
+              {/*
+                SÜZGEÇ SATIRI. Süzgeci olan sütunlar Öğretmenler ekranıyla aynı
+                mantıkla seçildi: kişiyi ve okulunu DARALTAN alanlar. Mentörlük,
+                çalışma grubu temsilciliği, danışmanlık ve temsilcilik sütunları
+                boş kalıyor — üçü de karttaki "Görev / rol" ve "Çalışma grubu"
+                süzgeçlerinin konusu ve orada zaten sorulabiliyor; aynı soruyu
+                iki yerden sormak, hangisinin kazandığını belirsiz bırakırdı.
+
+                İL/İLÇE TEK HÜCREDE İKİ KUTU: sütun başlığı da tek. İl
+                seçilmeden ilçe kapalı — ilçe listesi ilden türüyor.
+
+                DÜĞMENİN `colSpan`I DEĞİŞKEN: danışmanlık sütunu yalnızca
+                yönetebilene, temsilcilik sütunları da role göre basılıyor.
+                Sabit bir sayı yazsaydım tablo o kullanıcılarda kayardı.
+              */}
+              <SutunSuzgecSatiri>
+                <SutunMetinSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="ara"
+                  deger={filtreler.ara}
+                  ipucu="Ad veya soyad"
+                />
+                <SutunSecimSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="sinif"
+                  deger={filtreler.sinif}
+                  bosEtiket="Tüm sınıflar"
+                  etiket="Sınıf"
+                  secenekler={sinifSuzgecSecenekleri}
+                />
+                <SutunSecimSuzgeci
+                  form={SUZGEC_FORMU}
+                  ad="okul"
+                  deger={
+                    filtreler.kurumKodu ? String(filtreler.kurumKodu) : null
+                  }
+                  bosEtiket={
+                    okullar.length === 0 ? "Önce il seçin" : "Tüm okullar"
+                  }
+                  etiket="Okul"
+                  devreDisi={okullar.length === 0}
+                  secenekler={okullar.map((okul) => ({
+                    deger: String(okul.kurumKodu),
+                    etiket: okul.ad,
+                  }))}
+                />
+                {yerFiltresiVar ? (
+                  <SutunSuzgecHucresi>
+                    <SuzgecSecimKutusu
+                      form={SUZGEC_FORMU}
+                      ad="il"
+                      deger={filtreler.ilKodu}
+                      bosEtiket={
+                        iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"
+                      }
+                      etiket="İl"
+                      devreDisi={iller.length <= 1}
+                      secenekler={iller.map((il) => ({
+                        deger: il.ilKodu,
+                        etiket: il.ad,
+                      }))}
+                    />
+                    <SuzgecSecimKutusu
+                      form={SUZGEC_FORMU}
+                      ad="ilce"
+                      deger={filtreler.ilceKodu}
+                      bosEtiket={
+                        ilceler.length === 0 ? "Önce il seçin" : "Tüm ilçeler"
+                      }
+                      etiket="İlçe"
+                      devreDisi={ilceler.length === 0}
+                      secenekler={ilceler.map((ilce) => ({
+                        deger: ilce.ilceKodu,
+                        etiket: ilce.ad,
+                      }))}
+                    />
+                  </SutunSuzgecHucresi>
+                ) : (
+                  <SutunSuzgecBoslugu />
+                )}
+                <SutunSuzgecDugmesi
+                  form={SUZGEC_FORMU}
+                  colSpan={
+                    2 +
+                    (danismanlikYonetebilir ? 1 : 0) +
+                    temsilcilikRolleri.length
+                  }
+                />
+              </SutunSuzgecSatiri>
             </thead>
             <tbody>
               {ogrenciler.map((ogrenci) => {
@@ -1878,6 +2044,103 @@ export default async function OgrencilerSayfasi({
           </div>
         </nav>
       )}
+      {/*
+        ==================================================================
+        TOPLULUKLAR / EKİPLER (31 Ağustos 2026 · istek: "burada alta bir liste
+        daha ekle, öğrencilerinin girdiği topluluk ekip vs olsun")
+        ==================================================================
+
+        SAYFALAMANIN ALTINDA, danışmanlık dipnotunun üstünde: üstteki listenin
+        yan okuması olduğu için onun bittiği yerde başlıyor. Üstte bir sütun
+        olarak durmadı çünkü bir öğrencinin birden çok topluluğu olabiliyor ve
+        satıra sığmayan bir liste, tabloyu okunmaz hâle getirirdi.
+
+        BOŞ HÂLDE DE BASILIYOR: kart hiç görünmeseydi, kayıt girilmediği için
+        mi yoksa özellik olmadığı için mi boş olduğu anlaşılmazdı.
+      */}
+      <Kart>
+        <KartBasligi
+          baslik="Topluluklar / ekipler / kulüpler"
+          aciklama={
+            toplulukToplami > TOPLULUK_TAVANI
+              ? `Kapsamınızdaki öğrencilerin kendi girdiği kayıtlar · ${toplulukToplami} kayıttan ilk ${TOPLULUK_TAVANI}'i · daraltmak için yukarıdaki süzgeçleri kullanın`
+              : `Kapsamınızdaki öğrencilerin kendi girdiği kayıtlar · ${toplulukToplami} kayıt`
+          }
+          Ikon={Users}
+        />
+
+        {topluluklar.length === 0 ? (
+          <p className="text-metin-yumusak">
+            Bu süzgeçlerle topluluk, ekip ya da kulüp kaydı bulunamadı.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-cizgi text-metin-yumusak">
+                <tr>
+                  <th className="py-2 pr-4 font-medium">Topluluk / ekip</th>
+                  <th className="py-2 pr-4 font-medium">Öğrenci</th>
+                  <th className="py-2 pr-4 font-medium">Okul</th>
+                  {/*
+                    "Bağlı olduğu kurum" alanı (`duzenleyen`) topluluk
+                    kaydında kulübün bağlı olduğu kuruluşu taşıyor — öğrencinin
+                    okulundan farklı olabilir (belediye gençlik merkezi, bir
+                    dernek). İki sütun ayrı duruyor ki karışmasın.
+                  */}
+                  <th className="py-2 pr-4 font-medium">Bağlı kurum</th>
+                  <th className="py-2 font-medium">Tarih</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topluluklar.map((kayit) => (
+                  <tr key={kayit.id} className="border-b border-cizgi last:border-0">
+                    <td className="py-2 pr-4">
+                      <span className="font-medium text-metin">
+                        {kayit.baslik}
+                      </span>
+                      {/*
+                        AÇIKLAMA KIRPILIYOR: kayıt alanı çok satırlı ve
+                        "toplulukta üstlendiğiniz görevi de açıklayınız" diyor
+                        — tam metin satırı sayfa boyuna çıkarırdı. Tamamı
+                        öğrencinin kendi sayfasında.
+                      */}
+                      {kayit.aciklama && (
+                        <p className="mt-0.5 line-clamp-2 text-metin-yumusak">
+                          {kayit.aciklama}
+                        </p>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Link
+                        href={`/panel/ogrenciler/${kayit.kullanici.id}`}
+                        className="font-medium text-vurgu-metin underline underline-offset-2"
+                      >
+                        {kayit.kullanici.ad} {kayit.kullanici.soyad}
+                      </Link>
+                      {kayit.kullanici.sinif && (
+                        <span className="text-metin-yumusak">
+                          {" · "}
+                          {kayit.kullanici.sinif}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 text-metin-yumusak">
+                      {kayit.kullanici.kurum?.ad ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-metin-yumusak">
+                      {kayit.duzenleyen ?? "—"}
+                    </td>
+                    <td className="py-2 text-metin-yumusak">
+                      {kayit.tarih ? tarihYaz(kayit.tarih) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Kart>
+
       {/*
         DANIŞMANLIK ROZETİ SAYFANIN ALTINDA (26 Ağustos 2026 · istek:
         "GençTek danışman öğretmenliği … bunu kaldıralım ama bunu alta

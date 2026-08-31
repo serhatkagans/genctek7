@@ -1,9 +1,11 @@
 import {
   BadgeCheck,
+  MessageSquare,
   MessagesSquare,
   School,
   Send,
   Users,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { ekipleriGetir } from "@/lib/ekip/veri";
 import { basHarfler } from "@/lib/kullanici/profil-foto-kurallar";
 import { tarihSaatYaz } from "@/lib/tarih";
 import {
@@ -177,7 +180,22 @@ export default async function BaglantilarimSayfasi({
       }
     : {};
 
-  const [yazismalar, okumalar, okuldakiler, temsilciler] = await Promise.all([
+  /*
+   * EKİPLER DE BU EKRANDA (31 Ağustos 2026 · istek: "Bağlantılarımda il
+   * koordinatörleri ekiplerini görebilsin, orada ekip listesi olacak ve
+   * tıklanabilir olsun").
+   *
+   * LİSTE `ekipleriGetir` ile geliyor, yeni bir sorgu yazılmadı: aynı
+   * fonksiyon Ekiplerim ekranını da besliyor ve kimin hangi ekibi göreceği
+   * kararı orada (üye + ilin koordinatörü + merkez). Burada ikinci bir sorgu
+   * yazılsaydı, kapsam kuralının iki kopyası olurdu.
+   *
+   * KAPALI EKİPLER BURADA YOK: bu ekranın sorusu "kiminle konuşabilirim" ve
+   * arşive dönmüş ekibe yeni mesaj yazılamıyor. Arşiv, Ekiplerim ekranında
+   * kendi bölümünde duruyor.
+   */
+  const [yazismalar, okumalar, okuldakiler, temsilciler, tumEkipler] =
+    await Promise.all([
     prisma.yazisma.findMany({
       where: yazismaKapsamFiltresi(kullanici),
       orderBy: { olusturmaTarihi: "desc" },
@@ -279,6 +297,7 @@ export default async function BaglantilarimSayfasi({
       take: KISI_SINIRI,
       select: kisiSecimi,
     }),
+    ekipleriGetir(kullanici),
   ]);
 
   /*
@@ -386,6 +405,8 @@ export default async function BaglantilarimSayfasi({
 
   // Bekleyen istek sayısı kalktı (21 Ağustos 2026): bağlantı isteği akışı yok.
   const ozet = `${satirlar.length} bağlantı`;
+
+  const ekipler = tumEkipler.filter((ekip) => ekip.aktif);
 
   return (
     <div className="space-y-6">
@@ -573,6 +594,66 @@ export default async function BaglantilarimSayfasi({
         ARAMA KUTUSU İKİSİNİ BİRDEN SÜZÜYOR ve bu yüzden kartların ÜSTÜNDE:
         her karta ayrı kutu koymak, aynı adı iki kez aratmak demekti.
       */}
+      {/*
+        EKİPLERİM (31 Ağustos 2026 · istek: "Bağlantılarımda il koordinatörleri
+        ekiplerini görebilsin, orada ekip listesi olacak ve tıklanabilir olsun.
+        Ekibindeki herkesi görsün tıklanınca ve bireysel ve toplu mesaj
+        atabilsin ekiptekilere").
+
+        NİYE BURADA: bu ekran "kiminle konuşabilirim" sorusunun ekranı ve ekip,
+        onay beklemeden konuşulabilen üçüncü kümedir (okulum, okul temsilcileri
+        ve ekiplerim). Ekiplerim ekranı ekibi YÖNETMEK için; burada duran satır
+        onun kopyası değil, konuşma kapısı.
+
+        SATIR TIKLANABİLİR ve ekibin kendi sayfasına gidiyor: orada üyelerin
+        tamamı, her satırında birebir "Mesaj" düğmesiyle, ve hepsine birden
+        yazılan ekip sohbeti var. İkisini bu listeye sığdırmak, aynı ekranı iki
+        kez yapmak olurdu.
+
+        KART YALNIZCA EKİBİ OLANA BASILIYOR: ekibi olmayan kullanıcıya boş bir
+        başlık ve bir olumsuz cümle göstermemek, bu sayfada daha önce de
+        verilmiş bir karar (bkz. yukarıdaki yazışma listesi).
+      */}
+      {ekipler.length > 0 && (
+        <Kart id="ekiplerim">
+          <KartBasligi
+            baslik="Ekiplerim"
+            aciklama="Ekibe tıklayın: üyelerin tamamını görür, ekip sohbetinden hepsine birden ya da tek tek yazarsınız."
+            Ikon={UsersRound}
+          />
+          <ul className="divide-y divide-cizgi rounded-kart border border-cizgi">
+            {ekipler.map((ekip) => (
+              <li key={ekip.id}>
+                <Link
+                  href={`/panel/ekipler/${ekip.id}`}
+                  className="flex flex-wrap items-center gap-3 px-3 py-2.5 transition hover:bg-zemin"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-cizgi bg-zemin text-vurgu-metin"
+                  >
+                    <UsersRound size={18} />
+                  </span>
+                  <span className="min-w-0 grow">
+                    <span className="block truncate font-medium text-metin">
+                      {ekip.ad}
+                    </span>
+                    <span className="block truncate text-sm text-metin-yumusak">
+                      {ekip.ilAdi} · {ekip.uyeSayisi} üye
+                      {ekip.uyesiyimMi ? " · üyesiniz" : ""}
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-vurgu-metin">
+                    <MessageSquare size={14} aria-hidden />
+                    {ekip.mesajSayisi} mesaj
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Kart>
+      )}
+
       <Kart>
         <KartBasligi
           baslik="Kişi ara"

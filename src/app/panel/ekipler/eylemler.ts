@@ -145,6 +145,72 @@ export async function ekipKurEylemi(veri: FormData): Promise<void> {
     detay: `Ekip kuruldu: ${ekip.ad} (il ${ilKodu}, tür ${kapsam.tur})`,
   });
 
+  /*
+   * ÜYELER EKİP KURULURKEN DE SEÇİLEBİLİYOR (31 Ağustos 2026 · istek: "ekibi
+   * oluşturduktan sonra geliyor, ben ekibi oluştururken eklemek istiyorum").
+   *
+   * KUTUCUKLAR FORMUN DIŞINDA, ALTTAKİ KİŞİ LİSTESİNDE: HTML'in `form`
+   * özniteliği onları bu forma bağlıyor (aynı numara sütun süzgeçlerinde de
+   * kullanılıyor — bkz. components/SutunSuzgeci.tsx). Böylece "önce ekibi kur,
+   * sonra ekibin sayfasında ara" iki adımı tek gönderime iniyor; ekibin kendi
+   * sayfasındaki "Üye ekle" süzgeci de yerinde duruyor, çünkü kurulmuş bir
+   * ekibe sonradan üye eklemek ayrı bir iş.
+   *
+   * KAPI EKLEME EYLEMİYLE AYNI: kişi AKTİF olmalı ve EKİBİN İLİNDE kayıtlı
+   * olmalı (`ekibeUyeEkleEylemi` ile birebir aynı koşul). Kutucuk listesi
+   * ekrandan geliyor ve kurcalanabilir; başka ilin öğrencisini işaretlemek,
+   * ona onaysız yazışma hakkı vermek olurdu.
+   *
+   * KAPSAM DIŞI KİMLİKLER SESSİZCE ELENİYOR, ekip kurulmaya devam ediyor:
+   * hata verilseydi doldurulmuş bütün form (ad, açıklama, tür) çöpe giderdi ve
+   * kullanıcı hangi satırın sorunlu olduğunu göremezdi. Kaç kişinin eklendiği
+   * ekibin sayfasında yazıyor.
+   */
+  const secilenIdler = [
+    ...new Set(
+      veri
+        .getAll("uyeId")
+        .map((deger) => Number.parseInt(String(deger), 10))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+
+  if (secilenIdler.length > 0) {
+    const uyeler = await prisma.kullanici.findMany({
+      where: { id: { in: secilenIdler }, aktif: true, ilKodu },
+      select: { id: true },
+    });
+
+    if (uyeler.length > 0) {
+      await prisma.ekipUyesi.createMany({
+        data: uyeler.map((uye) => ({ ekipId: ekip.id, kullaniciId: uye.id })),
+      });
+
+      /*
+       * BİLDİRİM HERKESE AYRI AYRI: ekip, kişinin kurmadığı ve kendiliğinden
+       * uğramayacağı bir ekran (aynı gerekçe ekibeUyeEkleEylemi'nde de yazılı).
+       */
+      for (const uye of uyeler) {
+        await bildirimGonder({
+          kullaniciId: uye.id,
+          kod: BILDIRIM_KODLARI.EKIBE_EKLENDINIZ,
+          degiskenler: {
+            ekipAdi: ekip.ad,
+            ekleyenAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+          },
+        });
+      }
+
+      await erisimLogla({
+        kullaniciId: kullanici.id,
+        islem: "DEGISIKLIK",
+        hedefTip: "ROL",
+        hedefId: ekip.id,
+        detay: `Ekip kurulurken ${uyeler.length} üye eklendi: ${ekip.ad}`,
+      });
+    }
+  }
+
   revalidatePath(YOL);
   redirect(`${ekipYolu(ekip.id)}?durum=ekip-kuruldu`);
 }

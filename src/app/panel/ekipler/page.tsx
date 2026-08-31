@@ -10,21 +10,29 @@ import {
   SINIF_GIRDI,
 } from "@/components/ui";
 import { EkipEnvanteri } from "@/components/EkipEnvanteri";
+import { IlKisiListesi } from "@/components/IlKisiListesi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import {
-  EKIP_SOHBET_UYARISI,
-  EKIP_TURLERI,
+  EKIP_FORM_TURLERI,
   EKIP_TURU_ETIKETLERI,
   ekipYonetebilirMi,
 } from "@/lib/ekip/kurallar";
 import { ekipleriGetir } from "@/lib/ekip/veri";
 import { koordinatorIlKodu, projeYoneticisiMi } from "@/lib/yetki/izinler";
-import { OGRETMEN } from "@/lib/yetki/kapsam";
 import type { SorguParametreleri } from "../ogrenciler/filtreler";
-import { ekipKurEylemi } from "./eylemler";
+import { ekibeUyeEkleEylemi, ekipKurEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Ekip kurma formunun `id`si.
+ *
+ * Sayfanın ALTINDAKİ kişi listesindeki kutucuklar buraya bağlanıyor: HTML'in
+ * `form` özniteliği, bir denetimi DOM'da uzakta duran bir forma bağlıyor
+ * (aynı numara sütun süzgeçlerinde de kullanılıyor).
+ */
+const KUR_FORMU = "ekip-kur";
 
 /**
  * EKİPLERİM (13 Ağustos 2026).
@@ -68,41 +76,41 @@ export default async function EkiplerSayfasi({
   const merkezMi = projeYoneticisiMi(kullanici);
 
   /*
-   * OKUL VE ÖĞRETMEN LİSTELERİ YALNIZCA KOORDİNATÖRE (15 Ağustos 2026):
-   * ikisi de "ekibin ili" belli olduğunda anlamlı. Merkezin ili yok, ili
-   * formda seçiyor — ülke genelindeki tüm okulları ve öğretmenleri açılır
-   * listeye koymak on binlerce satır demek olurdu. Merkez okul takımını ve
-   * danışmanı, ekibi kurduktan sonra düzenleyerek bağlıyor.
+   * OKUL VE DANIŞMAN SEÇİMİ FORMDAN KALKTI (31 Ağustos 2026 · istekler: "okul
+   * seçimi kapanacak Okul" · "Danışman öğretmen (isteğe bağlı, sonradan
+   * atanabilir) bunu da kaldırdık").
+   *
+   * İKİ SORGU DA SİLİNDİ, GİZLENMEDİ: alanları ekranda saklayıp veriyi
+   * çekmeye devam etmek, her açılışta ödenen iki gereksiz sorgu olurdu.
+   * Formun sorduğu şey artık ekibin ADI, açıklaması ve türü — kimlerin
+   * ekibe gireceği aşağıdaki kişi listesinden ve ekibin kendi sayfasındaki
+   * "Üye ekle" süzgecinden görülüyor.
+   *
+   * İL LİSTESİ YALNIZCA MERKEZE gerekiyor ve duruyor: koordinatörün ekibi
+   * kendi iline bağlanır ve ona seçim sorulmaz (bkz. eylemler.ts). Merkezin
+   * ili olmadığı için ekibin ilini seçmek zorunda.
    */
   const koordinatorIli = merkezMi ? null : koordinatorIlKodu(kullanici);
 
-  const [ekipler, iller, okullar, ogretmenler] = await Promise.all([
+  const [ekipler, iller, koordinatorIliKaydi] = await Promise.all([
     ekipleriGetir(kullanici),
-    /*
-     * İl listesi YALNIZCA MERKEZE gerekiyor: koordinatörün ekibi kendi iline
-     * bağlanır ve ona seçim sorulmaz (bkz. eylemler.ts). Merkezin ili
-     * olmadığı için ekibin ilini seçmek zorunda.
-     */
     merkezMi
       ? prisma.il.findMany({
           orderBy: { ad: "asc" },
           select: { ilKodu: true, ad: true },
         })
       : [],
-    yonetebilir && koordinatorIli
-      ? prisma.kurum.findMany({
-          where: { ilKodu: koordinatorIli, aktif: true },
-          orderBy: { ad: "asc" },
-          select: { kurumKodu: true, ad: true },
+    /*
+     * İLİN ADI: kişi listesinin başlığında yazıyor ("Manisa kişi listesi").
+     * Koordinatöre ili PLAKA KODUYLA söylememek bu panelde 26 Ağustos'ta
+     * verilmiş bir karar; başlıkta "34" yazsaydı aynı hataya dönülürdü.
+     */
+    koordinatorIli
+      ? prisma.il.findUnique({
+          where: { ilKodu: koordinatorIli },
+          select: { ad: true },
         })
-      : [],
-    yonetebilir && koordinatorIli
-      ? prisma.kullanici.findMany({
-          where: { ilKodu: koordinatorIli, aktif: true, ...OGRETMEN },
-          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-          select: { id: true, ad: true, soyad: true, brans: true },
-        })
-      : [],
+      : null,
   ]);
 
   const acikEkipler = ekipler.filter((ekip) => ekip.aktif);
@@ -275,7 +283,14 @@ export default async function EkiplerSayfasi({
             anlatıyordu: altındaki ilk alanın adı zaten "Ekip adı".
           */}
           <KartBasligi baslik="Yeni ekip kur" Ikon={UsersRound} />
-          <form action={ekipKurEylemi} className="space-y-4">
+          {/*
+            FORMA `id` VERİLDİ (31 Ağustos 2026 · istek: "ekibi oluşturduktan
+            sonra geliyor, ben ekibi oluştururken eklemek istiyorum"): aşağıdaki
+            kişi listesindeki kutucuklar `form="ekip-kur"` ile bu forma
+            bağlanıyor ve "Ekibi kur" düğmesiyle birlikte gönderiliyor
+            (bkz. components/IlKisiListesi.tsx · secimFormu).
+          */}
+          <form action={ekipKurEylemi} id={KUR_FORMU} className="space-y-4">
             <label className="block">
               <span className="text-sm font-medium text-metin">Ekip adı</span>
               <input
@@ -332,25 +347,19 @@ export default async function EkiplerSayfasi({
             )}
 
             {/*
-              TÜR VE OKUL (15 Ağustos 2026 · Aşama 5).
+              EKİP TÜRÜ (15 Ağustos 2026 · Aşama 5; liste 31 Ağustos 2026'da
+              kısaldı).
 
-              OKUL SEÇİMİ HER ZAMAN GÖRÜNÜR ama yalnızca Okul Takımı türünde
-              kullanılıyor; diğer türlerde sunucu tarafında sessizce düşürülüyor
-              (bkz. ekipKapsaminiCoz). Alanı JavaScript ile gizlemek yerine
-              böyle yapıldı: form sunucu bileşeni içinde ve ekranın tamamını
-              istemciye taşımak, tek bir alanın gizlenmesi için ödenecek bedel
-              değil. Etiket ne zaman gerektiğini açıkça söylüyor.
-
-              MERKEZDE OKUL LİSTESİ TEKLİF EDİLMİYOR: il seçilmeden hangi ilin
-              okulları listeleneceği bilinmiyor ve ülke genelindeki tüm okulları
-              tek açılır listeye koymak (on binlerce satır) kullanılamaz olurdu.
-              Merkez okul takımını, ili seçtikten sonra ekibi düzenleyerek
-              bağlar; koordinatörde ise il zaten sabit.
+              OKUL TAKIMI BU FORMDAN SEÇİLEMİYOR: okul seçimi aynı gün kalktı
+              (aşağıdaki nota bakın) ve okulu olmayan bir okul takımı ne
+              veritabanı kısıtından (`ck_ekip_okul_takimi_kurum`) ne kural
+              katmanından geçer. Liste `EKIP_FORM_TURLERI`den geliyor; enum,
+              etiketler ve kurulmuş okul takımları olduğu gibi duruyor.
             */}
             <label className="block sm:w-72">
               <span className="text-sm font-medium text-metin">Ekip türü</span>
               <select name="tur" defaultValue="CALISMA_GRUBU" className={SINIF_GIRDI}>
-                {EKIP_TURLERI.map((tur) => (
+                {EKIP_FORM_TURLERI.map((tur) => (
                   <option key={tur} value={tur}>
                     {EKIP_TURU_ETIKETLERI[tur]}
                   </option>
@@ -358,60 +367,123 @@ export default async function EkiplerSayfasi({
               </select>
             </label>
 
-            {okullar.length > 0 && (
-              <label className="block sm:w-96">
-                {/*
-                  PARANTEZLİ AÇIKLAMA KALKTI (26 Ağustos 2026 · istek: "bunu
-                  sil"). ALANIN KENDİSİ DURUYOR ve durması gerekiyor: Okul
-                  Takımı türünde `kurumKodu` zorunlu (ck_ekip_okul_takimi_kurum)
-                  ve alan kaldırılsaydı o tür bu formdan hiç kurulamazdı.
-                  Yukarıdaki nota bakın — davranış değişmedi, yalnızca etiketin
-                  yanındaki cümle kalktı.
-                */}
-                <span className="text-sm font-medium text-metin">Okul</span>
-                <select name="kurumKodu" defaultValue="" className={SINIF_GIRDI}>
-                  <option value="">Seçin</option>
-                  {okullar.map((okul) => (
-                    <option key={okul.kurumKodu} value={okul.kurumKodu}>
-                      {okul.ad}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            {/*
+              OKUL SEÇİMİ KALDIRILDI (31 Ağustos 2026 · istek: "okul seçimi
+              kapanacak Okul").
+
+              SONUCU: bu formdan OKUL TAKIMI kurulamıyor ve tür listesinden de
+              çıkarıldı (bkz. lib/ekip/kurallar.ts · EKIP_FORM_TURLERI). Alan
+              gizlenip tür listede bırakılsaydı, Okul Takımı seçen kişi
+              "Okul takımı için okul seçilmesi zorunludur" hatasını alır ve
+              seçemeyeceği bir alanın eksikliğinden şikâyet edilirdi.
+
+              KURAL VE VERİTABANI KISITI YERİNDE (`ck_ekip_okul_takimi_kurum`,
+              `ekipKapsaminiCoz`): kurulmuş okul takımları listelerde,
+              süzgeçlerde ve raporlarda aynen duruyor.
+
+              DANIŞMAN ÖĞRETMEN SEÇİMİ DE KALDIRILDI (aynı gün · istek:
+              "Danışman öğretmen (isteğe bağlı, sonradan atanabilir) bunu da
+              kaldırdık"). Alan zaten isteğe bağlıydı; `danisman_kullanici_id`
+              sütunu ve "danışmansız ekipler" süzgeci yerinde duruyor —
+              değişen, ekibi kurarken sorulan soru.
+            */}
 
             {/*
-              DANIŞMAN İSTEĞE BAĞLI ve boş bırakılabilir olması bilinçli:
-              danışmansız ekip izlenen bir durum (Ekip Yönetimi · danışmansız
-              süzgeci). Zorunlu yapılsaydı o liste hiç dolmaz, ekipler de
-              "bir isim yazayım da geçeyim" ile kurulurdu.
+              DÜĞMENİN ALTINDAKİ CÜMLE: kutucuklar ekranın AŞAĞISINDA, formun
+              görsel sınırının dışında duruyor. "Ekibi kur"a basan kişi orada
+              işaretlediklerinin de gideceğini bilmezse, kutucukları boşuna
+              işaretlemiş sanır.
             */}
-            {ogretmenler.length > 0 && (
-              <label className="block sm:w-96">
-                <span className="text-sm font-medium text-metin">
-                  Danışman öğretmen{" "}
-                  <span className="font-normal text-metin-yumusak">
-                    (isteğe bağlı, sonradan atanabilir)
-                  </span>
-                </span>
-                <select name="danismanId" defaultValue="" className={SINIF_GIRDI}>
-                  <option value="">Sonra belirlenecek</option>
-                  {ogretmenler.map((ogretmen) => (
-                    <option key={ogretmen.id} value={ogretmen.id}>
-                      {ogretmen.ad} {ogretmen.soyad}
-                      {ogretmen.brans ? ` · ${ogretmen.brans}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-
             <button type="submit" className={SINIF_BIRINCIL_BUTON}>
               <UsersRound size={16} aria-hidden />
               Ekibi kur
             </button>
+            <p className="text-sm text-metin-yumusak">
+              Aşağıdaki kişi listesinden işaretlediğiniz kişiler ekiple birlikte
+              eklenir ve kendilerine bildirim gider.
+            </p>
           </form>
         </Kart>
+      )}
+
+      {/*
+        İLİN KİŞİ LİSTESİ (31 Ağustos 2026 · istek: "Burada liste çıksın
+        ilindeki öğretmen listesi, öğrenci listesi … bu alandaki listenin
+        filtreleri … görsel gibi olsun").
+
+        NİYE BU EKRANDA: aynı gün formdan okul ve danışman seçimi kalktı, yani
+        ekibi kuran kişi artık kimseyi bir açılır listeden seçmiyor. Kimlerle
+        çalışacağını görmesi gereken yer ekibi kurduğu ekran ve listenin
+        sorusu tam olarak bu: "ilimde kim var, hangi görevde, nasıl ulaşırım".
+
+        FORMUN ALTINDA: kart sırası işin sırasını izliyor — ekip envanteri
+        (hangi ekipler var), ekip kurma formu, sonra kişiler. Üste konsaydı
+        elli satırlık bir tablo, kurma formunu ekranın dışına iterdi.
+
+        YALNIZCA YÖNETENLERE ve kapı burada soruluyor (bileşen sormuyor): bu
+        sayfayı ekibe eklenmiş her kullanıcı açabiliyor, ilin kişi listesi ise
+        iletişim bilgisi taşıyor ve envanter yetkisi olmayan bir öğrenciye
+        açılamaz.
+
+        KAPSAM ÇAĞIRANDAN: koordinatörde kendi ili, merkezde ülke geneli
+        (`ilKodu = null`). Merkezin ili yok ve listeyi ona kapatmak, aynı
+        soruyu ülke ölçeğinde soramaması demekti — liste zaten sayfalı ve
+        süzgeçli.
+      */}
+      {yonetebilir && (
+        <IlKisiListesi
+          kullanici={kullanici}
+          parametreler={parametreler}
+          yol="/panel/ekipler"
+          ilKodu={koordinatorIli}
+          ilAdi={koordinatorIliKaydi?.ad ?? null}
+          /*
+            EKİBE EKLEME SÜTUNU (31 Ağustos 2026 · istek: "öğrenci listesi
+            geliyor altta ama kişi ekleme yok, ekip için öğrenci nasıl
+            seçecek").
+
+            AÇIK EKİPLER VERİLİYOR, hepsi değil: kapatılmış ekip bir arşivdir
+            ve sunucu eylemi de ona üye eklemiyor — listede görünseydi
+            seçilebilen ama her seferinde hata veren bir seçenek olurdu.
+
+            EKLEDİKTEN SONRA EKİBİN SAYFASINA GİDİLİYOR (eylemin kendi
+            yönlendirmesi): kişi oraya düşünce üye listesini ve sohbeti bir
+            arada görüyor, "eklendi mi" diye listeye bakmak gerekmiyor.
+
+            SÜTUN MERKEZDE BASILMIYOR: merkezin ekip listesi ülke genelidir ve
+            her satıra yüzlerce seçenekli bir açılır liste koymak, ekranı da
+            sayfayı da kullanılmaz kılardı. Üstelik üye, ekibin İLİNDEN olmak
+            zorunda (eylem bunu sunucuda soruyor) — merkezin doğru yolu ekibin
+            kendi sayfasındaki "Üye ekle" süzgeci, çünkü orada ekip zaten
+            seçilmiş durumda.
+          */
+          ekipler={
+            koordinatorIli
+              ? acikEkipler.map((ekip) => ({ id: ekip.id, ad: ekip.ad }))
+              : []
+          }
+          ekleEylemi={ekibeUyeEkleEylemi}
+          /*
+            "YENİ EKİBE" KUTUCUK SÜTUNU: formun `id`si veriliyor, kutucuklar
+            HTML'in `form` özniteliğiyle ona bağlanıyor.
+
+            MERKEZDE BASILMIYOR (ekleme sütunuyla aynı gerekçe): merkezin
+            listesi ülke geneli ama üye, ekibin İLİNDEN olmak zorunda —
+            işaretlenen kişilerin çoğu sunucuda sessizce elenirdi ve kullanıcı
+            "neden eklenmedi" sorusunun cevabını hiçbir yerde bulamazdı.
+          */
+          secimFormu={koordinatorIli ? KUR_FORMU : null}
+          /*
+            SÜTUN YOKSA SEBEBİ YAZILIYOR (31 Ağustos 2026 · istek: "hâlâ ekip
+            nasıl öğrenci seçeceğini göremiyorum"): ekleme sütunu açık ekip
+            yoksa gizleniyor ve gizlenirken hiçbir şey söylemiyordu.
+          */
+          eklemeNotu={
+            koordinatorIli
+              ? "Kurulu bir ekibe eklemek için önce yukarıdan ekibi kurun; kurarken de aşağıdaki kutucuklardan kişi seçebilirsiniz."
+              : "Merkezde üyeler ekibin kendi sayfasındaki “Üye ekle” süzgecinden eklenir: üye, ekibin iliyle aynı ilde olmak zorunda."
+          }
+        />
       )}
 
       {/*

@@ -323,6 +323,31 @@ describe("paydaş kapsam filtresi", () => {
   });
 
   /*
+   * KURUM SÜTUN SÜZGECİ (31 Ağustos 2026 · istek: "Kurum / Tür / İl — bunlar
+   * filtreli"). `ara`dan ayrı: `ara` kurum adı, yetkili kişi ve iş birliği
+   * alanına birden bakıyor; sütun süzgeci yalnızca sütunun kendisine.
+   */
+  it("kurum süzgeci yalnızca kurum adında arar", () => {
+    const filtre = metne(
+      paydasListeFiltresi(projeYoneticisiYap(), { kurum: "teknopark" }),
+    );
+    expect(filtre).toContain('"contains":"teknopark"');
+    // `ara` dalının imzası: yetkili kişi de aranır. Burada olmamalı.
+    expect(filtre).not.toContain("yetkiliKisi");
+  });
+
+  it("kurum ve ara birlikte DARALTIR, birbirinin yerine geçmez", () => {
+    const filtre = metne(
+      paydasListeFiltresi(projeYoneticisiYap(), {
+        kurum: "teknopark",
+        ara: "ayşe",
+      }),
+    );
+    expect(filtre).toContain('"contains":"teknopark"');
+    expect(filtre).toContain("yetkiliKisi");
+  });
+
+  /*
    * Seçilen filtreler kapsamın YERİNE geçmez, üstüne eklenir: adres çubuğuna
    * başka bir il kodu yazan koordinatör o ilin paydaşlarını göremez.
    */

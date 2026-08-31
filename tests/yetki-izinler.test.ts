@@ -17,6 +17,8 @@ import {
   faaliyetOnayGerekiyorMu,
   calismaGrubuYoneticisiAtayabilirMi,
   faaliyetOnaylayabilirMi,
+  belgeUretenRoldeMi,
+  faaliyetBelgesiUretebilirMi,
   faaliyetRaporuYazabilirMi,
   ilceTemsilcisiAtayabilirMi,
   ilKoordinatorAtayabilirMi,
@@ -1128,6 +1130,81 @@ describe("faaliyet raporu yazma yetkisi", () => {
     const koordinator = koordinatorYap({ ilKodu: "34" });
     expect(faaliyetRaporuYazabilirMi(koordinator, ilFaaliyeti())).toBe(true);
     expect(ekYukleyebilirMi(koordinator, ilFaaliyeti())).toBe(false);
+  });
+});
+
+/**
+ * BELGE ÜRETME YETKİSİ (31 Ağustos 2026 · istekler: "Öğrenci açtığı etkinlik
+ * için belge oluşturamasın … etkinliği öğrenci oluştursa bile il koordinatörü
+ * belge oluşturabilsin o etkinliğe dair." · "Öğretmen de belge oluşturamasın,
+ * sadece koordinatör ve proje yöneticileri belge üretebilsin.")
+ *
+ * Kapı rapordan AYRI ve ondan dar: rapor bir beyandır, belge bir onaydır ve
+ * karşı tarafın GençTek Yolculuğu'na katılım düşürür. Etkinliği KİM AÇARSA
+ * AÇSIN belgeyi ilin koordinatörü üretiyor.
+ */
+describe("belge üretme yetkisi", () => {
+  const ogrenciFaaliyeti = () =>
+    faaliyetYap({ duzenleyenKullaniciId: 101, kapsamIlKodu: "34" });
+  const ogretmenFaaliyeti = () =>
+    faaliyetYap({ duzenleyenKullaniciId: 500, kapsamIlKodu: "34" });
+
+  it("etkinliği KENDİ AÇAN öğrenci belge üretemez", () => {
+    expect(
+      faaliyetBelgesiUretebilirMi(ogrenciYap({ id: 101 }), ogrenciFaaliyeti()),
+    ).toBe(false);
+  });
+
+  it("etkinliği KENDİ AÇAN öğretmen de belge üretemez", () => {
+    /*
+     * "Etkinliği açan kişi" kolu kapıdan tümüyle çıktı: kapı
+     * `ekYukleyebilirMi`yi hiç çağırmıyor. Çağırsaydı bu satır geri gelirdi.
+     */
+    expect(
+      faaliyetBelgesiUretebilirMi(danismanYap({ id: 500 }), ogretmenFaaliyeti()),
+    ).toBe(false);
+  });
+
+  it("yürütücüler yoklamayı ve bilgi notunu YAZMAYA devam eder", () => {
+    // Kapının daralması yalnızca belgeyi kapsıyor: etkinliği yürüten kişi ne
+    // olduğunu anlatmaya devam ediyor.
+    expect(
+      faaliyetRaporuYazabilirMi(ogrenciYap({ id: 101 }), ogrenciFaaliyeti()),
+    ).toBe(true);
+    expect(
+      faaliyetRaporuYazabilirMi(danismanYap({ id: 500 }), ogretmenFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("il koordinatörü ÖĞRENCİNİN açtığı etkinliğe belge üretir", () => {
+    expect(
+      faaliyetBelgesiUretebilirMi(
+        koordinatorYap({ ilKodu: "34" }),
+        ogrenciFaaliyeti(),
+      ),
+    ).toBe(true);
+  });
+
+  it("başka ilin koordinatörü üretemez", () => {
+    expect(
+      faaliyetBelgesiUretebilirMi(
+        koordinatorYap({ ilKodu: "06" }),
+        ogrenciFaaliyeti(),
+      ),
+    ).toBe(false);
+  });
+
+  it("proje yöneticisi her etkinliğe üretir", () => {
+    expect(
+      faaliyetBelgesiUretebilirMi(projeYoneticisiYap(), ogrenciFaaliyeti()),
+    ).toBe(true);
+  });
+
+  it("giriş ekranının rol sorusu yalnızca koordinatör ve merkezi geçirir", () => {
+    expect(belgeUretenRoldeMi(koordinatorYap({ ilKodu: "34" }))).toBe(true);
+    expect(belgeUretenRoldeMi(projeYoneticisiYap())).toBe(true);
+    expect(belgeUretenRoldeMi(danismanYap())).toBe(false);
+    expect(belgeUretenRoldeMi(ogrenciYap())).toBe(false);
   });
 });
 
