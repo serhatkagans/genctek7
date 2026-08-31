@@ -426,6 +426,72 @@ export interface ReferansSatiri {
 }
 
 /**
+ * Referansın dört alanı — ekleme ve düzenleme formunun ortak gövdesi.
+ *
+ * `referans` verilmezse boş ekleme formu, verilirse dolu düzenleme formu
+ * çıkıyor: alan adları, uzunluk sınırları ve zorunluluk işareti tek yerde
+ * duruyor, yani sunucudaki kuralla (bkz. referansKabulEdilirMi) eşleşmesi
+ * gereken tek bir yüzey var.
+ *
+ * ÖRNEK METİNLER (`placeholder`) DÜZENLEMEDE DE DURUYOR: kutuyu boşaltan
+ * kişiye oraya ne yazılacağını yine söylüyorlar ve dolu bir kutuda zaten
+ * görünmüyorlar.
+ */
+function ReferansAlanlari({ referans }: { referans?: ReferansSatiri }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="block">
+        <span className="text-sm font-medium text-metin">
+          Ad soyad <span className="text-hata-metin">*</span>
+        </span>
+        <input
+          type="text"
+          name="adSoyad"
+          required
+          maxLength={150}
+          defaultValue={referans?.adSoyad ?? ""}
+          placeholder="Ayşe Yılmaz"
+          className={SINIF_GIRDI}
+        />
+      </label>
+      <label className="block">
+        <span className="text-sm font-medium text-metin">Kurum</span>
+        <input
+          type="text"
+          name="kurum"
+          maxLength={200}
+          defaultValue={referans?.kurum ?? ""}
+          placeholder="Beşiktaş Anadolu Lisesi — Bilişim öğretmeni"
+          className={SINIF_GIRDI}
+        />
+      </label>
+      <label className="block">
+        <span className="text-sm font-medium text-metin">Telefon</span>
+        <input
+          type="tel"
+          name="telefon"
+          maxLength={20}
+          defaultValue={referans?.telefon ?? ""}
+          placeholder="0 532 111 22 33"
+          className={SINIF_GIRDI}
+        />
+      </label>
+      <label className="block">
+        <span className="text-sm font-medium text-metin">E-posta</span>
+        <input
+          type="email"
+          name="eposta"
+          maxLength={150}
+          defaultValue={referans?.eposta ?? ""}
+          placeholder="ogretmen@meb.k12.tr"
+          className={SINIF_GIRDI}
+        />
+      </label>
+    </div>
+  );
+}
+
+/**
  * REFERANSLARIM (istek: "Öğrenciler için profile referanslar bölümü
  * ekleyelim. Referans için ad soyad telefon kurum eposta").
  *
@@ -436,9 +502,19 @@ export interface ReferansSatiri {
  * "kimleri yazmıştım" diye bakmak için açıyor, her seferinde boş bir formla
  * karşılaşmak listeyi formun altına itiyordu.
  *
- * DÜZENLEME DÜĞMESİ YOK, SİL VE YENİDEN YAZ: dört kısa alan için her satırın
- * altına ikinci bir form basmak, düzeltmenin kendisinden pahalı (aynı karar
- * Rotam hedeflerinde de verildi).
+ * HER SATIRIN KENDİ DÜZENLEME FORMU VAR (31 Ağustos 2026 · istek:
+ * "Referanslarda eklenen referansı düzenleme olsun"). 28 Ağustos'ta karar
+ * "sil ve yeniden yaz"dı; gerekçesinin neden yanlış olduğu sunucu eyleminin
+ * başlığında yazılı (referans-eylemleri.ts · referansGuncelleEylemi).
+ *
+ * FORM KAPALI GELİYOR — `<details>`, JavaScript yok. Üç referansın altına üç
+ * açık form basmak, bölümü art arda üç formdan oluşan bir duvara çevirirdi;
+ * kutuyu açan kişi çoğu zaman "kimleri yazmıştım" diye bakıyor. Alanlar
+ * `defaultValue` ile dolu geliyor: düzenleme, yeniden yazmak değil.
+ *
+ * ALANLARIN KENDİSİ EKLEME FORMUYLA AYNI (`ReferansAlanlari`): iki yerde ayrı
+ * yazılsalardı biri değişince öteki eskir, üstelik zorunluluk yıldızı ile
+ * `maxLength` değerleri sunucudaki kuralla eşleşmeyi bırakırdı.
  *
  * SİLME ONAY SORMUYOR: satır tek tıkla yeniden yazılabilir ve `confirm()`
  * tarayıcı kipi açıyor — sunucu eylemiyle çalışan bir formda o kip, geri
@@ -456,11 +532,13 @@ export function ReferansDuzenleme({
   referanslar,
   azamiSayi,
   ekleEylemi,
+  guncelleEylemi,
   silEylemi,
 }: {
   referanslar: ReferansSatiri[];
   azamiSayi: number;
   ekleEylemi: Eylem;
+  guncelleEylemi: Eylem;
   silEylemi: Eylem;
 }) {
   const doluMu = referanslar.length >= azamiSayi;
@@ -496,6 +574,31 @@ export function ReferansDuzenleme({
                   Sil
                 </button>
               </form>
+
+              {/*
+                DÜZENLEME KUTUSU SATIRIN TAM GENİŞLİĞİNDE (`basis-full`): ad ile
+                Sil düğmesi aynı satırda kalıyor, form ise altlarına açılıyor —
+                aksi hâlde dört alanlı form, silme düğmesinin yanındaki dar
+                sütuna sıkışırdı.
+              */}
+              <details className="basis-full">
+                <summary className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-vurgu-metin">
+                  <Pencil size={15} aria-hidden />
+                  Düzenle
+                </summary>
+                <form action={guncelleEylemi} className="mt-3 space-y-4">
+                  <input
+                    type="hidden"
+                    name="referansId"
+                    value={referans.id}
+                  />
+                  <ReferansAlanlari referans={referans} />
+                  <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                    <Check size={15} aria-hidden />
+                    Değişikliği kaydet
+                  </button>
+                </form>
+              </details>
             </li>
           ))}
         </ul>
@@ -508,51 +611,7 @@ export function ReferansDuzenleme({
         </p>
       ) : (
         <form action={ekleEylemi} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-metin">
-                Ad soyad <span className="text-hata-metin">*</span>
-              </span>
-              <input
-                type="text"
-                name="adSoyad"
-                required
-                maxLength={150}
-                placeholder="Ayşe Yılmaz"
-                className={SINIF_GIRDI}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-metin">Kurum</span>
-              <input
-                type="text"
-                name="kurum"
-                maxLength={200}
-                placeholder="Beşiktaş Anadolu Lisesi — Bilişim öğretmeni"
-                className={SINIF_GIRDI}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-metin">Telefon</span>
-              <input
-                type="tel"
-                name="telefon"
-                maxLength={20}
-                placeholder="0 532 111 22 33"
-                className={SINIF_GIRDI}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-metin">E-posta</span>
-              <input
-                type="email"
-                name="eposta"
-                maxLength={150}
-                placeholder="ogretmen@meb.k12.tr"
-                className={SINIF_GIRDI}
-              />
-            </label>
-          </div>
+          <ReferansAlanlari />
 
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             <Plus size={15} aria-hidden />
@@ -769,14 +828,35 @@ export function MentorlukDuzenleme({
 export interface CvDurumu {
   cvDosyaAdi: string | null;
   cvYuklenmeTarihi: Date | null;
+  /** "Eklemek istedikleriniz" metni; yazılmadıysa null. */
+  cvEkNotu: string | null;
 }
 
+/**
+ * BÖLÜM ARTIK İKİ ŞEY ALIYOR: DOSYA VE METİN (31 Ağustos 2026 · istek: "CV
+ * yükle bunu eklemek istedikleriniz yap, dosya ekleme kalsın metin ekleme
+ * alanı olsun").
+ *
+ * Dosya yükleme olduğu gibi duruyor; yanına, üretilen özgeçmişe girecek
+ * serbest bir metin alanı geldi. İhtiyaç şuradan: bölüm yalnızca PDF kabul
+ * ediyordu ve ekleyeceği şey bir dosyaya değmeyecek kadar kısa olan kişinin
+ * (bir sertifika adı, bir kurs) yazacak yeri yoktu.
+ *
+ * İKİ AYRI FORM, İKİ AYRI EYLEM: tek formda olsalardı dosya alanı zorunlu
+ * olduğu için metnini düzeltmek isteyen kişi PDF'ini her seferinde yeniden
+ * seçerdi. Metni kaydetmek dosyaya, dosyayı kaldırmak metne dokunmuyor.
+ *
+ * METİN ÖNCE, DOSYA SONRA: yazmak herkesin yapabileceği iş, PDF yüklemek
+ * hazırlığı olanın.
+ */
 export function CvDuzenleme({
   cv,
   kullaniciId,
   ogrenci = true,
   izinliTipler,
+  ekNotuAzami,
   yukleEylemi,
+  notKaydetEylemi,
   silEylemi,
 }: {
   cv: CvDurumu | null;
@@ -784,7 +864,9 @@ export function CvDuzenleme({
   /** İndirme rotası role göre değişir (7 Ağustos 2026 · öğretmen CV'si). */
   ogrenci?: boolean;
   izinliTipler: string[];
+  ekNotuAzami: number;
   yukleEylemi: Eylem;
+  notKaydetEylemi: Eylem;
   silEylemi: () => Promise<void>;
 }) {
   const cvVar = Boolean(cv?.cvDosyaAdi);
@@ -794,8 +876,50 @@ export function CvDuzenleme({
 
   return (
     <>
+      {/*
+        METİN ALANI (31 Ağustos 2026).
+
+        GÖRÜNEN ETİKETİ YOK, yalnızca yönlendirme satırı var (31 Ağustos 2026 ·
+        istek: "bunu eklemek istediklerim yapacaktık başlığı"): kutunun başlığı
+        artık "Eklemek istediklerim" ve alanın üstüne aynı sözü ikinci kez
+        yazmak, kişinin bir satır önce okuduğunu tekrar ederdi. Kalan satır
+        tekrar değil — metnin NEREYE gittiğini söylüyor.
+
+        `aria-label` KALIYOR: görünen etiketi kaldırmak, alanı kimliksiz
+        bırakmak değil (aynı karar aşağıdaki dosya alanında da verildi).
+      */}
+      <form action={notKaydetEylemi} className="mb-6 space-y-3">
+        <label className="block">
+          <span className="mb-2 block text-sm text-metin-yumusak">
+            Özgeçmişinizde yer almasını istediğiniz, panelde başka bir bölüme
+            girmeyen bilgiler: sertifikalar, kurslar, ilgi alanları, ek
+            açıklamalar. Yazdığınız metin “Özgeçmiş oluştur” ile ürettiğiniz
+            Word belgesine kendi başlığıyla girer.
+          </span>
+          <textarea
+            name="ekNotu"
+            aria-label="Özgeçmişe eklenecek metin"
+            rows={5}
+            maxLength={ekNotuAzami}
+            placeholder="Cisco CCNA eğitimini tamamladım. Okul robotik kulübünde takım kaptanıyım…"
+            defaultValue={cv?.cvEkNotu ?? ""}
+            className={SINIF_GIRDI}
+          />
+        </label>
+        {/*
+          BOŞ KAYDETMEK GEÇERLİ: alanı temizlemek, yazılanı geri almanın tek
+          yolu — bir metin kutusunun yanına ikinci bir "sil" düğmesi koymaya
+          değmez (bkz. cvEkNotuKabulEdilirMi).
+        */}
+        <button type="submit" className={SINIF_IKINCIL_BUTON}>
+          <FileText size={15} aria-hidden />
+          Metni kaydet
+        </button>
+      </form>
+
       <p className="mb-4 text-sm text-metin-yumusak">
-        Kabul edilen biçimler: {cvTipAdlari(izinliTipler)}.
+        Dosya olarak yüklemek isterseniz kabul edilen biçimler:{" "}
+        {cvTipAdlari(izinliTipler)}.
       </p>
 
       {cvVar && cv && (

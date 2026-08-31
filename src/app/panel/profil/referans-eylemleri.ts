@@ -25,11 +25,18 @@ import { BulunamadiHatasi } from "@/lib/yetki/tipler";
  * gereksizce engellerdi.
  *
  * ---------------------------------------------------------------------------
- * DÜZENLEME YOK: SİL VE YENİDEN YAZ
+ * DÜZENLEME VAR (31 Ağustos 2026 · istek: "Referanslarda eklenen referansı
+ * düzenleme olsun")
  * ---------------------------------------------------------------------------
- * Referans dört kısa alandan oluşuyor; yanlış yazılan bir satırı silip
- * yeniden girmek, her satırın altına ikinci bir form basmaktan ucuz. Aynı
- * karar Rotam hedeflerinde de verildi.
+ * 28 Ağustos'ta karar "sil ve yeniden yaz"dı; gerekçesi dört alanın yeniden
+ * yazılmasının ucuz olmasıydı. Ucuz DEĞİLMİŞ: telefon ve e-posta ezberden
+ * yazılan bilgiler değil, üçüncü bir kişiden alınmış bilgiler — bir harfi
+ * düzeltmek için kişinin numarayı yeniden bulması gerekiyordu. Üstelik
+ * silmek, yanlışın yanında DOĞRU yazılmış üç alanı da götürüyordu.
+ *
+ * SINIR DÜZENLEMEYİ ENGELLEMEZ: azami sayı dolduğunda ekleme formu kalkıyor
+ * ama var olan satırlar düzenlenebilir kalıyor — sınırın işi listeyi
+ * büyütmemek, girilmiş bilgiyi dondurmak değil.
  */
 
 const YOL = "/panel";
@@ -105,6 +112,54 @@ export async function referansEkleEylemi(veri: FormData): Promise<void> {
     hedefTip: "PROFIL",
     hedefId: kullanici.id,
     detay: "Profile referans eklendi",
+  });
+
+  yollariTazele();
+}
+
+/**
+ * Var olan bir referansın güncellenmesi.
+ *
+ * KABUL KURALI EKLEMEYLE AYNI (`referansKabulEdilirMi`): düzenleme, kuralların
+ * etrafından dolaşan bir arka kapı olmamalı — telefon/e-postadan en az biri
+ * koşulu burada da geçerli, yoksa kişi kaydı önce ekleyip sonra iletişim
+ * bilgisini boşaltarak ulaşılamaz bir referans bırakabilirdi.
+ *
+ * SAYIM YOK: güncelleme yeni satır üretmiyor, dolayısıyla azami sayıyla işi
+ * yok. Sınır düşürüldüğünde (5 → 3) elinde daha fazla satır kalmış kişi de
+ * bu yüzden kayıtlarını düzeltmeye devam edebiliyor.
+ */
+export async function referansGuncelleEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const id = Number.parseInt(String(veri.get("referansId") ?? ""), 10);
+  if (!Number.isInteger(id)) throw new BulunamadiHatasi();
+
+  const karar = referansKabulEdilirMi({
+    adSoyad: String(veri.get("adSoyad") ?? ""),
+    kurum: String(veri.get("kurum") ?? ""),
+    telefon: String(veri.get("telefon") ?? ""),
+    eposta: String(veri.get("eposta") ?? ""),
+  });
+  if (!karar.olurMu) hataylaDon(karar.neden);
+
+  /*
+   * `updateMany` + `kullaniciId` koşulu: `update` id ile çalışıp başkasının
+   * satırını yazabilirdi. Bulunamayan kayıt 404 verir (403 değil) — silmedeki
+   * gerekçenin aynısı.
+   */
+  const guncellenen = await prisma.kullaniciReferansi.updateMany({
+    where: { id, kullaniciId: kullanici.id },
+    data: karar.kayit,
+  });
+  if (guncellenen.count === 0) throw new BulunamadiHatasi();
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: "Profildeki referans güncellendi",
   });
 
   yollariTazele();

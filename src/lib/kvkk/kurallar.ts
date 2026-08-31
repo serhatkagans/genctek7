@@ -90,35 +90,106 @@ Kanun'un 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme
 On sekiz yaşından küçükseniz bu metni velinizle birlikte okumanız beklenir.`;
 
 /**
- * Açık rıza, aydınlatma metninden AYRI bir irade beyanıdır ve yalnızca kanunî
- * dayanağı bulunmayan işlemleri kapsar. Bu yüzden metin "her şeye rıza"
- * demez — rızaya bağlı işlemleri tek tek sayar; sayılmayan hiçbir işlem bu
- * onaya dayandırılamaz.
+ * AÇIK RIZA METNİ KURUMUN KENDİ METNİYLE DEĞİŞTİ (31 Ağustos 2026 · istek:
+ * "açık rıza metnini bu şekilde yapalım değişsin" — metnin tamamı istekle
+ * birlikte geldi).
+ *
+ * Gelen metin YEĞİTEK'in kurumsal aydınlatma metnidir ve sonunda tek cümlelik
+ * bir onay beyanı taşır. Sisteme özgü, elle yazılmış eski metnin yerini
+ * aldı — bir kurumun onay ekranında kurumun kendi yayımladığı metin durur;
+ * yerine yazılan bir özet, hukuken dayanağı olmayan ikinci bir metin olurdu.
+ *
+ * ESKİ METİNDE OLUP BURADA OLMAYANLAR — bilinçli değil, gelen metnin kapsamı
+ * bu:
+ *   · rızaya bağlanan işlemlerin tek tek sayılması (iletişim bilgisi, profil
+ *     fotoğrafı, belgelerde ad kullanımı, ilan görünürlüğü),
+ *   · "rızamı dilediğim zaman geri alabilirim" cümlesi. Geri alma hakkı
+ *     kanunîdir ve metnin 6. maddesinde "silinmesini veya yok edilmesini
+ *     isteme" hakkı olarak duruyor; eski metindeki gibi ayrı bir madde
+ *     olarak yazılmıyor.
+ * Bu iki başlık metne geri istenirse buraya eklenir; ekran, veritabanı ve onay
+ * akışı değişmeden çalışır.
+ *
+ * METİN GÜNCELLENDİĞİNDE ESKİ ONAYLAR DÜŞER (bkz. onayiGerekiyorMu): buradaki
+ * varsayılan değiştiğinde `sistem_ayari` kaydı yoksa tazelik ölçüsü de yoktur
+ * — kayıt varsa yönetim ekranından güncellenmelidir, yoksa kullanıcılar eski
+ * metne verdikleri onayla devam eder.
+ *
+ * İKİ YAZIM HATASI DÜZELTİLDİ ("Ayınlatma" → "Aydınlatma", "Milli Eğiti" →
+ * "Millî Eğitim"); gerisi geldiği gibi.
  */
-export const VARSAYILAN_ACIK_RIZA_METNI = `GençTek Ekosistemi Kurumsal Bilgi Sistemi — Açık Rıza Onayı
+export const VARSAYILAN_ACIK_RIZA_METNI = `Kişisel Verilerin İşlenmesi Aydınlatma Metni
 
-Bu metin, aydınlatma metninden ayrıdır. Aydınlatma metni verilerinizin nasıl işlendiğini ANLATIR; bu metinle ise yalnızca aşağıda sayılan işlemler için RIZA verirsiniz. Rızaya bağlanmamış hiçbir işlem bu onaya dayandırılamaz.
+Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun 10. maddesi ile Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ kapsamında veri sorumlusu sıfatıyla Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü tarafından hazırlanmıştır.
 
-1. İsteğe bağlı iletişim bilgileri
-E-posta adresim, telefon numaram ve eklersem GitHub / LinkedIn / kişisel site adreslerimin sistemde tutulmasını ve görev kapsamındaki danışman öğretmenim, ilimin koordinatörü ve proje yöneticileri tarafından görülmesini kabul ediyorum. Bu bilgileri girmek zorunlu değildir; girmezsem sistemi kullanmaya devam edebilirim.
+1. Veri Sorumlusu
+KVKK uyarınca, kişisel verileriniz Millî Eğitim Bakanlığı Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü tarafından veri sorumlusu sıfatıyla işlenmektedir.
 
-2. Profil fotoğrafı
-Yüklediğim profil fotoğrafının profilimde ve görev kapsamındaki kullanıcıların gördüğü listelerde gösterilmesini kabul ediyorum. Fotoğraf yüklemek zorunlu değildir; dilediğim zaman kaldırabilirim.
+2. Kişisel Verilerin İşlenme Amaçları
+Kişisel verileriniz, aşağıdaki amaçlarla işlenmektedir:
 
-3. Bildirim gönderimi
-Sistemdeki bildirimlerin bir kopyasının verdiğim e-posta adresine ve telefon numarasına gönderilmesini kabul ediyorum. İletişim bilgisi vermezsem bildirim yalnızca sistem içinde görünür.
+Hizmet Sunumu: Web sitemiz, dijital platformlarımız ve online öğrenme ortamlarımız üzerinden sunulan hizmetlerin sağlanması.
 
-4. Faaliyet kayıtları ve belgeler
-Katıldığım faaliyetlerde çekilen fotoğrafların faaliyet raporlarında yer almasını; ad ve soyadımın katılım / teşekkür belgelerinde, katılımcı listelerinde ve faaliyet raporlarında kullanılmasını kabul ediyorum.
+Eğitim ve Öğretim: Dijital içerikler, eğitim materyalleri ve online derslerin sunulması ve yönetilmesi.
 
-5. Sistem içi görünürlük
-Açtığım ilanların ve talep panosuna yazdıklarımın, faaliyete başvurabilen diğer kullanıcılarca görülmesini kabul ediyorum.
+Kullanıcı Deneyimi: Kullanıcı deneyiminin iyileştirilmesi, kişiselleştirilmiş hizmet sunumu ve kullanıcı tercihlerinin hatırlanması.
 
-6. Rızanın kapsamı ve geri alınması
-Bu rızanın, yalnızca GençTek ekosisteminin yürütülmesi amacıyla ve yukarıda sayılan işlemlerle sınırlı olduğunu biliyorum. Rızamı dilediğim zaman geri alabilirim; geri alma talebimi okul idarem aracılığıyla iletirim. Rızayı geri almam, geri alma anına kadar yapılmış işlemleri geçersiz kılmaz.
+Yasal Yükümlülükler: Yasal ve düzenleyici gerekliliklerin yerine getirilmesi.
 
-7. Yaş durumu
-On sekiz yaşından küçükseniz bu metni velinizle birlikte okumanız ve rızayı birlikte vermeniz beklenir.`;
+İletişim: Kullanıcılarımızla iletişim kurulması ve bildirimlerin iletilmesi.
+
+Güvenlik: Bilgi güvenliği süreçlerinin yürütülmesi ve kullanıcılarımızın verilerinin korunması.
+
+Analiz ve Raporlama: Hizmetlerimizin performansını analiz etmek ve raporlamak.
+
+3. Kişisel Verilerin Toplanma Yöntemleri ve Hukuki Sebepler
+Kişisel verileriniz, web sitemiz, mobil uygulamalarımız, dijital platformlarımız ve diğer iletişim kanallarımız aracılığıyla elektronik ortamda toplanmaktadır. Kişisel verilerinizin toplanma ve işlenme hukuki sebepleri şunlardır:
+
+Kanunlarda Açıkça Öngörülmesi: Kişisel verilerinizin işlenmesinin kanunlarda açıkça öngörülmesi.
+
+Sözleşmenin İfası: Sözleşmenin kurulması veya ifasıyla doğrudan doğruya ilgili olması kaydıyla, sözleşmenin taraflarına ait kişisel verilerin işlenmesinin gerekli olması.
+
+Hukuki Yükümlülüğün Yerine Getirilmesi: Veri sorumlusunun hukuki yükümlülüklerini yerine getirebilmesi için zorunlu olması.
+
+Meşru Menfaat: Veri sorumlusunun meşru menfaatleri için veri işlenmesinin zorunlu olması, temel hak ve özgürlüklerinize zarar vermemek kaydıyla.
+
+4. Kişisel Verilerin Aktarımı
+İşlenen kişisel verileriniz, yukarıda belirtilen amaçlar doğrultusunda ve KVKK'nın 8. ve 9. maddelerine uygun olarak, yalnızca yetkili kamu kurum ve kuruluşları ile hukuken yetkili özel hukuk tüzel kişileri ile paylaşılabilecektir. Ayrıca, platformun teknik altyapısını sağlayan üçüncü taraf hizmet sağlayıcılarla da gerekli güvenlik önlemleri alınarak paylaşım yapılabilmektedir.
+
+5. Kişisel Verilerin Saklanma Süresi
+Kişisel verileriniz, yukarıda belirtilen amaçlarla gerekli olan süre boyunca saklanacak olup, yasal saklama sürelerinin bitiminde veya işlenme amacının ortadan kalkması hâlinde imha edilecektir.
+
+6. KVKK Kapsamındaki Haklarınız
+KVKK'nın 11. maddesi uyarınca, kişisel verilerinizle ilgili olarak aşağıdaki haklara sahipsiniz:
+
+- Kişisel verilerinizin işlenip işlenmediğini öğrenme.
+
+- Kişisel verileriniz işlenmişse buna ilişkin bilgi talep etme.
+
+- Kişisel verilerinizin işlenme amacını ve bunların amacına uygun kullanılıp kullanılmadığını öğrenme.
+
+- Yurt içinde veya yurt dışında kişisel verilerinizin aktarıldığı üçüncü kişileri bilme.
+
+- Kişisel verilerinizin eksik veya yanlış işlenmiş olması hâlinde bunların düzeltilmesini isteme.
+
+- Kişisel verilerinizin silinmesini veya yok edilmesini isteme.
+
+- Kişisel verilerin düzeltilmesi, silinmesi veya yok edilmesine ilişkin işlemlerin kişisel verilerin aktarıldığı üçüncü kişilere bildirilmesini isteme.
+
+- İşlenen verilerin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya çıkmasına itiraz etme.
+
+- Kişisel verilerinizin kanuna aykırı olarak işlenmesi sebebiyle zarara uğramanız hâlinde zararın giderilmesini talep etme.
+
+7. İletişim
+Kişisel verilerinize ilişkin taleplerinizi Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ'e göre aşağıdaki iletişim bilgileri üzerinden iletebilirsiniz:
+
+Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü
+Emniyet Mahallesi, Milas Sokak, No:8 06560 Yenimahalle / ANKARA
+Telefon: 0312 296 94 00
+E-posta: yegitek@meb.gov.tr
+İletişim Formu: https://yegitek.meb.gov.tr/www/eposta_gonder.php
+
+Yukarıdaki kişisel verilerin korunması hakkındaki aydınlatma metnini okudum, anladım ve kişisel verilerimin işlenmesini onaylıyorum.`;
 
 /**
  * Taahhütname GÖREVLE ilgilidir: koordinatörün görevini nasıl yürüteceğini

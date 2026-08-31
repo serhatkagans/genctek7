@@ -8,7 +8,12 @@ import {
   BILDIRIM_KODLARI,
   projeYoneticilerineBildir,
 } from "@/lib/bildirim/gonder";
-import { cvKaydet, cvSil, cvSinirlariniGetir } from "@/lib/ogrenci/cv";
+import {
+  cvEkNotuKaydet,
+  cvKaydet,
+  cvSil,
+  cvSinirlariniGetir,
+} from "@/lib/ogrenci/cv";
 import {
   kazanimEkiKaydet,
   kazanimEkiSil,
@@ -689,6 +694,40 @@ export async function cvYukleEylemi(veri: FormData): Promise<void> {
 
   cvYollariniTazele(kullanici);
   panele("cvm", "durum=cv-yuklendi");
+}
+
+/**
+ * "Eklemek istedikleriniz" metnini kaydeder (31 Ağustos 2026 · istek: "CV
+ * yükle bunu eklemek istedikleriniz yap … metin ekleme alanı olsun").
+ *
+ * DOSYA YÜKLEMEDEN AYRI EYLEM: tek formda olsalardı, dosya alanı zorunlu
+ * olduğu için metnini düzeltmek isteyen kişi PDF'ini her seferinde yeniden
+ * seçmek zorunda kalırdı. Gerekçenin tamamı lib/ogrenci/cv.ts'te.
+ *
+ * ERİŞİM KAYDINA METNİN KENDİSİ YAZILMIYOR, yalnızca güncellendiği: satır
+ * kişinin kendi yazdığı serbest metin ve erişim kaydı ondan çok daha geniş bir
+ * kitleye açık (aynı kural referans eklemede de var).
+ */
+export async function cvEkNotuKaydetEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+
+  const sonuc = await cvEkNotuKaydet({
+    kullaniciId: kullanici.id,
+    metin: String(veri.get("ekNotu") ?? ""),
+    sahip: cvSahibi(kullanici),
+  });
+  if (!sonuc.olurMu) cvHatasi(sonuc.neden ?? "Metin kaydedilemedi.");
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: "Özgeçmişe eklenecek metin güncellendi",
+  });
+
+  cvYollariniTazele(kullanici);
+  panele("cvm", "durum=cv-notu-kaydedildi");
 }
 
 export async function cvSilEylemi(): Promise<void> {

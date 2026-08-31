@@ -15,6 +15,40 @@
  * sistemine ve veritabanına gitmez.
  */
 
+/**
+ * "Eklemek istedikleriniz" metninin üst sınırı (31 Ağustos 2026 · istek: "CV
+ * yükle bunu eklemek istedikleriniz yap … metin ekleme alanı olsun").
+ *
+ * İKİ BİN KARAKTER: alan bir özgeçmişe eklenecek şeyler için — sertifika, kurs,
+ * hobi, ek açıklama. Sınırsız bırakılsaydı üretilen Word belgesinin tek
+ * bölümü sayfalarca sürebilirdi; "Hakkımda"nınkinden geniş çünkü orası tek
+ * paragraflık bir tanıtım, burası liste tutulabilen bir alan.
+ */
+export const CV_EK_NOTU_AZAMI = 2000;
+
+/**
+ * Metnin kabul edilip edilmeyeceği.
+ *
+ * BOŞ METİN GEÇERLİDİR ve `null` olarak kaydedilir: alanı temizlemek, kişinin
+ * yazdığını geri almasının tek yolu — ayrı bir "sil" düğmesi, bir metin kutusu
+ * için ikinci bir eylem olurdu. Boş dize ile `null` ayrımı burada bitiyor,
+ * veritabanına tek bir "yok" hâli gidiyor.
+ */
+export function cvEkNotuKabulEdilirMi(metin: string): {
+  olurMu: boolean;
+  neden?: string;
+  deger?: string | null;
+} {
+  const kirpik = metin.trim();
+  if (kirpik.length > CV_EK_NOTU_AZAMI) {
+    return {
+      olurMu: false,
+      neden: `Metin en fazla ${CV_EK_NOTU_AZAMI} karakter olabilir.`,
+    };
+  }
+  return { olurMu: true, deger: kirpik || null };
+}
+
 export interface CvSinirlari {
   izinliTipler: string[];
   maksBayt: number;

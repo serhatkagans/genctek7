@@ -989,6 +989,24 @@ model OgretmenProfil {
   cvBoyutBayt      BigInt?   @map("cv_boyut_bayt")
   cvYuklenmeTarihi DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
 
+  /// EKLEMEK İSTEDİKLERİNİZ (31 Ağustos 2026 · istek: "CV yükle bunu eklemek
+  /// istedikleriniz yap, dosya ekleme kalsın metin ekleme alanı olsun").
+  ///
+  /// Bölüm yalnızca PDF kabul ediyordu; PDF'i olmayan ya da yazacağı şey bir
+  /// dosyaya değmeyecek kadar kısa olan kişinin ekleyecek yeri yoktu. Bu sütun
+  /// o metni tutuyor ve üretilen özgeçmişe kendi başlığıyla giriyor.
+  ///
+  /// `hakkinda` İLE AYNI ŞEY DEĞİL: "Hakkımda" kişinin kendini tanıttığı,
+  /// panelde ve envanterde herkese görünen satırdır; bu alan ise ÖZGEÇMİŞE
+  /// eklenecek şeyler için — sertifika adı, kurs, hobi, ek açıklama. İkisi tek
+  /// alan olsaydı, biri değişince öteki de değişirdi.
+  ///
+  /// SINIR UYGULAMA KATMANINDA (bkz. lib/ogrenci/cv-kurallar.ts): sütun `Text`,
+  /// çünkü sınır bir ürün kararıdır ve migration istemeden değişebilmeli.
+  /// Öğrencininkiyle aynı sütun, aynı sınır; alan kopyalandı çünkü iki profil
+  /// satırının yaşam döngüsü ayrı (CV alanlarında verilen gerekçenin aynısı).
+  cvEkNotu         String?   @map("cv_ek_notu") @db.Text
+
   /// MESLEKİ BAĞLANTILAR (7 Ağustos 2026 · istek: mezun/paydaş/mentör profilinde
   /// "linkedin github").
   ///
@@ -1205,6 +1223,22 @@ model OgrenciProfil {
   cvMimeTipi       String?   @map("cv_mime_tipi") @db.VarChar(100)
   cvBoyutBayt      BigInt?   @map("cv_boyut_bayt")
   cvYuklenmeTarihi DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
+
+  /// EKLEMEK İSTEDİKLERİNİZ (31 Ağustos 2026 · istek: "CV yükle bunu eklemek
+  /// istedikleriniz yap, dosya ekleme kalsın metin ekleme alanı olsun").
+  ///
+  /// Bölüm yalnızca PDF kabul ediyordu; PDF'i olmayan ya da yazacağı şey bir
+  /// dosyaya değmeyecek kadar kısa olan kişinin ekleyecek yeri yoktu. Bu sütun
+  /// o metni tutuyor ve üretilen özgeçmişe kendi başlığıyla giriyor.
+  ///
+  /// `hakkinda` İLE AYNI ŞEY DEĞİL: "Hakkımda" kişinin kendini tanıttığı,
+  /// panelde ve envanterde herkese görünen satırdır; bu alan ise ÖZGEÇMİŞE
+  /// eklenecek şeyler için — sertifika adı, kurs, hobi, ek açıklama. İkisi tek
+  /// alan olsaydı, biri değişince öteki de değişirdi.
+  ///
+  /// SINIR UYGULAMA KATMANINDA (bkz. lib/ogrenci/cv-kurallar.ts): sütun `Text`,
+  /// çünkü sınır bir ürün kararıdır ve migration istemeden değişebilmeli.
+  cvEkNotu         String?   @map("cv_ek_notu") @db.Text
 
   /// Öğrencinin kendi girdiği mesleki bağlantıları. e-Okul'dan GELMEZ ve
   /// senkronda üzerine yazılmaz; e-posta ve telefonla aynı kategoridedir.

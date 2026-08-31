@@ -3,7 +3,6 @@ import {
   Award,
   BadgeCheck,
   Camera,
-  CalendarClock,
   CalendarDays,
   CheckSquare,
   Compass,
@@ -71,9 +70,11 @@ import {
 } from "./profil/eylemler";
 import {
   referansEkleEylemi,
+  referansGuncelleEylemi,
   referansSilEylemi,
 } from "./profil/referans-eylemleri";
 import {
+  cvEkNotuKaydetEylemi,
   cvSilEylemi,
   cvYukleEylemi,
   kazanimBelgeEkleEylemi,
@@ -99,14 +100,11 @@ import { HAKKINDA_MAKS } from "@/lib/akis/kurallar";
 import { ekipSayimiGetir } from "@/lib/ekip/veri";
 import { hakkindaKaydetEylemi } from "./profil/hakkinda-eylemi";
 import { cvSinirlariniGetir } from "@/lib/ogrenci/cv";
+import { CV_EK_NOTU_AZAMI } from "@/lib/ogrenci/cv-kurallar";
 import { uygulamaYolu } from "@/lib/ortam";
 import { ilKoordinatoruOzeti } from "@/lib/rol/koordinator";
 import { prisma } from "@/lib/db";
-import {
-  etkinligeKalanYaz,
-  seritteGosterilecekler,
-} from "@/lib/faaliyet/takvim";
-import { yaklasanEtkinligimiGetir } from "@/lib/faaliyet/yaklasan";
+import { seritteGosterilecekler } from "@/lib/faaliyet/takvim";
 import {
   kazanimlariGetir,
   ogretmenKazanimlariGetir,
@@ -310,6 +308,8 @@ export default async function PanelSayfasi({
             telefon: true,
             cvDosyaAdi: true,
             cvYuklenmeTarihi: true,
+            // "Eklemek istedikleriniz" metni (31 Ağustos 2026).
+            cvEkNotu: true,
             // Dosyanın VAR OLUP OLMADIĞI bu sütundan anlaşılıyor.
             cvDepolamaYolu: true,
             /*
@@ -652,17 +652,6 @@ export default async function PanelSayfasi({
     : null;
 
   const simdi = new Date();
-
-  /*
-   * Kişinin SIRADAKİ kendi etkinliği. Takvimin cevaplamadığı soru bu: takvim
-   * kapsamdaki her etkinliği gösteriyor, bu ise kişinin o gün orada olması
-   * gerekenini. Ölçüt rol değil kişisel bağdır — ayrıntı ve gerekçeler
-   * lib/faaliyet/yaklasan.ts başlığında.
-   */
-  const yaklasanEtkinligim = await yaklasanEtkinligimiGetir(
-    kullanici.id,
-    simdi,
-  );
 
   /*
    * Başvuru şeridinin kaynağı: kapsamdaki faaliyetler. Takvim bölümü
@@ -1183,45 +1172,20 @@ export default async function PanelSayfasi({
         )}
 
         {/*
-          YAKLAŞAN ETKİNLİĞİM — HERKESTE BASILAN İLK KART (13 Ağustos 2026).
+          "YAKLAŞAN ETKİNLİĞİM" KARTI ETKİNLİKLER EKRANINA TAŞINDI (31 Ağustos
+          2026 · istek: "profilde Yaklaşan etkinliğim … bu kartı etkinlikler
+          bölümüne kart olarak taşıyalım").
 
-          26 Ağustos'ta önüne "İl koordinatörüm" geçti — okul personelinde ve
-          öğrencide; koordinatörde ve merkezde ızgaranın ilk kartı hâlâ bu.
+          Kart 13 Ağustos'tan beri buradaydı ve ızgaranın en önünde duruyordu:
+          gerekçesi "buradaki tek tarihli taahhüt bu"ydu. Yeni yeri o gerekçeyi
+          bozmuyor, kartı konusunun yanına koyuyor — tıklandığında zaten
+          etkinlik sayfasına gidiyordu ve komşuları (danışman, gruplar, başvuru
+          adedi) kişinin KENDİ kaydını okuyor.
 
-          Kartların geri kalanı ayar ve sayım: danışman seçimi, grup seçimi,
-          başvuru adedi. Bunlarda acele yoktur. Buradaki tek tarihli taahhüt
-          bu kart, o yüzden en önde: "sırada ne var" sorusunun cevabı, üç sayım
-          kartının altında durmamalı.
-
-          KAYDI YOKSA HİÇ BASILMIYOR. Boş hâlde "yaklaşan etkinliğiniz yok +
-          başvuruya açık etkinliklere bak" yazmak akla geldi ama ikinci cümlenin
-          karşılığı zaten "Başvurusu açık etkinlik" kartı ve o herkeste
-          basılıyor; aynı kapıyı iki kez açmak olurdu. Boş kart göstermeme
-          kuralı Ekiplerim kartındakiyle aynı.
-
-          DEĞER = ETKİNLİK ADI, açıklama = tarih · kalan gün · SIFAT. Sıfat
-          şart: aynı kart hem "oraya katılıyorsun" hem "orayı sen düzenliyorsun"
-          diyebiliyor ve ikisi çok farklı işler. Başlığın söylediğiyle
-          bağlantının götürdüğü yerin ayrışması bu panelde daha önce gerçek bir
-          hataya yol açtı (bkz. aşağıdaki "Onay bekleyen etkinlik" notu).
+          VERİ VE SORGU SİLİNMEDİ, TAŞINDI: `yaklasanEtkinligimiGetir` artık
+          app/panel/etkinlikler/page.tsx içinde çağrılıyor ve kart orada
+          listenin üstünde basılıyor. Kayıt yoksa basmama kuralı da korundu.
         */}
-        {yaklasanEtkinligim && (
-          <OlcumKarti
-            baslik="Yaklaşan etkinliğim"
-            ton="vurgu"
-            Ikon={CalendarClock}
-            deger={yaklasanEtkinligim.ad}
-            aciklama={`${tarihYaz(yaklasanEtkinligim.tarih)} · ${etkinligeKalanYaz(
-              yaklasanEtkinligim.tarih,
-              simdi,
-            )} · ${
-              yaklasanEtkinligim.sifat === "DUZENLEYEN"
-                ? "düzenleyensiniz"
-                : "katılımcısınız"
-            }`}
-            yol={`/panel/etkinlikler/${yaklasanEtkinligim.id}`}
-          />
-        )}
 
         {ogrenciMi(kullanici) && (
           <>
@@ -2132,7 +2096,21 @@ export default async function PanelSayfasi({
       )}
 
       <KatlanabilirKart
-        baslik="Özgeçmişim (CV)"
+        /*
+          BAŞLIK "EKLEMEK İSTEDİKLERİM" (31 Ağustos 2026 · istek: "bunu eklemek
+          istediklerim yapacaktık başlığı, açıklamayı da sil buradaki").
+
+          Bölüm 28 Ağustos'a kadar yalnızca yüklenen PDF'i tutuyordu ve adı
+          "Özgeçmişim (CV)" idi; bugün metin alanı da eklenince ad, içindekinin
+          yarısını anlatır oldu. Yeni ad ikisini birden kapsıyor: kişinin
+          özgeçmişine EKLEMEK İSTEDİĞİ şeyler — yazdığı metin ve yüklediği
+          dosya.
+
+          ÇAPA "cvm" OLARAK KALDI: dışarıdan gelen bağlantılar (eylemlerin
+          dönüş adresleri, `?bolum=cvm`) bu çapaya iniyor ve adı değiştirmek
+          eski bağlantıları sessizce kapalı bir sayfaya düşürürdü.
+        */
+        baslik="Eklemek istediklerim"
         /*
           ÖĞRENCİDE AÇIKLAMA YOK (21 Ağustos 2026 · istek). Öğretmende satır
           kalıyor: CV'yi kimin göreceği orada hâlâ sorulan bir soru.
@@ -2176,13 +2154,18 @@ export default async function PanelSayfasi({
           kalıyor çünkü "özgeçmişim" diye bakılan yer bu kart; düğmeyi burada
           da basmak aynı işi yapan ikinci bir kapı olurdu.
         */}
-        <p className="mb-4 text-sm text-metin-yumusak">
-          Aşağıdaki dosya sizin yüklediğiniz özgeçmiştir. Panelinizdeki
-          bilgilerden (hakkımda, iletişim, çalışma grupları, kayıtlarınız,
-          katılımlarınız ve nişanlarınız) üretilen hazır özgeçmişi ise sayfanın
-          en üstündeki <strong>Özgeçmiş oluştur</strong> düğmesinden Word
-          olarak alabilirsiniz.
-        </p>
+{/*
+          GİRİŞ PARAGRAFI KALKTI (31 Ağustos 2026 · istek: "açıklamayı da sil
+          buradaki"). Üç iş yapıyordu ve üçünün de karşılığı yerinde:
+            · bölümün ne olduğunu söylüyordu → başlık artık onu söylüyor,
+            · yüklenen dosya ile üretilen belgenin farkını anlatıyordu →
+              kutunun içindeki iki alan (metin ve dosya) kendi etiketleriyle
+              duruyor,
+            · "Özgeçmiş oluştur" düğmesinin yerini tarif ediyordu → düğme
+              vitrinde, sayfanın en üstünde ve kendi adını taşıyor.
+          Kapağın altında dört satır okumadan hiçbir şey yapılamayan bir kutu,
+          kısa iki formdan uzundu.
+        */}
         <CvDuzenleme
           cv={
             ogrenciMi(kullanici)
@@ -2192,7 +2175,9 @@ export default async function PanelSayfasi({
           kullaniciId={kullanici.id}
           ogrenci={ogrenciMi(kullanici)}
           izinliTipler={cvSinirlari.izinliTipler}
+          ekNotuAzami={CV_EK_NOTU_AZAMI}
           yukleEylemi={cvYukleEylemi}
+          notKaydetEylemi={cvEkNotuKaydetEylemi}
           silEylemi={cvSilEylemi}
         />
       </KatlanabilirKart>
@@ -2342,6 +2327,7 @@ export default async function PanelSayfasi({
             referanslar={referanslar}
             azamiSayi={REFERANS_AZAMI_SAYI}
             ekleEylemi={referansEkleEylemi}
+            guncelleEylemi={referansGuncelleEylemi}
             silEylemi={referansSilEylemi}
           />
         </KatlanabilirKart>

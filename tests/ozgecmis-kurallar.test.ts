@@ -20,7 +20,8 @@ const BOLUM_BASLIKLARI = [
   "Çalışma gruplarım",
   "Mentörlük",
   "GençTek etkinlik katılımları",
-  "Nişanlar",
+  "GençTek yolculuğum",
+  "Eklemek istedikleriniz",
   "Referanslarım",
 ];
 
@@ -43,8 +44,17 @@ function veri(ozellikler: Partial<OzgecmisVerisi> = {}): OzgecmisVerisi {
     mentorluk: null,
     bolumler: [],
     katilimlar: [],
-    nisanlar: [],
+    yolculuk: {
+      seviyeAdi: '"Hello World"',
+      basamaklar: [
+        {
+          ad: '"Hello World"',
+          aciklama: "Ekosisteme adım attın; yolculuk buradan başlıyor.",
+        },
+      ],
+    },
     referanslar: [],
+    ekNotu: null,
     uretimTarihi: "28.08.2026",
     ...ozellikler,
   };
@@ -155,7 +165,7 @@ describe("özgeçmiş belgesi", () => {
     expect(html).toContain("&lt;script&gt;");
   });
 
-  it("mentörlük, çalışma grupları, katılımlar ve nişanlar girer", () => {
+  it("mentörlük, çalışma grupları, katılımlar ve yolculuk girer", () => {
     const html = ozgecmisWordHtml(
       veri({
         mentorluk: "Onaylı GençTek mentörü — Yapay Zekâ",
@@ -163,13 +173,50 @@ describe("özgeçmiş belgesi", () => {
         katilimlar: [
           { ad: "Genç Gölge", tarih: "01.03.2026", kapsam: "Ulusal" },
         ],
-        nisanlar: [{ ad: "Kâşif", aciklama: "İlk etkinliğine katıldı" }],
+        yolculuk: {
+          seviyeAdi: "Harekette",
+          basamaklar: [
+            {
+              ad: '"Hello World"',
+              aciklama: "Ekosisteme adım attın; yolculuk buradan başlıyor.",
+            },
+            {
+              ad: "Keşifte",
+              aciklama: "Etkinliklere katılıyor, ekosistemi tanıyorsun.",
+            },
+            {
+              ad: "Harekette",
+              aciklama: "Düzenli katılıyor, çalışma alanını seçiyorsun.",
+            },
+          ],
+        },
       }),
     );
     expect(html).toContain("Onaylı GençTek mentörü");
     expect(html).toContain("Siber Güvenlik");
     expect(html).toContain("Genç Gölge");
-    expect(html).toContain("Kâşif");
+    /*
+     * Bölüm "GençTek yolculuğum" adını taşımalı (nişanların yerini aldı) ve
+     * içinde kişinin durduğu basamak yazmalı. YILDIZ YAZMAMALI: 31 Ağustos'ta
+     * hem şeritten hem belgeden kalktı — sayı, basamağın sırasını tekrar
+     * ediyordu.
+     */
+    expect(html).toContain("GençTek yolculuğum");
+    expect(html).toContain("Harekette");
+    expect(html).not.toContain("yıldız");
+  });
+
+  it("eklemek istedikleriniz metni belgeye girer", () => {
+    /*
+     * Metin, profilde başka bir bölüme girmeyen bilgiler için (31 Ağustos 2026
+     * · istek: "metin ekleme alanı olsun") ve üretilen belgede kendi başlığını
+     * taşıyor — yazan kişi nereye yazdığını ekrandan okuyor.
+     */
+    const html = ozgecmisWordHtml(
+      veri({ ekNotu: "Cisco CCNA eğitimini tamamladım." }),
+    );
+    expect(html).toContain("Eklemek istedikleriniz");
+    expect(html).toContain("Cisco CCNA");
   });
 
   it("belgenin ne zaman üretildiğini yazar", () => {

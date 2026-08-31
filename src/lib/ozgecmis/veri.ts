@@ -11,6 +11,8 @@ import { basHarfler, mentorKapsamiYaz } from "@/lib/mentor/kurallar";
 import { referansSatiri } from "@/lib/referans/kurallar";
 import { tarihYaz } from "@/lib/tarih";
 import { ROL_ETIKETLERI } from "@/lib/yetki/etiketler";
+import { YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
+import { yolculugumuGetir } from "@/lib/yolculuk/veri";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import type {
@@ -29,7 +31,7 @@ import type {
  * Paneldeki (yani profildeki — 20 Ağustos 2026'da ikisi birleşti) bölümlerin
  * tamamı ve AYNI SIRAYLA: kimlik, hakkımda, iletişim ve bağlantılar, çalışma
  * grupları, mentörlük, kayıt grupları (Ürünlerim · Deneyimlerim ·
- * Topluluklarım / Ekiplerim), GençTek katılımları, nişanlar.
+ * Topluluklarım / Ekiplerim), GençTek katılımları, GençTek yolculuğu.
  *
  * BOŞ ALAN DA GİRER (28 Ağustos 2026 · istek: "profildeki tüm alanlar boş
  * girilse de cv de olsun"): değeri olmayan künye satırı "—", kaydı olmayan
@@ -41,8 +43,13 @@ import type {
  *   · YÜKLENEN CV dosyası — özgeçmişin İÇİNE ikinci bir özgeçmiş konmaz; o
  *     dosya zaten ayrıca paylaşılıyor (bkz. lib/ogrenci/cv.ts).
  *
- * KAZANILMAMIŞ NİŞAN DA GİRMEZ: ilerleme çubuğu panelde teşviktir, CV'de
- * "bunu yapamadım" listesi olurdu.
+ * NİŞANLARIN YERİNİ GENÇTEK YOLCULUĞU ALDI (31 Ağustos 2026 · istek: "katkı
+ * nişanlarım GençTek yolculuğum olacak şekilde değişsin ve bu maddelere göre
+ * olsun"). Ölçü artık tek: basamak ve yıldız.
+ *
+ * ULAŞILMAMIŞ BASAMAK GİRMEZ — kazanılmamış nişanın girmeme kuralı aynen
+ * sürüyor: ilerleme çubuğu panelde teşviktir, CV'de "bunu yapamadım" listesi
+ * olurdu.
  *
  * ---------------------------------------------------------------------------
  * KİŞİ KENDİ ÖZGEÇMİŞİNİ İNDİRİR
@@ -110,6 +117,13 @@ export async function ozgecmisVerisiGetir(
 ): Promise<OzgecmisVerisi> {
   const ogrenciDir = ogrenciMi(kullanici);
 
+  /*
+   * YOLCULUK AYRI ÇAĞRILIYOR, `Promise.all`a EKLENMİYOR: hesap kendi içinde
+   * birkaç sorgu açıyor ve yerel veritabanı eşzamanlı bağlantı tavanına
+   * takılıyor — gerekçenin tamamı lib/yolculuk/veri.ts başlığında.
+   */
+  const yolculuk = await yolculugumuGetir(kullanici, simdi);
+
   const [kayit, katki] = await Promise.all([
     prisma.kullanici.findUniqueOrThrow({
       where: { id: kullanici.id },
@@ -138,6 +152,8 @@ export async function ozgecmisVerisiGetir(
             kisiselSiteUrl: true,
             linkedinUrl: true,
             instagramUrl: true,
+            // "Eklemek istedikleriniz" metni (31 Ağustos 2026).
+            cvEkNotu: true,
           },
         },
         ogretmenProfil: {
@@ -150,6 +166,7 @@ export async function ozgecmisVerisiGetir(
             instagramUrl: true,
             kurumAdi: true,
             gorevUnvani: true,
+            cvEkNotu: true,
           },
         },
         mentorluk: {
@@ -373,9 +390,24 @@ export async function ozgecmisVerisiGetir(
           kunye: referansSatiri(referans),
         }))
       : null,
-    nisanlar: katki.rozetler
-      .filter((rozet) => rozet.kazanildiMi)
-      .map((rozet) => ({ ad: rozet.ad, aciklama: rozet.aciklama })),
+    yolculuk: {
+      seviyeAdi: yolculuk.seviye.ad,
+      /*
+       * Basamaklar kişinin bulunduğu yere kadar KESİLİYOR. Kesme ölçüsü
+       * `yildiz`: o basamağın sırası (bkz. seviyeYildizi), yani liste tam
+       * kişinin geldiği yerde bitiyor. Sayının kendisi BELGEYE YAZILMIYOR —
+       * yıldızlar 31 Ağustos'ta belgeden kalktı.
+       */
+      basamaklar: YOLCULUK_SEVIYELERI.slice(0, yolculuk.yildiz).map(
+        (seviye) => ({ ad: seviye.ad, aciklama: seviye.aciklama }),
+      ),
+    },
+    /*
+     * KİŞİNİN KENDİ YAZDIĞI SERBEST METİN, olduğu gibi giriyor: kaçırma
+     * `paragraf()` içinde yapılıyor (bkz. kurallar.ts) — burada kırpmak,
+     * belgeye giren metnin ekranda görülenden farklı olması demek olurdu.
+     */
+    ekNotu: profil?.cvEkNotu ?? null,
     uretimTarihi: tarihYaz(simdi),
   };
 }

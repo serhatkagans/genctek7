@@ -1,7 +1,11 @@
 import { AYAR_ANAHTARLARI, ayarListe, ayarSayi } from "../ayar";
 import { prisma } from "../db";
 import { depolama } from "../depolama";
-import { type CvSinirlari, cvKabulEdilirMi } from "./cv-kurallar";
+import {
+  type CvSinirlari,
+  cvEkNotuKabulEdilirMi,
+  cvKabulEdilirMi,
+} from "./cv-kurallar";
 
 /**
  * CV'nin kaydedilmesi ve kaldırılması.
@@ -99,7 +103,46 @@ export async function cvKaydet(girdi: {
   return { olurMu: true };
 }
 
-/** CV kaydını ve dosyasını kaldırır. CV yoksa sessizce hiçbir şey yapmaz. */
+/**
+ * "Eklemek istedikleriniz" metnini profile yazar.
+ *
+ * DOSYADAN AYRI KAYDEDİLİR: ikisi tek formda olsaydı dosya alanı zorunlu
+ * kaldığı için metnini güncellemek isteyen kişi her seferinde PDF'ini yeniden
+ * seçmek zorunda kalırdı. Aynı sebeple metni kaydetmek dosyaya, dosyayı
+ * kaldırmak metne dokunmuyor.
+ *
+ * `cvKaydet` ile aynı desende: sahip parametresi hangi profil tablosuna
+ * yazılacağını seçiyor, yetki kontrolü çağıranın işi.
+ */
+export async function cvEkNotuKaydet(girdi: {
+  kullaniciId: number;
+  metin: string;
+  sahip?: CvSahibi;
+}): Promise<CvKayitSonucu> {
+  const karar = cvEkNotuKabulEdilirMi(girdi.metin);
+  if (!karar.olurMu) return { olurMu: false, neden: karar.neden };
+
+  const veri = { cvEkNotu: karar.deger ?? null };
+  if ((girdi.sahip ?? "OGRENCI") === "OGRENCI") {
+    await prisma.ogrenciProfil.update({
+      where: { kullaniciId: girdi.kullaniciId },
+      data: veri,
+    });
+  } else {
+    await prisma.ogretmenProfil.update({
+      where: { kullaniciId: girdi.kullaniciId },
+      data: veri,
+    });
+  }
+  return { olurMu: true };
+}
+
+/**
+ * CV kaydını ve DOSYASINI kaldırır. CV yoksa sessizce hiçbir şey yapmaz.
+ *
+ * `cv_ek_notu` BİLEREK BOŞALTILMIYOR: metin dosyanın açıklaması değil, kendi
+ * başına bir kayıt — PDF'ini kaldıran kişi yazdıklarını da kaybetmemeli.
+ */
 export async function cvSil(
   ogrenciId: number,
   sahip: CvSahibi = "OGRENCI",

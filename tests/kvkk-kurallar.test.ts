@@ -203,14 +203,26 @@ describe("varsayılan belge metinleri", () => {
     expect(VARSAYILAN_AYDINLATMA_METNI).toContain("değiştirilemez");
   });
 
-  it("açık rıza metni rızanın geri alınabileceğini söyler", () => {
-    // Geri alma hakkı kanunîdir; metinden çıkarılamaz.
-    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain("geri alabilirim");
+  /*
+   * AÇIK RIZA METNİ KURUMUN KENDİ METNİ (31 Ağustos 2026 · istek: "açık rıza
+   * metnini bu şekilde yapalım değişsin").
+   *
+   * İki eski beklenti KALKTI çünkü gelen metinde karşılıkları yok: "rızamı
+   * dilediğim zaman geri alabilirim" cümlesi ve "aydinlatma metninden ayrıdır"
+   * ayırması. Yerlerine metnin taşıması gereken üç şey sınanıyor: veri
+   * sorumlusunun kim olduğu, KVKK 11. madde hakları ve sonundaki onay beyanı —
+   * beyan olmadan ekran bir onay ekranı olmaz.
+   */
+  it("açık rıza metni veri sorumlusunu ve hakları yazar", () => {
+    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain("Veri Sorumlusu");
+    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain(
+      "Yenilik ve Eğitim Teknolojileri Genel Müdürlüğü",
+    );
+    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain("11. maddesi");
   });
 
-  it("açık rıza metni aydınlatmadan ayrı olduğunu söyler", () => {
-    // İkisi tek metinmiş gibi sunulursa rıza geçerliliğini yitirir.
-    expect(VARSAYILAN_ACIK_RIZA_METNI).toContain("aydınlatma metninden ayrıdır");
+  it("açık rıza metni onay beyanıyla biter", () => {
+    expect(VARSAYILAN_ACIK_RIZA_METNI.trimEnd()).toMatch(/onaylıyorum\.$/);
   });
 
   it("taahhütname görevle, gizlilik sözleşmesi veriyle ilgilidir", () => {

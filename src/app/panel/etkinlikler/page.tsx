@@ -1,6 +1,7 @@
 import {
   ArrowRightLeft,
   Award,
+  CalendarClock,
   CalendarDays,
   Check,
   ClipboardCheck,
@@ -61,6 +62,8 @@ import {
   kontenjanDurumu,
   type PencereDurumu,
 } from "@/lib/faaliyet/kurallar";
+import { etkinligeKalanYaz } from "@/lib/faaliyet/takvim";
+import { yaklasanEtkinligimiGetir } from "@/lib/faaliyet/yaklasan";
 import {
   KATILIM_BICIMI_ETIKETLERI,
   KATILIM_BICIMLERI,
@@ -696,6 +699,17 @@ export default async function FaaliyetlerSayfasi({
   const nerede = faaliyetListeFiltresi(kullanici, filtreler, simdi);
 
   /*
+   * Kişinin SIRADAKİ kendi etkinliği — ölçüt rol değil kişisel bağdır
+   * (seçilmiş başvuru ya da düzenleyenlik); ayrıntı lib/faaliyet/yaklasan.ts
+   * başlığında. Sorgu EKRANDAKİ FİLTRELERDEN BAĞIMSIZ: kart listeyi değil
+   * kişinin takvimini özetliyor, listeyi bir ile daraltmak onu susturmamalı.
+   */
+  const yaklasanEtkinligim = await yaklasanEtkinligimiGetir(
+    kullanici.id,
+    simdi,
+  );
+
+  /*
    * Raporsuz sayımının koşulu: EKRANDAKİ FİLTRELERDEN BAĞIMSIZ, kapsamdan
    * değil. Kart "toplam kaç iş bekliyor" diyor; kullanıcı listeyi bir ile
    * daralttığında sayının değişmesi, işin bittiği izlenimi verirdi.
@@ -1054,6 +1068,47 @@ export default async function FaaliyetlerSayfasi({
           </>
         }
       />
+
+      {/*
+        YAKLAŞAN ETKİNLİĞİM (31 Ağustos 2026 · istek: "profilde Yaklaşan
+        etkinliğim … bu kartı etkinlikler bölümüne kart olarak taşıyalım").
+
+        Kart 13 Ağustos'tan beri Profil'in ölçüm ızgarasındaydı; oradan KALKTI.
+        Gerekçe komşularıyla aynı yönde: bir etkinliğin tarihi, sıfatı ve
+        bağlantısı bu ekranın konusu — Profil'de kişinin kendi kaydını okuyan
+        kartların arasında tek tarihli taahhüt olarak duruyordu ve tıklayınca
+        zaten buraya (etkinlik sayfasına) götürüyordu.
+
+        EKRANIN EN ÜSTÜNDE, LİSTENİN VE SÜZGEÇLERİN ÖNÜNDE: liste "hangi
+        etkinlikler var" sorusunu cevaplıyor, kart "benim sıradaki hangisi"
+        sorusunu. İkincisi bu ekrana gelen kişinin ilk sorusudur ve elli
+        satırlık bir listenin altında aranmamalı.
+
+        KAYDI YOKSA HİÇ BASILMIYOR: "yaklaşan etkinliğiniz yok" satırı, altında
+        başvurusu açık etkinliklerin listesi dururken bir eksik bildirimi
+        olurdu. Aynı kural Profil'deki hâlinde de geçerliydi.
+
+        DEĞER = ETKİNLİK ADI, açıklama = tarih · kalan gün · SIFAT. Sıfat şart:
+        aynı kart hem "oraya katılıyorsun" hem "orayı sen düzenliyorsun"
+        diyebiliyor ve ikisi çok farklı işler.
+      */}
+      {yaklasanEtkinligim && (
+        <OlcumKarti
+          baslik="Yaklaşan etkinliğim"
+          ton="vurgu"
+          Ikon={CalendarClock}
+          deger={yaklasanEtkinligim.ad}
+          aciklama={`${tarihYaz(yaklasanEtkinligim.tarih)} · ${etkinligeKalanYaz(
+            yaklasanEtkinligim.tarih,
+            simdi,
+          )} · ${
+            yaklasanEtkinligim.sifat === "DUZENLEYEN"
+              ? "düzenleyensiniz"
+              : "katılımcısınız"
+          }`}
+          yol={`/panel/etkinlikler/${yaklasanEtkinligim.id}`}
+        />
+      )}
 
       {/*
         MERKEZİN ÖLÇÜM ŞERİDİ (27 Ağustos 2026). Kartlar panelden buraya taşındı;

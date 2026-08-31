@@ -1,4 +1,3 @@
-import { Star } from "lucide-react";
 import { Rozet } from "@/components/ui";
 import { YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
 import type { SeviyeDagilimi } from "@/lib/yolculuk/ogrencilerim";
@@ -12,17 +11,15 @@ import type { SeviyeDagilimi } from "@/lib/yolculuk/ogrencilerim";
  * yaşayacaktı — seviye eklendiğinde ya da renkler değiştiğinde biri geride
  * kalırdı.
  *
- * EŞİK SAYISI YERİNE YILDIZ (28 Ağustos 2026 · istek: "puanları
- * göstermiyoruz … puan demeyelim"). Basamakların altında "8 puan ve üzeri"
- * yazıyordu; bu, yolculuğun tamamını bir sayı cetveline çeviren tek satırdı.
- * Yerine o basamağın yıldızı geldi — kişi hangi basamakta kaç yıldıza
- * ulaştığını görüyor, oraya kaç puanla girildiğini değil.
+ * ŞERİTTE HİÇ YILDIZ YOK (31 Ağustos 2026 · istek: "bu başlıktaki yıldızlar
+ * kalsın ama alttaki yıldızlar kalksın").
  *
- * ŞERİTTE YILDIZ DİZİSİ YOK, TEK SİMGE VE SAYI VAR: yedi kartın her birine o
- * basamağın yıldızlarını dizmek yirmi sekiz yıldız eder ve kartları birbirinden
- * ayırt etmesi gereken şey okunmaz hâle gelir. Dizi, kişinin KENDİ seviyesinin
- * gösterildiği iki yerde duruyor (yolculuk kartı ve panel özeti); burada
- * basamağın kaç yıldıza karşılık geldiğini söylemek yetiyor.
+ * Tarihçesi: önce basamakların altında "8 puan ve üzeri" yazıyordu ve
+ * yolculuğu bir sayı cetveline çeviriyordu; 28 Ağustos'ta yerine "3 yıldız"
+ * geldi. O satır da kalktı — basamağın kaçıncı olduğunu başındaki SIRA
+ * NUMARASI söylüyor ve kişinin kendi yıldızları sayfanın başlığında, seviye
+ * adının yanında duruyor (bkz. SeviyeYildizlari). Yıldız artık yalnızca
+ * KİŞİNİN durumunu anlatıyor, cetvelin çentiklerini değil.
  *
  * İKİ KİP, TEK ŞERİT (28 Ağustos 2026 · istek: "kaç öğrencisi Hello World
  * aşamasında onu yazdırıyoruz"):
@@ -90,10 +87,17 @@ export function YolculukSeridi({
               </span>
               <p className="font-semibold text-baslik">{seviye.ad}</p>
             </div>
-            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-metin-yumusak">
-              <Star size={13} aria-hidden className="fill-current text-vurgu-metin" />
-              {sira + 1} yıldız
-            </p>
+            {/*
+              BASAMAK YILDIZI ŞERİTTEN KALKTI (31 Ağustos 2026 · istek: "bu
+              başlıktaki yıldızlar kalsın ama alttaki yıldızlar kalksın").
+
+              28 Ağustos'ta "8 puan ve üzeri" satırının yerine gelmişti; işi
+              basamağın kaç yıldıza karşılık geldiğini söylemekti. Ama o bilgiyi
+              başındaki SIRA NUMARASI zaten söylüyor (üçüncü basamak = üç
+              yıldız) ve kişinin kendi yıldızları sayfanın başlığında, seviye
+              adının yanında duruyor (bkz. SeviyeYildizlari). Şerit böylece yedi
+              kart boyunca aynı sayıyı iki kez yazmayı bırakıyor.
+            */}
             <p className="mt-2 text-sm text-metin-yumusak">
               {dagilim ? seviye.ogretmenAciklamasi : seviye.aciklama}
             </p>

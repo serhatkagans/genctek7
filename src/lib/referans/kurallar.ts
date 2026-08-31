@@ -20,11 +20,16 @@ import { epostaGecerliMi, epostaNormalle } from "@/lib/dis-kimlik/kurallar";
 /**
  * En fazla kaç referans.
  *
- * Beş, bir CV'nin taşıyabileceğinden zaten fazla; sınırın asıl işi listeyi
- * bir iletişim defterine dönüşmekten alıkoymak. Sınır olmasaydı tek bir
- * profilde yüzlerce üçüncü kişinin telefonu birikebilirdi.
+ * ÜÇ (31 Ağustos 2026 · istek: "yeni referans eklenebilsin max 3 referans
+ * eklenebilsin"). Önce beşti; sınırın işi aynı — listeyi bir iletişim
+ * defterine dönüşmekten alıkoymak. Üç, bir özgeçmişte referans için ayrılan
+ * yerin gerçek karşılığı.
+ *
+ * SINIR YALNIZCA EKLEMEYE BAKAR: beşken üç satır girmiş kimse etkilenmiyor,
+ * dörde çıkmış birinin kayıtları ise SİLİNMİYOR — yalnızca yeni ekleyemiyor
+ * ve var olanları düzenlemeye devam ediyor (bkz. referansGuncelleEylemi).
  */
-export const REFERANS_AZAMI_SAYI = 5;
+export const REFERANS_AZAMI_SAYI = 3;
 
 export const REFERANS_AD_AZAMI = 150;
 export const REFERANS_KURUM_AZAMI = 200;

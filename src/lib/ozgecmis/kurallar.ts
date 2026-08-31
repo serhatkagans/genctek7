@@ -109,8 +109,25 @@ export interface OzgecmisVerisi {
   bolumler: OzgecmisBolumu[];
   /** Sistemden doğrulanmış GençTek katılımları. */
   katilimlar: { ad: string; tarih: string; kapsam: string }[];
-  /** Kazanılmış nişanlar; kazanılmamışlar CV'ye girmez. */
-  nisanlar: { ad: string; aciklama: string }[];
+  /**
+   * GENÇTEK YOLCULUĞUM — nişanların yerini aldı (31 Ağustos 2026 · istek:
+   * "Özgeçmiş oluşturda oluşturulan word dosyasında katkı nişanlarım GençTek
+   * yolculuğum olacak şekilde değişsin ve bu maddelere göre olsun").
+   *
+   * Nişanlar ayrı bir ölçüttü ("Kâşif", "Üretken"…) ve yolculuk basamaklarıyla
+   * yan yana durunca belgede aynı emeği iki ayrı dille anlatan iki liste
+   * oluyordu. Ekranda ölçü tek: basamak ve yıldız (bkz. YOLCULUK_SEVIYELERI).
+   *
+   * YALNIZCA ULAŞILAN BASAMAKLAR: kazanılmamış nişanın belgeye girmeme kuralı
+   * (bkz. veri.ts) aynen sürüyor — ulaşılmamış basamağı yazmak, özgeçmişe
+   * "buraya gelemedim" listesi koymak olurdu.
+   */
+  yolculuk: {
+    /** Kişinin durduğu basamağın adı. */
+    seviyeAdi: string;
+    /** Ulaşılmış basamaklar, ilkinden bugünküne. */
+    basamaklar: { ad: string; aciklama: string }[];
+  };
   /**
    * REFERANSLAR (28 Ağustos 2026 · istek: "Öğrenciler için profile referanslar
    * bölümü ekleyelim").
@@ -122,6 +139,16 @@ export interface OzgecmisVerisi {
    * bölümü "boş" diye basmak, doldurulması gereken bir alan sanılırdı.
    */
   referanslar: { adSoyad: string; kunye: string }[] | null;
+  /**
+   * "Eklemek istedikleriniz" metni (31 Ağustos 2026 · istek: "CV yükle bunu
+   * eklemek istedikleriniz yap … metin ekleme alanı olsun").
+   *
+   * Kişinin profildeki CV bölümüne yazdığı serbest metin — panelde başka bir
+   * bölüme girmeyen sertifika, kurs, ilgi alanı ve ek açıklamalar. Boşsa bölüm
+   * yine basılır ve "Bilgi girilmemiş." der: doldurulabilir her alanın
+   * belgede bir yeri olması kararı (bkz. yukarıdaki "boş alan da girer").
+   */
+  ekNotu: string | null;
   /** Belgenin üretildiği an — belgenin ne kadar taze olduğu okunabilsin. */
   uretimTarihi: string;
 }
@@ -236,8 +263,9 @@ function baslikHtml(veri: OzgecmisVerisi): string {
  * Özgeçmişin Word gövdesi.
  *
  * BÖLÜM SIRASI PANELDEKİ SIRADIR: kimlik, hakkımda, iletişim, çalışma
- * grupları, mentörlük, kayıt grupları, katılımlar, nişanlar. Belge profilin
- * karşılığı olacaksa, okuyan kişi ekranda gördüğü sırayı belgede de bulmalı.
+ * grupları, mentörlük, kayıt grupları, katılımlar, GençTek yolculuğu. Belge
+ * profilin karşılığı olacaksa, okuyan kişi ekranda gördüğü sırayı belgede de
+ * bulmalı.
  */
 export function ozgecmisWordHtml(veri: OzgecmisVerisi): string {
   const listeHtml = (ogeler: readonly string[]): string =>
@@ -272,12 +300,24 @@ export function ozgecmisWordHtml(veri: OzgecmisVerisi): string {
     )
     .join("");
 
-  const nisanlarHtml = veri.nisanlar
-    .map(
-      (nisan) =>
-        `<p style="margin:0 0 2pt 0;"><b>${htmlKacir(nisan.ad)}</b><span style="color:${YUMUSAK};"> — ${htmlKacir(nisan.aciklama)}</span></p>`,
-    )
-    .join("");
+  /*
+   * YOLCULUK: önce kişinin durduğu basamak, altında oraya kadar geçilenler.
+   * Sıra bilerek böyle: belgeyi okuyan kişinin sorusu "bu öğrenci nerede",
+   * basamak listesi ise onun gerekçesi.
+   *
+   * BELGEDE YILDIZ YOK (31 Ağustos 2026 · istek: "worddeki yıldızları da
+   * kaldır"). Ekrandaki şeritten kalkan satırın belgedeki karşılığıydı: yıldız
+   * sayısı basamağın kaçıncı olduğunu tekrar ediyor ve listenin uzunluğu zaten
+   * onu söylüyor. Yıldız artık yalnızca kişinin kendi ekranında, seviye adının
+   * yanında duruyor.
+   */
+  const yolculukHtml = [
+    `<p style="margin:0 0 6pt 0;"><b>${htmlKacir(veri.yolculuk.seviyeAdi)}</b></p>`,
+    ...veri.yolculuk.basamaklar.map(
+      (basamak) =>
+        `<p style="margin:0 0 2pt 0;"><b>${htmlKacir(basamak.ad)}</b><span style="color:${YUMUSAK};"> — ${htmlKacir(basamak.aciklama)}</span></p>`,
+    ),
+  ].join("");
 
   /*
    * `charset` meta etiketi ŞART: Word onsuz dosyayı Latin-1 sanıp Türkçe
@@ -302,7 +342,8 @@ ${bolum("Çalışma gruplarım", listeHtml(veri.calismaGruplari))}
 ${bolum("Mentörlük", veri.mentorluk ? `<p style="margin:0;">${htmlKacir(veri.mentorluk)}</p>` : "")}
 ${kayitlarHtml}
 ${bolum("GençTek etkinlik katılımları", katilimlarHtml)}
-${bolum("Nişanlar", nisanlarHtml)}
+${bolum("GençTek yolculuğum", yolculukHtml)}
+${bolum("Eklemek istedikleriniz", veri.ekNotu ? `<p style="margin:0;">${paragraf(veri.ekNotu)}</p>` : "")}
 ${veri.referanslar === null ? "" : bolum("Referanslarım", referanslarHtml)}
 
 <p style="margin-top:24pt;font-size:9pt;color:${YUMUSAK};border-top:1pt solid ${CIZGI};padding-top:6pt;">
