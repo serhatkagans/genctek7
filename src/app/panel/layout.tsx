@@ -9,6 +9,7 @@ import {
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
+import { ilkGirisKilidiVarMi } from "@/lib/kvkk/onay";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import { uygulamaYolu } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
@@ -42,19 +43,26 @@ export default async function PanelDuzeni({
   const ilAdlari = await rolIlAdlariniGetir(kullanici);
 
   /*
-   * İLK GİRİŞ KAPISI VE ONAY ŞERİDİ KALKTI (21 Ağustos 2026 · istek: "KVKK'lar
-   * panelden kalkacak, açılışta çerez politikası ile ilgili popup gelecek bir
-   * kerelik, sonra bir daha okuma yok, kvkk olmasın").
+   * İLK GİRİŞ KAPISI GERİ AÇILDI (2 Eylül 2026).
    *
-   * Sisteme giren kişi artık hiçbir belge kapısından geçmiyor; yerine
-   * uygulamanın açılışında BİR KEZ çıkan çerez bildirimi var
-   * (bkz. components/CerezBildirimi.tsx).
+   * 21 Ağustos'ta kapatılmıştı ("KVKK'lar panelden kalkacak, açılışta çerez
+   * politikası ile ilgili popup gelecek bir kerelik") ve yerine
+   * `CerezBildirimi` konmuştu. O bildirim iki cümlelik bir BİLGİLENDİRME:
+   * belge göstermiyor, onay almıyor ve "gördüm" işaretini kullanıcı başına
+   * değil TARAYICI başına tutuyor — bir kez kapatıldıktan sonra başka bir
+   * hesapla girildiğinde de çıkmıyor. Metinlerin okutulup onaylanması yeniden
+   * istendiği için kapı geri açıldı; çerez bildirimi de yerinde duruyor,
+   * çünkü çerez kullanımı aydınlatma metninin anlattığından farklı bir konu.
    *
-   * VERİ VE METİNLER SİLİNMEDİ (lib/kvkk/*, kullanici_onayi tablosu, yönetim
-   * ekranındaki metin düzenleme): daha önce verilmiş onaylar hukuken kayıttır
-   * ve ekran kararıyla silinmezler. Kalkan yalnızca kullanıcıdan onay ISTEYEN
-   * yüzeyler.
+   * KİLİT YALNIZCA GERÇEK İLK GİRİŞTE: hiç onayı olmayan kişi panele giremez.
+   * Sonradan eklenen belge ya da güncellenen metin kimseyi kapıda bırakmaz —
+   * bir metin güncellemesi tüm ilin koordinatörünü aynı anda dışarıda
+   * bırakabilirdi (bkz. lib/kvkk/onay.ts · ilkGirisKilidiVarMi). Onaylanan
+   * belgeler sonradan Kişisel Verilerim ekranından okunur.
    */
+  if (await ilkGirisKilidiVarMi(kullanici)) {
+    redirect("/onay");
+  }
 
   /*
    * MENÜ KÜÇÜLDÜ (7 Ağustos 2026 · istek: "menü sayısı azalacak").

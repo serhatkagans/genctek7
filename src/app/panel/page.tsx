@@ -2508,11 +2508,14 @@ export default async function PanelSayfasi({
 
       {/*
         KVKK / ONAY BELGELERİ BÖLÜMÜ KALKTI (21 Ağustos 2026 · istek: "KVKK'lar
-        panelden kalkacak … kvkk olmasın"). Yerine uygulamanın açılışında bir
-        kez çıkan çerez bildirimi var (components/CerezBildirimi.tsx).
+        panelden kalkacak … kvkk olmasın") VE BURAYA GERİ GELMEDİ.
 
-        Metinler ve verilmiş onaylar DURUYOR (lib/kvkk/*, `kullanici_onayi`):
-        kalkan, kullanıcıdan onay isteyen yüzey.
+        2 Eylül 2026'da onay yeniden istenmeye başlandı ama bu bölüm olarak
+        değil: belgeler ilk girişte kapıda okutuluyor (app/onay) ve sonradan
+        Kişisel Verilerim ekranından okunuyor. Panelin ortasında üçüncü bir
+        kopya, aynı metni üç yerde güncel tutmak demekti.
+
+        Metinler ve verilmiş onaylar DURUYOR (lib/kvkk/*, `kullanici_onayi`).
       */}
 
       {/*

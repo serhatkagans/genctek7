@@ -11,9 +11,19 @@ import { SINIF_BIRINCIL_BUTON } from "@/components/ui";
  * politikası ile ilgili popup gelecek bir kerelik, sonra bir daha okuma yok,
  * kvkk olmasın."
  *
- * KVKK belge kapısının yerine geçiyor. Aradaki fark bilinçli: belge kapısı
- * ONAY İSTİYORDU (kişi kabul edene kadar sisteme giremiyordu), bu ise
- * BİLGİLENDİRME — sayfayı kilitlemez, "Tamam" denince kapanır.
+ * BİLGİLENDİRMEDİR, ONAY DEĞİL: sayfayı kilitlemez, "Tamam" denince kapanır.
+ *
+ * Bir süre KVKK belge kapısının yerine geçti; kapı 2 Eylül 2026'da geri
+ * açıldı (app/onay) ve bu bildirim YERİNDE KALDI. İkisi farklı şeyler
+ * anlatıyor: kapı, kişisel verilerin işlenmesine dair metinleri okutup onay
+ * alıyor; bu ise sitenin çerez kullanımını duyuruyor. Biri diğerinin yerine
+ * geçmez.
+ *
+ * KAPI GERİ AÇILDIĞI İÇİN "GÖRDÜ MÜ" SORUSU DA DEĞİŞTİ. Aşağıdaki sayaç
+ * tarayıcı başınadır: aynı tarayıcıda başka bir kullanıcıyla girilirse
+ * bildirim bir daha çıkmaz. Bilgilendirme için kabul edilebilir, ama
+ * "her kullanıcı bir kez görsün" isteniyorsa anahtarın kullanıcıya
+ * bağlanması ya da kaydın `kullanici_onayi` gibi sunucuya taşınması gerekir.
  *
  * SAYAÇ TARAYICIDA (`localStorage`), sunucuda değil: "bu kişi bildirimi
  * gördü mü" bilgisi için kullanıcı başına bir tablo satırı tutmak, tek
