@@ -13,6 +13,7 @@ async function main() {
   console.log(
     `[${new Date().toISOString()}] Saklama bakımı: ` +
       `${sonuc.silinenErisimLogu} erişim kaydı (${sonuc.erisimLoguSiniri.toISOString()} öncesi), ` +
+      `${sonuc.silinenErisimAnomalisi} erişim anomalisi, ` +
       `${sonuc.silinenBildirim} okunmuş bildirim (${sonuc.bildirimSiniri.toISOString()} öncesi) silindi`,
   );
 }

@@ -2,7 +2,7 @@ import { authProvider } from "../auth";
 import { oturumAc } from "../auth/oturum";
 import { aktifAtamaGetir, danismanliktanAyrildi, ilkAtamayiYurut } from "../danisman/atama";
 import { prisma } from "../db";
-import { erisimLogla } from "../yetki/log";
+import { erisimLogla, kimlikDogrulamaLogla } from "../yetki/log";
 import { kullaniciSagla } from "./sagla";
 
 /**
@@ -29,8 +29,16 @@ export type GirisSonucu =
     };
 
 export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
-  const kimlik = await authProvider().girisYap(kimlikBilgisi);
+  const saglayici = authProvider();
+  const kimlik = await saglayici.girisYap(kimlikBilgisi);
   if (!kimlik) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kimlikBilgisi,
+      saglayici: saglayici.saglayiciAdi,
+      neden: "kimlik doğrulanamadı",
+    });
     return { durum: "BASARISIZ", mesaj: "Kimlik doğrulanamadı." };
   }
 
@@ -57,17 +65,23 @@ export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
     danismanSecimiGerekli = karar.tur === "SECIM_GEREKLI";
   }
 
-  await oturumAc(kimlik.authProviderId);
+  if (saglama.yeniKullaniciMi) {
+    await erisimLogla({
+      kullaniciId: saglama.kullaniciId,
+      islem: "DEGISIKLIK",
+      hedefTip: kimlik.tip === "OGRENCI" ? "OGRENCI" : "OGRETMEN",
+      hedefId: saglama.kullaniciId,
+      detay: `İlk girişte kullanıcı oluşturuldu (${saglayici.saglayiciAdi})`,
+    });
+  }
 
-  await erisimLogla({
+  await kimlikDogrulamaLogla({
+    islem: "GIRIS",
+    basarili: true,
     kullaniciId: saglama.kullaniciId,
-    islem: saglama.yeniKullaniciMi ? "DEGISIKLIK" : "GORUNTULEME",
-    hedefTip: kimlik.tip === "OGRENCI" ? "OGRENCI" : "OGRETMEN",
-    hedefId: saglama.kullaniciId,
-    detay: saglama.yeniKullaniciMi
-      ? `İlk giriş, kullanıcı oluşturuldu (${authProvider().saglayiciAdi})`
-      : `Giriş yapıldı (${authProvider().saglayiciAdi})`,
+    saglayici: saglayici.saglayiciAdi,
   });
+  await oturumAc(kimlik.authProviderId);
 
   return {
     durum: "BASARILI",

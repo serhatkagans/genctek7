@@ -16,6 +16,7 @@ import {
   disaAktarmaYaniti,
 } from "@/lib/rapor/disa-aktarma";
 import type { XlsxSutun } from "@/lib/rapor/xlsx";
+import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import type { SorguParametreleri } from "../../ogrenciler/filtreler";
 import { ekipKosulu, ekipSuzgeciniCoz } from "../filtreler";
 
@@ -79,16 +80,40 @@ export async function GET(istek: Request) {
     where: nerede,
     orderBy: [{ ad: "asc" }],
     select: {
+      id: true,
       ad: true,
       tur: true,
       aktif: true,
       olusturmaTarihi: true,
       il: { select: { ad: true } },
       kurum: { select: { ad: true } },
-      danisman: { select: { ad: true, soyad: true, aktif: true } },
+      danisman: { select: { id: true, ad: true, soyad: true, aktif: true } },
       _count: { select: { uyeler: true, mesajlar: true } },
     },
   });
+
+  const bicim = bicimCoz(adres);
+
+  /*
+   * Dosyadaki "Danışman" sütunu öğretmen ad-soyadı taşır. Aynı danışman birden
+   * çok ekipte görünüyorsa her görünüm ayrı erişimdir; ekip adı ayrıntıda hangi
+   * satırla dışarı çıktığını gösterir.
+   */
+  await erisimLoglaCoklu(
+    ekipler.flatMap((ekip) =>
+      ekip.danisman
+        ? [
+            {
+              kullaniciId: kullanici.id,
+              islem: "GORUNTULEME" as const,
+              hedefTip: "OGRETMEN" as const,
+              hedefId: ekip.danisman.id,
+              detay: `Ekip listesi ${bicim.toUpperCase()} olarak dışa aktarıldı: ${ekip.ad} (#${ekip.id})`,
+            },
+          ]
+        : [],
+    ),
+  );
 
   const satirlar = ekipler.map((ekip) => [
     ekip.ad,
@@ -110,7 +135,7 @@ export async function GET(istek: Request) {
   const danismansiz = ekipler.filter(ekipDanismansizMi).length;
 
   return disaAktarmaYaniti({
-    bicim: bicimCoz(adres),
+    bicim,
     dosyaAdi: suzgec.danismansizMi
       ? "genctek-danismansiz-ekipler"
       : "genctek-ekipler",

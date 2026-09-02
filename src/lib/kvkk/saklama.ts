@@ -19,6 +19,7 @@ import {
 
 export interface TemizlikSonucu {
   silinenErisimLogu: number;
+  silinenErisimAnomalisi: number;
   silinenBildirim: number;
   erisimLoguSiniri: Date;
   bildirimSiniri: Date;
@@ -35,9 +36,16 @@ export async function saklamaSuresiTemizligi(
   const erisimLoguSiniri = saklamaSonTarihi(simdi, erisimAyi);
   const bildirimSiniri = saklamaSonTarihi(simdi, bildirimAyi);
 
-  const silinenErisimLogu = await prisma.erisimlogu.deleteMany({
-    where: { tarih: { lt: erisimLoguSiniri } },
-  });
+  const [silinenErisimLogu, silinenErisimAnomalisi] = await Promise.all([
+    prisma.erisimlogu.deleteMany({
+      where: { tarih: { lt: erisimLoguSiniri } },
+    }),
+    // Anomali, erişim günlüğünden türetilmiş denetim verisidir; kaynak kayıttan
+    // daha uzun süre tutulması aynı kişisel izi başka tabloda süresiz bırakırdı.
+    prisma.erisimAnomalisi.deleteMany({
+      where: { gun: { lt: erisimLoguSiniri } },
+    }),
+  ]);
 
   /*
    * Okunmamış bildirim silinmez: kullanıcı görmediği bir haberi süre doldu
@@ -50,6 +58,7 @@ export async function saklamaSuresiTemizligi(
 
   return {
     silinenErisimLogu: silinenErisimLogu.count,
+    silinenErisimAnomalisi: silinenErisimAnomalisi.count,
     silinenBildirim: silinenBildirim.count,
     erisimLoguSiniri,
     bildirimSiniri,

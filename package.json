@@ -27,6 +27,7 @@
     "db:studio": "prisma studio",
     "hata:ara": "tsx scripts/hata-ara.ts",
     "senkron:danisman": "tsx scripts/gecelik-senkron.ts",
+    "izleme:erisim": "tsx scripts/erisim-anomali-izle.ts",
     "bakim:saklama": "tsx scripts/veri-saklama.ts"
   },
   "prisma": {

@@ -1,4 +1,5 @@
-# Gecelik senkron zamanlayıcısı — /etc/systemd/system/genctek-senkron.timer
+# Gecelik senkron ve erişim anomalisi zamanlayıcısı
+# — /etc/systemd/system/genctek-senkron.timer
 #
 # Kurulum:
 #   sudo cp dagitim/genctek-senkron.{service,timer} /etc/systemd/system/
@@ -8,7 +9,7 @@
 # Kontrol:  systemctl list-timers genctek-senkron.timer
 
 [Unit]
-Description=GençTek gecelik danışman senkronunu her gece 03:00'te çalıştırır
+Description=GençTek gecelik bakımını her gece 03:00'te çalıştırır
 
 [Timer]
 OnCalendar=*-*-* 03:00:00

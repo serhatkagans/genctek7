@@ -221,6 +221,8 @@ export const BILDIRIM_KODLARI = {
    * hiçbir bilgi bırakmaz.
    */
   PANO_ILANI_KARARI: "PANO_ILANI_KARARI",
+  /** Gecelik erişim günlüğü taramasında bulunan olağan dışı örüntü; merkeze gider. */
+  ERISIM_ANOMALISI: "ERISIM_ANOMALISI",
 } as const;
 
 export type BildirimKodu =
@@ -550,6 +552,19 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     aciklama:
       "İlanı açan öğrenciye gider. Onaylandıysa ilan panoda yayımlanmıştır; reddedildiyse gerekçe yazılıdır.",
     degiskenler: ["talepBasligi", "sonuc", "gerekce"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ERISIM_ANOMALISI,
+    baslik: "Olağan dışı erişim örüntüsü",
+    aciklama:
+      "Gecelik denetim yüksek hacimli öğrenci erişimi veya mesai dışı toplu dışa aktarım bulduğunda proje yöneticilerine gider.",
+    degiskenler: [
+      "kullaniciAdSoyad",
+      "anomaliTuru",
+      "gun",
+      "logSayisi",
+      "benzersizHedefSayisi",
+    ],
   },
 ];
 

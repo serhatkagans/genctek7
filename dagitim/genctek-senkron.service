@@ -1,14 +1,16 @@
-# Gecelik danışman senkronu — /etc/systemd/system/genctek-senkron.service
+# Gecelik danışman senkronu ve erişim anomalisi izlemesi
+# — /etc/systemd/system/genctek-senkron.service
 #
 # Öğretmen uzun süre giriş yapmazsa kurum kodu değişikliği fark edilmez; bu iş
 # aktif danışmanların kurum bilgisini kontrol eder ve değişenler için devir
-# akışını çalıştırır (references/domain-rules.md Bölüm 1).
+# akışını çalıştırır (references/domain-rules.md Bölüm 1). Ardından tamamlanmış
+# önceki günün erişim kayıtlarını olağan dışı örüntüler için tarar.
 #
 # Cron yerine systemd timer kullanılıyor: sunucu kapalıyken kaçan çalıştırma
 # Persistent=true sayesinde açılışta telafi edilir, cron'da edilmez.
 
 [Unit]
-Description=GençTek gecelik danışman senkronu
+Description=GençTek gecelik senkron ve erişim anomalisi izlemesi
 After=network-online.target postgresql.service genctek.service
 Wants=postgresql.service
 

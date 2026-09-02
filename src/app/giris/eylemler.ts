@@ -5,6 +5,7 @@ import { guvenliDonusYolu } from "@/lib/auth/donus-yolu";
 import { oturumKapat, oturumKullanicisi } from "@/lib/auth/oturum";
 import { disKimlikliMi } from "@/lib/dis-kimlik/giris";
 import { girisYap } from "@/lib/kullanici/giris-akisi";
+import { kimlikDogrulamaLogla } from "@/lib/yetki/log";
 
 export async function girisEylemi(veri: FormData): Promise<void> {
   const kimlikBilgisi = String(veri.get("kimlikBilgisi") ?? "");
@@ -22,6 +23,12 @@ export async function girisEylemi(veri: FormData): Promise<void> {
     : "";
 
   if (!kimlikBilgisi) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      saglayici: "EBA",
+      neden: "kimlik seçilmedi",
+    });
     redirect(`/giris?hata=Kimlik+se%C3%A7ilmedi${nereyeSorgusu}`);
   }
 
@@ -86,6 +93,14 @@ export async function cikisEylemi(): Promise<void> {
     ? await disKimlikliMi(kullanici.authProviderId)
     : false;
 
+  if (kullanici) {
+    await kimlikDogrulamaLogla({
+      islem: "CIKIS",
+      basarili: true,
+      kullaniciId: kullanici.id,
+      saglayici: disKullanici ? "dış kimlik" : "EBA",
+    });
+  }
   await oturumKapat();
   redirect(disKullanici ? "/dis-giris" : "/giris");
 }

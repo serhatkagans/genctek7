@@ -1,4 +1,4 @@
-import { ScrollText, Search } from "lucide-react";
+import { ScrollText, Search, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
@@ -6,6 +6,7 @@ import {
   Kart,
   KartBasligi,
   KirintiYolu,
+  Rozet,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
@@ -16,6 +17,13 @@ import {
   ayarSayi,
   VARSAYILAN_DISA_AKTARMA_UST_SINIRI,
 } from "@/lib/ayar";
+import { sonErisimAnomalileriniGetir } from "@/lib/guvenlik/erisim-anomali";
+import {
+  anomaliTuruEtiketi,
+  GUNLUK_OGRENCI_ERISIM_ESIGI,
+  MESAI_BASLANGIC_SAATI,
+  MESAI_BITIS_SAATI,
+} from "@/lib/guvenlik/erisim-anomali-kurallari";
 import {
   erisimLoguSayfasiGetir,
   SAYFA_BOYUTU,
@@ -65,12 +73,19 @@ export default async function ErisimLoglariSayfasi({
     erisimLogFiltreleriniCoz(parametreler);
   const { ara, islem, hedefTip } = filtre;
 
-  const [sonuc, ustSinir] = await Promise.all([
+  const [sonuc, ustSinir, anomaliler] = await Promise.all([
     erisimLoguSayfasiGetir(filtre),
     ayarSayi(
       AYAR_ANAHTARLARI.DISA_AKTARMA_UST_SINIRI,
       VARSAYILAN_DISA_AKTARMA_UST_SINIRI,
     ),
+    /*
+     * Bulgular SÜZGEÇTEN GEÇMEZ, bilerek. Aşağıdaki süzgeçler "hangi kaydı
+     * arıyorum" sorusunun aracı; bulgu listesi ise "bakmam gereken bir şey var
+     * mı" sorusunun cevabı. Süzgece bağlansaydı, dar bir süzgeçle gezinen
+     * yönetici uyarıyı hiç görmeden ekrandan çıkabilirdi.
+     */
+    sonErisimAnomalileriniGetir(),
   ]);
 
   await erisimLogla({
@@ -138,6 +153,86 @@ export default async function ErisimLoglariSayfasi({
         Kayıtlar elle silinemez veya düzenlenemez; saklama süresi dolduğunda
         (varsayılan 24 ay) bakım işi tarafından toplu olarak temizlenir.
       </BilgiKutusu>
+
+      {/*
+        OLAĞAN DIŞI ÖRÜNTÜLER — SÜZGEÇLERİN ÜSTÜNDE (2 Eylül 2026).
+
+        Genelge 2/d'nin ikinci cümlesi kayıt tutmayı değil İZLEMEYİ istiyor.
+        Aşağıdaki süzgeçler sorgulamadır: ne aradığını bilen kişi bulur. İzleme
+        ise tersidir — kimsenin aramadığı şeyin kendiliğinden görünmesi gerekir.
+        Gecelik tarama bulguyu yazıp bildirim gönderiyordu, ama bildirim okunup
+        geçilen bir şey; geriye dönüp bakılacak yer yoktu. Kart bu yüzden
+        süzgeçlerin ÜSTÜNDE ve süzgeçlerden bağımsız duruyor.
+      */}
+      <Kart>
+        <KartBasligi
+          baslik="Olağan dışı erişim örüntüleri"
+          aciklama={`Her gece önceki günün kayıtları taranır: bir günde ${GUNLUK_OGRENCI_ERISIM_ESIGI} ve üzeri farklı öğrenci kaydı görüntüleyen ya da ${MESAI_BASLANGIC_SAATI}.00–${MESAI_BITIS_SAATI}.00 dışında dışa aktarım yapan kullanıcılar.`}
+          Ikon={ShieldAlert}
+        />
+
+        {anomaliler.length === 0 ? (
+          <BilgiKutusu cesit="olumlu">
+            Taramada bulgu yok.
+          </BilgiKutusu>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-cizgi text-metin-yumusak">
+                <tr>
+                  <th className="py-2 pr-4 font-medium">Gün</th>
+                  <th className="py-2 pr-4 font-medium">Kullanıcı</th>
+                  <th className="py-2 pr-4 font-medium">Bulgu</th>
+                  <th className="py-2 pr-4 font-medium">Farklı kayıt</th>
+                  <th className="py-2 pr-4 font-medium">İşlem sayısı</th>
+                  <th className="py-2 pr-4 font-medium">Zaman aralığı</th>
+                  <th className="py-2 font-medium">Uyarı</th>
+                </tr>
+              </thead>
+              <tbody>
+                {anomaliler.map((anomali) => (
+                  <tr key={anomali.id} className="border-b border-cizgi/60">
+                    <td className="whitespace-nowrap py-2 pr-4 text-metin-yumusak">
+                      {anomali.gun}
+                    </td>
+                    <td className="py-2 pr-4 text-metin">
+                      {anomali.kullaniciAdSoyad}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Rozet cesit="uyari">
+                        {anomaliTuruEtiketi(anomali.tur)}
+                      </Rozet>
+                    </td>
+                    <td className="py-2 pr-4 text-metin">
+                      {anomali.benzersizHedefSayisi}
+                    </td>
+                    <td className="py-2 pr-4 text-metin-yumusak">
+                      {anomali.logSayisi}
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-4 text-metin-yumusak">
+                      {tarihSaatYaz(anomali.ilkErisimTarihi)} –{" "}
+                      {tarihSaatYaz(anomali.sonErisimTarihi)}
+                    </td>
+                    <td className="py-2">
+                      {/*
+                        Bildirimin GÖNDERİLMEMİŞ olması da bir bilgidir: bulgu
+                        duruyor ama kimseye ulaşmamış demektir (bildirim
+                        altyapısı düşmüş olabilir). Sessizce boş bırakılsaydı
+                        bu durum hiçbir yerde görünmezdi.
+                      */}
+                      {anomali.bildirimTarihi ? (
+                        <Rozet cesit="olumlu">Gönderildi</Rozet>
+                      ) : (
+                        <Rozet cesit="hata">Gönderilmedi</Rozet>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Kart>
 
       {sonuc.toplam > 0 && (
         <Kart>
@@ -273,7 +368,9 @@ export default async function ErisimLoglariSayfasi({
                       {tarihSaatYaz(kayit.tarih)}
                     </td>
                     <td className="py-2 pr-4 text-metin">
-                      {kayit.kullanici.ad} {kayit.kullanici.soyad}
+                      {kayit.kullanici
+                        ? `${kayit.kullanici.ad} ${kayit.kullanici.soyad}`
+                        : "Doğrulanmamış kullanıcı"}
                     </td>
                     <td className="py-2 pr-4 text-metin">
                       {LOG_ISLEM_ETIKETLERI[kayit.islem]}

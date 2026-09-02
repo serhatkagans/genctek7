@@ -84,7 +84,8 @@ Kısa hâli: `git clone` → `.env` doldur → `npm ci && npm run build` →
 | `npm run veri:kazanim` | Kazanımlar ekranını dolu görmek için demo katılım üretir (yalnızca geliştirme) |
 | `npm run veri:dis-kullanici` | Birer mezun, paydaş temsilcisi ve mentör hesabı açar (gerçek başvuru + onay akışıyla); `-- --temizle` ile geri alır. Yalnızca geliştirme |
 | `npm run skill:paketle` | `genctek-platform.skill` paketini kökteki SKILL.md ve üç referans belgesinden yeniden üretir |
-| `npm run senkron:danisman` | Gecelik senkron (cron) |
+| `npm run senkron:danisman` | Gecelik danışman senkronu ve erişim anomalisi izlemesi (systemd timer/cron) |
+| `npm run izleme:erisim` | Önceki günün erişim anomalilerini elle tarar |
 | `npm run bakim:saklama` | Saklama süresi dolan erişim kaydı ve okunmuş bildirimi siler (cron) |
 | `npm run lint` | ESLint |
 
@@ -98,7 +99,7 @@ yüzden gereksiz fark oluşturmaz.
 VPS'te iki zamanlanmış iş vardır:
 
 ```
-# Gecelik senkron — okul/sınıf değişiklikleri ve ayrılan danışmanlar
+# Gecelik bakım — danışman senkronu ve önceki günün erişim anomalileri
 0 3 * * * cd /opt/genctek && npm run senkron:danisman >> /var/log/genctek-senkron.log 2>&1
 
 # Aylık saklama temizliği — KVKK veri saklama süresi
@@ -1287,6 +1288,7 @@ unutulurdu.
 | Veri | Varsayılan | Ayar |
 |---|---|---|
 | Erişim kaydı | 24 ay | `ERISIM_LOGU_SAKLAMA_AYI` |
+| Erişim anomalisi | 24 ay | `ERISIM_LOGU_SAKLAMA_AYI` |
 | Okunmuş bildirim | 12 ay | `BILDIRIM_SAKLAMA_AYI` |
 
 Okunmamış bildirime dokunulmaz: kullanıcının hiç görmediği bir başvuru sonucunu
@@ -1305,6 +1307,15 @@ değildir.
 
 Bu ekranın kendisi de loglanır: denetim kaydına bakmak da denetlenen bir
 işlemdir.
+
+Erişim kayıtları ayrıca her gece otomatik taranır. Bir kullanıcının aynı günde
+100 veya daha fazla farklı öğrenci kaydına erişmesi ya da 08:00–18:00 dışında
+kişisel veri içeren bir dışa aktarım yapması olağan dışı örüntü olarak
+`erisim_anomalisi` tablosuna yazılır. Aynı kullanıcı, tür ve gün için tek bulgu
+oluşur; zamanlanmış iş yeniden çalışsa da çoğalmaz. Yeni bulgular proje
+yöneticilerine panel bildirimi ve açık kanallar üzerinden iletilir. Uyarı tek
+başına ihlal kararı değildir; Erişim Kayıtları ekranında kullanıcı ve tarihle
+incelenmesi gereken bir bulgudur.
 
 ### Yönetim (yalnızca YEĞİTEK)
 

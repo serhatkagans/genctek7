@@ -1,7 +1,7 @@
 import { oturumAc } from "../auth/oturum";
 import { prisma } from "../db";
 import { ortam } from "../ortam";
-import { erisimLogla } from "../yetki/log";
+import { kimlikDogrulamaLogla } from "../yetki/log";
 import { kimlikSecerekGirisAcikMi } from "./kurallar";
 
 /**
@@ -164,6 +164,13 @@ export async function mockDisGirisYap(
   authProviderId: string,
 ): Promise<MockDisGirisSonucu> {
   if (!mockDisGirisAcikMi()) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kimlikBilgisi: authProviderId,
+      saglayici: "dış kimlik · geliştirme kipi",
+      neden: "kimlik seçimi kapalı",
+    });
     return {
       durum: "BASARISIZ",
       mesaj: "Kimlik seçerek giriş kapalı. E-posta ve şifrenizle girin.",
@@ -171,6 +178,12 @@ export async function mockDisGirisYap(
   }
 
   if (!authProviderId) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      saglayici: "dış kimlik · geliştirme kipi",
+      neden: "kimlik seçilmedi",
+    });
     return { durum: "BASARISIZ", mesaj: "Kimlik seçilmedi." };
   }
 
@@ -186,18 +199,24 @@ export async function mockDisGirisYap(
   // Pasif hesap ve EBA'lı kullanıcı aynı cevabı alır: bu kapı yalnızca dış
   // kimliği olan aktif kullanıcıya açıktır.
   if (!kullanici || !kullanici.aktif || !kullanici.disKimlik) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kullaniciId: kullanici?.id,
+      kimlikBilgisi: authProviderId,
+      saglayici: "dış kimlik · geliştirme kipi",
+      neden: "kimlik doğrulanamadı",
+    });
     return { durum: "BASARISIZ", mesaj: "Seçilen kimlikle giriş yapılamadı." };
   }
 
-  await oturumAc(authProviderId);
-
-  await erisimLogla({
+  await kimlikDogrulamaLogla({
+    islem: "GIRIS",
+    basarili: true,
     kullaniciId: kullanici.id,
-    islem: "GORUNTULEME",
-    hedefTip: "PROFIL",
-    hedefId: kullanici.id,
-    detay: "Giriş yapıldı (dış kimlik · geliştirme kipi, kimlik seçimi)",
+    saglayici: "dış kimlik · geliştirme kipi",
   });
+  await oturumAc(authProviderId);
 
   return { durum: "BASARILI" };
 }

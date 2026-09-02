@@ -1,6 +1,6 @@
 import { oturumAc } from "../auth/oturum";
 import { prisma } from "../db";
-import { erisimLogla } from "../yetki/log";
+import { kimlikDogrulamaLogla } from "../yetki/log";
 import {
   basarisizDenemeSonucu,
   epostaNormalle,
@@ -96,6 +96,13 @@ export async function disGirisYap(
 ): Promise<DisGirisSonucu> {
   const eposta = epostaNormalle(epostaGirdisi);
   if (!eposta || !sifre) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kimlikBilgisi: eposta,
+      saglayici: "dış kimlik",
+      neden: "eksik kimlik bilgisi",
+    });
     return { durum: "BASARISIZ", mesaj: GENEL_HATA };
   }
 
@@ -111,11 +118,26 @@ export async function disGirisYap(
   });
 
   if (!kimlik) {
-    return bekleyenBasvuruCevabi(eposta, sifre);
+    const sonuc = await bekleyenBasvuruCevabi(eposta, sifre);
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kimlikBilgisi: eposta,
+      saglayici: "dış kimlik",
+      neden: "kimlik doğrulanamadı",
+    });
+    return sonuc;
   }
 
   if (kilitliMi(kimlik, simdi)) {
     const kalan = kilitKalanDakika(kimlik, simdi);
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kullaniciId: kimlik.kullaniciId,
+      saglayici: "dış kimlik",
+      neden: "hesap kilitli",
+    });
     return {
       durum: "BASARISIZ",
       mesaj: `Çok fazla hatalı deneme yapıldı. ${kalan} dakika sonra tekrar deneyin.`,
@@ -126,6 +148,17 @@ export async function disGirisYap(
 
   if (!dogruMu) {
     const yeniDurum = await basarisizDenemeyiIsle(kimlik.kullaniciId, simdi);
+
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kullaniciId: kimlik.kullaniciId,
+      saglayici: "dış kimlik",
+      neden:
+        yeniDurum.kilitBitisTarihi !== null
+          ? "hatalı parola; hesap kilitlendi"
+          : "kimlik doğrulanamadı",
+    });
 
     if (yeniDurum.kilitBitisTarihi !== null) {
       const kalan = kilitKalanDakika(yeniDurum, simdi);
@@ -144,6 +177,13 @@ export async function disGirisYap(
    * yaramaz.
    */
   if (!kimlik.kullanici.aktif) {
+    await kimlikDogrulamaLogla({
+      islem: "GIRIS",
+      basarili: false,
+      kullaniciId: kimlik.kullaniciId,
+      saglayici: "dış kimlik",
+      neden: "pasif hesap",
+    });
     return { durum: "BASARISIZ", mesaj: GENEL_HATA };
   }
 
@@ -160,15 +200,13 @@ export async function disGirisYap(
     },
   });
 
-  await oturumAc(kimlik.kullanici.authProviderId);
-
-  await erisimLogla({
+  await kimlikDogrulamaLogla({
+    islem: "GIRIS",
+    basarili: true,
     kullaniciId: kimlik.kullaniciId,
-    islem: "GORUNTULEME",
-    hedefTip: "PROFIL",
-    hedefId: kimlik.kullaniciId,
-    detay: "Giriş yapıldı (dış kimlik)",
+    saglayici: "dış kimlik",
   });
+  await oturumAc(kimlik.kullanici.authProviderId);
 
   return { durum: "BASARILI", kullaniciId: kimlik.kullaniciId };
 }

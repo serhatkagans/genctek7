@@ -126,6 +126,8 @@ export interface IlOzeti {
   raporsuzFaaliyetSayisi: number;
   /** İlin görevdeki koordinatörü — boşsa merkezin doldurması gereken yer. */
   koordinatorAdi: string | null;
+  /** Koordinatör adının dışa aktarım erişim kaydındaki hedefi. */
+  koordinatorKullaniciId: number | null;
 }
 
 /**
@@ -219,7 +221,7 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
       },
       select: {
         ilKodu: true,
-        kullanici: { select: { ad: true, soyad: true } },
+        kullanici: { select: { id: true, ad: true, soyad: true } },
       },
     }),
   ]);
@@ -233,11 +235,19 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
   const danismansizSayilari = sayimHaritasi(danismansizlar, "ilKodu");
   const faaliyetSayilari = sayimHaritasi(faaliyetler, "ilKodu");
   const raporsuzSayilari = sayimHaritasi(raporsuzlar, "ilKodu");
-  const koordinatorAdlari = new Map(
+  const koordinatorBilgileri = new Map(
     gorevliler.flatMap((rol) =>
       rol.ilKodu === null
         ? []
-        : [[rol.ilKodu, `${rol.kullanici.ad} ${rol.kullanici.soyad}`] as const],
+        : [
+            [
+              rol.ilKodu,
+              {
+                kullaniciId: rol.kullanici.id,
+                adSoyad: `${rol.kullanici.ad} ${rol.kullanici.soyad}`,
+              },
+            ] as const,
+          ],
     ),
   );
 
@@ -253,7 +263,9 @@ export async function ilOzetleriniGetir(): Promise<IlOzeti[]> {
     danismansizOgrenciSayisi: danismansizSayilari.get(il.ilKodu) ?? 0,
     faaliyetSayisi: faaliyetSayilari.get(il.ilKodu) ?? 0,
     raporsuzFaaliyetSayisi: raporsuzSayilari.get(il.ilKodu) ?? 0,
-    koordinatorAdi: koordinatorAdlari.get(il.ilKodu) ?? null,
+    koordinatorAdi: koordinatorBilgileri.get(il.ilKodu)?.adSoyad ?? null,
+    koordinatorKullaniciId:
+      koordinatorBilgileri.get(il.ilKodu)?.kullaniciId ?? null,
   }));
 }
 

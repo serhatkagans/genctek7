@@ -121,7 +121,9 @@ export async function GET(istek: Request) {
      */
     kayit.tarih,
     kayit.tarih.toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul" }),
-    `${kayit.kullanici.ad} ${kayit.kullanici.soyad}`,
+    kayit.kullanici
+      ? `${kayit.kullanici.ad} ${kayit.kullanici.soyad}`
+      : "Doğrulanmamış kullanıcı",
     LOG_ISLEM_ETIKETLERI[kayit.islem] ?? kayit.islem,
     LOG_HEDEF_ETIKETLERI[kayit.hedefTip] ?? kayit.hedefTip,
     kayit.hedefId,

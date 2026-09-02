@@ -431,6 +431,12 @@ const BILDIRIM_SABLONLARI = [
     govdeSablonu:
       "Merhaba,\n\n{{basvuranAdSoyad}} ({{tur}} · {{ilAdi}}) sisteme giriş başvurusu yaptı ve onayınızı bekliyor.\n\nBaşvuruyu Dış Başvurular ekranından değerlendirebilirsiniz.\n\nGençTek",
   },
+  {
+    kod: "ERISIM_ANOMALISI",
+    konu: "Olağan dışı erişim örüntüsü · {{kullaniciAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{gun}} günü için olağan dışı bir erişim örüntüsü saptandı.\n\nKullanıcı: {{kullaniciAdSoyad}}\nÖrüntü: {{anomaliTuru}}\nErişim kaydı: {{logSayisi}}\nBenzersiz hedef: {{benzersizHedefSayisi}}\n\nAyrıntıları Panel → Erişim Kayıtları ekranından kullanıcı ve tarih ile süzerek inceleyin. Bu uyarı tek başına ihlal kararı değildir; inceleme gerektiren bir bulgudur.\n\nGençTek",
+  },
 ];
 
 async function referansVerileriYukle() {

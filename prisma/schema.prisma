@@ -262,12 +262,15 @@ enum FaaliyetBelgeTuru {
 }
 
 enum LogIslemi {
+  GIRIS
+  CIKIS
   GORUNTULEME
   DEGISIKLIK
   SILME
 }
 
 enum LogHedefTip {
+  OTURUM
   OGRENCI
   OGRETMEN
   FAALIYET
@@ -293,6 +296,11 @@ enum LogHedefTip {
   /// gösteriyor; ERISIM_LOGU ile aynı gerekçe: bakan da deftere geçer.
   /// hedefId, aranan hata kimliği ya da `liste`dir.
   HATA_KAYDI
+}
+
+enum ErisimAnomaliTuru {
+  YUKSEK_HACIMLI_OGRENCI_ERISIMI
+  MESAI_DISI_DISA_AKTARIM
 }
 
 enum GonderimKanali {
@@ -564,8 +572,9 @@ model Kullanici {
   disBasvurusu              DisKullaniciBasvurusu?  @relation("DisBasvuruKullanicisi")
   kararVerdigiDisBasvurular DisKullaniciBasvurusu[] @relation("DisBasvuruKararVeren")
 
-  erisimLoglari Erisimlogu[]
-  bildirimler   Bildirim[]
+  erisimLoglari     Erisimlogu[]
+  erisimAnomalileri ErisimAnomalisi[]
+  bildirimler       Bildirim[]
 
   gonderiler          Gonderi[]       @relation("GonderiYazan")
   gizledigiGonderiler Gonderi[]       @relation("GonderiGizleyen")
@@ -1987,7 +1996,8 @@ model FaaliyetPaydas {
 /// işlemleri de buraya yazılır; ayrı bir içerik log tablosu yoktur.
 model Erisimlogu {
   id          Int         @id @default(autoincrement())
-  kullaniciId Int         @map("kullanici_id")
+  /// Başarısız girişte kimlik doğrulanamadığı için kullanıcı bilinmeyebilir.
+  kullaniciId Int?        @map("kullanici_id")
   islem       LogIslemi
   hedefTip    LogHedefTip @map("hedef_tip")
   hedefId     String      @map("hedef_id") @db.VarChar(64)
@@ -1995,11 +2005,36 @@ model Erisimlogu {
   ipAdresi    String?     @map("ip_adresi") @db.VarChar(64)
   detay       String?     @db.Text
 
-  kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
+  kullanici Kullanici? @relation(fields: [kullaniciId], references: [id])
 
   @@index([kullaniciId, tarih])
   @@index([hedefTip, hedefId])
   @@map("erisim_logu")
+}
+
+/// Erişim günlüklerinin zamanlanmış güvenlik denetiminde üretilen bulguları.
+/// Aynı kullanıcı, tür ve gün yalnızca bir kez kaydedilir; zamanlanmış işin
+/// yeniden çalışması aynı uyarıyı çoğaltmaz.
+model ErisimAnomalisi {
+  id                      Int               @id @default(autoincrement())
+  kullaniciId             Int               @map("kullanici_id")
+  tur                     ErisimAnomaliTuru
+  gun                     DateTime          @db.Date
+  logSayisi               Int               @map("log_sayisi")
+  benzersizHedefSayisi    Int               @map("benzersiz_hedef_sayisi")
+  ilkErisimTarihi         DateTime          @map("ilk_erisim_tarihi") @db.Timestamptz(6)
+  sonErisimTarihi         DateTime          @map("son_erisim_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi         DateTime          @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  bildirimTarihi          DateTime?         @map("bildirim_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
+
+  /// Ad açıkça verilir: Prisma'nın türeteceği ad
+  /// (erisim_anomalisi_kullanici_id_tur_gun_key) migration'da yazılandan farklı
+  /// ve şema kayması denetimi buna takılıyordu (npm run sema:kayma).
+  @@unique([kullaniciId, tur, gun], map: "erisim_anomalisi_kullanici_tur_gun_key")
+  @@index([gun, tur])
+  @@map("erisim_anomalisi")
 }
 
 model Bildirim {

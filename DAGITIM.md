@@ -308,13 +308,22 @@ sudo certbot renew --dry-run
 
 ---
 
-## 9. Gecelik senkron ve yedekleme
+## 9. Gecelik senkron, erişim anomalisi izlemesi ve yedekleme
 
 ```bash
 sudo cp /opt/genctek/dagitim/genctek-senkron.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now genctek-senkron.timer
 systemctl list-timers genctek-senkron.timer
+```
+
+Bu zamanlayıcı danışman senkronunun ardından tamamlanmış önceki İstanbul gününü
+erişim anomalileri için tarar. Günlük 100 farklı öğrenci kaydı eşiğini aşan
+erişimler ile 08:00–18:00 dışındaki toplu dışa aktarımlar kalıcı bulguya çevrilir
+ve proje yöneticilerine bildirilir. Elle doğrulama için:
+
+```bash
+sudo -u genctek /usr/bin/npm --prefix /opt/genctek run izleme:erisim
 ```
 
 Yedekleme betiğini kurun ve **geri yüklemeyi bir kez deneyin** — denenmemiş

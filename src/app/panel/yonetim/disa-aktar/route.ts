@@ -23,6 +23,7 @@ import {
   projeYoneticisiMi,
   yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
+import { erisimLoglaCoklu } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,9 @@ export const dynamic = "force-dynamic";
  * Yönetim panosu kırılımının dosya çıktısı (varsayılan XLSX, `?bicim=csv`)
  * — ekranda görünen kartların tablosu.
  *
- * Envanter çıktılarından (öğrenci, öğretmen, paydaş) BİR FARKI VAR: burada
- * kişisel veri yok, birim başına sayı var. Bu yüzden erişim logu yazılmıyor ve
- * üst sınır sorulmuyor — çıktı en fazla 81 satır, kimsenin kaydı dışarı çıkmıyor.
+ * İlçe kırılımında yalnızca birim başına sayılar vardır. İl kırılımı ise il
+ * koordinatörünün ad-soyadını taşır; bu kişiler dosya üretilmeden önce erişim
+ * günlüğüne yazılır. Üst sınır sorulmaz: çıktı en fazla 81 satırdır.
  *
  * KAPSAM EKRANIN AYNISI: merkez illeri, koordinatör kendi ilinin ilçelerini
  * indirir. İki ayrı başlık satırı çıkması bilinçli; aynı dosya biçimini iki
@@ -79,6 +80,7 @@ export async function GET(istek: Request) {
   }
 
   const adres = new URL(istek.url);
+  const bicim = bicimCoz(adres);
 
   if (projeYoneticisiMi(kullanici)) {
     /*
@@ -128,8 +130,24 @@ export async function GET(istek: Request) {
       toplam.raporsuzFaaliyet,
     ]);
 
+    await erisimLoglaCoklu(
+      iller.flatMap((il) =>
+        il.koordinatorKullaniciId === null
+          ? []
+          : [
+              {
+                kullaniciId: kullanici.id,
+                islem: "GORUNTULEME" as const,
+                hedefTip: "OGRETMEN" as const,
+                hedefId: il.koordinatorKullaniciId,
+                detay: `Yönetim panosu il kırılımı ${bicim.toUpperCase()} olarak dışa aktarıldı: ${il.ad} il koordinatörü`,
+              },
+            ],
+      ),
+    );
+
     return disaAktarmaYaniti({
-      bicim: bicimCoz(adres),
+      bicim,
       dosyaAdi: "genctek-il-kirilimi",
       baslik: "GençTek Ekosistemi",
       // Son satır TOPLAM; kayıt sayısına o dahil edilmiyor.
@@ -240,7 +258,7 @@ export async function GET(istek: Request) {
    * ve "34" ile "06" arasındaki farkı indirmeyi açan herkes bilmiyor.
    */
   return disaAktarmaYaniti({
-    bicim: bicimCoz(adres),
+    bicim,
     dosyaAdi: `genctek-${adParcasi(il?.ad ?? "", ilKodu)}-ilce-kirilimi`,
     baslik: "GençTek Ekosistemi",
     /*

@@ -56,7 +56,7 @@ export interface ErisimLoguSayfasi {
     hedefId: string;
     ipAdresi: string | null;
     detay: string | null;
-    kullanici: { id: number; ad: string; soyad: string };
+    kullanici: { id: number; ad: string; soyad: string } | null;
   }[];
   toplam: number;
   sayfa: number;

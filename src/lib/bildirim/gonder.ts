@@ -122,7 +122,7 @@ export async function projeYoneticilerineBildir(
   kod: BildirimKodu,
   degiskenler: Record<string, string> = {},
   hedef?: BildirimHedefi,
-): Promise<void> {
+): Promise<number> {
   const yoneticiler = await prisma.kullaniciRol.findMany({
     where: { rolKodu: "PROJE_YONETICISI", bitisTarihi: null },
     select: { kullaniciId: true },
@@ -136,6 +136,8 @@ export async function projeYoneticilerineBildir(
       hedef,
     });
   }
+
+  return yoneticiler.length;
 }
 
 /**

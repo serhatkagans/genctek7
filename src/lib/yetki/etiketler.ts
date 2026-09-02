@@ -70,12 +70,15 @@ export function gorevRolAdi(gorev: GorevKapsamAdlari): string {
 }
 
 export const LOG_ISLEM_ETIKETLERI: Record<LogIslemi, string> = {
+  GIRIS: "Oturum açma",
+  CIKIS: "Oturum kapama",
   GORUNTULEME: "Görüntüleme",
   DEGISIKLIK: "Değişiklik",
   SILME: "Silme",
 };
 
 export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
+  OTURUM: "Oturum",
   OGRENCI: "Öğrenci kaydı",
   OGRETMEN: "Öğretmen kaydı",
   FAALIYET: "Etkinlik",
