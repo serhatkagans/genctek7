@@ -8,6 +8,7 @@ import {
 import {
   aktifAtamaGetir,
   danismanAdaylariGetir,
+  ilKoordinatoruGetir,
   ilkAtamayiYurut,
   ogrenciDanismanSecti,
 } from "../src/lib/danisman/atama";
@@ -263,6 +264,67 @@ async function testVerisiniTemizle() {
       OR: [{ ogrenciId: { in: idler } }, { ekleyenKullaniciId: { in: idler } }],
     },
   });
+  /*
+   * ===========================================================================
+   * BAŞLIKTAKİ SORGUNUN 3 EYLÜL 2026'DA BULDUĞU BEŞ EKSİK TABLO
+   * ===========================================================================
+   * Bunlar listeye hiç eklenmemişti. Yalnızca `danisman_talebi` patlıyordu
+   * çünkü onu üreten adım (4b) 20 Ağustos'tan beri kendi hatasıyla düşüyor ve
+   * testin geri kalanı hiç çalışmıyordu; diğer dördü henüz tetiklenmemiş
+   * tuzaklardı.
+   *
+   * ZORUNLU alana bakan satır SİLİNİR, İSTEĞE BAĞLI alan BOŞALTILIR: kaydın
+   * kendisi (talep, başvuru) silinen test kullanıcısına aitse anlamı kalmaz;
+   * yalnızca "kararı veren" olarak geçiyorsa kayıt başkasınındır ve durmalıdır.
+   */
+  await prisma.danismanTalebi.deleteMany({
+    where: {
+      OR: [
+        { ogrenciId: { in: idler } },
+        { istenenDanismanId: { in: idler } },
+      ],
+    },
+  });
+  await prisma.danismanTalebi.updateMany({
+    where: { kararVerenId: { in: idler } },
+    data: { kararVerenId: null },
+  });
+  await prisma.danismanTalebi.updateMany({
+    where: { oncekiDanismanId: { in: idler } },
+    data: { oncekiDanismanId: null },
+  });
+
+  await prisma.erisimAnomalisi.deleteMany({
+    where: { kullaniciId: { in: idler } },
+  });
+
+  // Başvuranın kendisi CASCADE; geriye yalnızca karar veren izi kalıyor.
+  await prisma.gencTekGorevBasvurusu.updateMany({
+    where: { kararVerenKullaniciId: { in: idler } },
+    data: { kararVerenKullaniciId: null },
+  });
+
+  await prisma.mentorlukKaldirmaTalebi.deleteMany({
+    where: { isteyenKullaniciId: { in: idler } },
+  });
+  await prisma.mentorlukKaldirmaTalebi.updateMany({
+    where: { kararVerenKullaniciId: { in: idler } },
+    data: { kararVerenKullaniciId: null },
+  });
+
+  /*
+   * KVKK başvurusu da siliniyor: başvuru bir KANIT ama kanıtı olduğu kişi
+   * silindiğinde (ve bu yalnızca test temizliğinde oluyor) dayanağı kalmıyor.
+   * Yanıtlayan izi başkasının başvurusunda durabilir, o boşaltılıyor.
+   */
+  await prisma.kvkkBasvurusu.deleteMany({
+    where: { basvuranKullaniciId: { in: idler } },
+  });
+  await prisma.kvkkBasvurusu.updateMany({
+    where: { yanitlayanKullaniciId: { in: idler } },
+    data: { yanitlayanKullaniciId: null },
+  });
+
   await prisma.kullaniciRol.deleteMany({ where: { kullaniciId: { in: idler } } });
   await prisma.ogrenciProfil.deleteMany({ where: { kullaniciId: { in: idler } } });
   await prisma.ogretmenProfil.deleteMany({ where: { kullaniciId: { in: idler } } });
@@ -290,7 +352,6 @@ async function oturumKullanicisiKur(
   });
   return {
     id: kayit.id,
-    authProviderId: kayit.authProviderId,
     ad: kayit.ad,
     soyad: kayit.soyad,
     kurumKodu: kayit.kurumKodu,
@@ -309,7 +370,6 @@ async function main() {
 
   console.log("1. İlk giriş ve rol tayini");
   const ogrenci1 = await sagla("ogrenci-001");
-  const ogretmen1 = await sagla("ogretmen-001");
 
   const ogrenciRolleri = await prisma.kullaniciRol.findMany({
     where: { kullaniciId: ogrenci1, bitisTarihi: null },
@@ -319,25 +379,14 @@ async function main() {
     ogrenciRolleri.length === 1 && ogrenciRolleri[0].rolKodu === "OGRENCI",
   );
 
-  const ogretmenRolleri = await prisma.kullaniciRol.findMany({
-    where: { kullaniciId: ogretmen1, bitisTarihi: null },
-  });
-  kontrol("öğretmen ilk girişte rolsüz oluşur", ogretmenRolleri.length === 0);
-
-  const ogretmenProfil = await prisma.ogretmenProfil.findUnique({
-    where: { kullaniciId: ogretmen1 },
-  });
-  kontrol(
-    "öğretmen danışmanlık işaretlemesi varsayılan olarak kapalıdır",
-    ogretmenProfil?.danismanOlmakIstiyor === false,
-  );
-
-  kontrol(
-    "işaretlemeyen öğretmen danışman adayı listesinde görünmez",
-    (await danismanAdaylariGetir(750001)).length === 0,
-  );
-
   console.log("\n2. Danışmansız okulda il koordinatörüne bağlanma");
+  /*
+   * ÖĞRETMEN HENÜZ SAĞLANMADI ve sıra bu yüzden böyle: 27 Ağustos 2026'dan
+   * (98321a9) beri öğretmen İLK GİRİŞTE danışman oluyor, dolayısıyla "okulda
+   * danışman yok" durumu ancak okulun öğretmeni daha hiç girmemişken kurulur.
+   * Eskiden öğretmen 1. adımda sağlanıp rolsüz kalıyordu; kural değişince bu
+   * adım sessizce anlamını yitirdi.
+   */
   const karar1 = await ilkAtamayiYurut(ogrenci1);
   kontrol(
     "okulda danışman yoksa öğrenci il koordinatörüne bağlanır",
@@ -349,28 +398,69 @@ async function main() {
     atama1?.atamaTipi === "IL_KOORDINATOR_FALLBACK",
   );
 
-  console.log("\n3. Öğretmen danışmanlık görevi alıyor");
-  await danismanlikDurumunuDegistir(ogretmen1, true);
-  const danismanRolu = await prisma.kullaniciRol.findFirst({
-    where: { kullaniciId: ogretmen1, rolKodu: "DANISMAN", bitisTarihi: null },
+  console.log("\n3. Öğretmen ilk girişte danışman olur, koordinatöre haber gider");
+  /*
+   * KOORDİNATÖRÜN ESKİ BİLDİRİMLERİ ÖNCE SİLİNİYOR — iki sebep birden var:
+   *
+   * 1) Koordinatör kimlikleri test temizliğinde KORUNUYOR (bkz.
+   *    testVerisiniTemizle), yani önceki koşuların bildirimleri duruyor.
+   * 2) `bildirimGonder` OKUNMAMIŞ AYNI bildirimi tekrar yazmıyor (gonder.ts).
+   *    Önceki koşudan kalan okunmamış kopya bu koşudaki gönderimi sessizce
+   *    yutuyor ve kontrol "bildirim düşmedi" diye hata veriyordu.
+   *
+   * Bu yüzden ölçüm "sayı bir arttı mı" değil, temiz zeminde "tam bir tane
+   * var mı" olarak yapılıyor.
+   */
+  const koordinator34Id = await ilKoordinatoruGetir("34");
+  await prisma.bildirim.deleteMany({
+    where: {
+      kullaniciId: koordinator34Id ?? 0,
+      tip: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
+    },
+  });
+
+  const ogretmen1 = await sagla("ogretmen-001");
+
+  const ogretmenRolleri = await prisma.kullaniciRol.findMany({
+    where: { kullaniciId: ogretmen1, bitisTarihi: null },
   });
   kontrol(
-    "işaretleyen öğretmene kurum kapsamlı DANISMAN rolü verilir",
-    danismanRolu?.kurumKodu === 750001,
+    "öğretmen ilk girişte doğrudan kurum kapsamlı DANISMAN olur",
+    ogretmenRolleri.length === 1 &&
+      ogretmenRolleri[0].rolKodu === "DANISMAN" &&
+      ogretmenRolleri[0].kurumKodu === 750001,
   );
+
+  const ogretmenProfil = await prisma.ogretmenProfil.findUnique({
+    where: { kullaniciId: ogretmen1 },
+  });
   kontrol(
-    "işaretleyen öğretmen danışman adayı listesine girer",
+    "danışmanlık işaretlemesi ilk girişte AÇIK gelir",
+    ogretmenProfil?.danismanOlmakIstiyor === true,
+  );
+
+  kontrol(
+    "öğretmen ilk girişte danışman adayı listesine girer",
     (await danismanAdaylariGetir(750001)).length === 1,
   );
 
-  const koordinatorBildirimi = await prisma.bildirim.findFirst({
-    where: { tip: "KOORDINATOR_DEVREDILEBILIR_OGRENCI" },
-    orderBy: { id: "desc" },
+  /*
+   * BU KONTROL BİR GERİLEMEYİ YAKALIYOR (3 Eylül 2026). 98321a9 rol vermeyi
+   * "Görevi işaretle" düğmesinden ilk girişe taşırken bildirimi düğmede
+   * bıraktı; koordinatöre bağlı öğrencisi olan bir okula öğretmen ilk kez
+   * girdiğinde haber HİÇ gitmiyordu. Düzeltme lib/kullanici/sagla.ts'te.
+   */
+  const devirBildirimi = await prisma.bildirim.count({
+    where: {
+      kullaniciId: koordinator34Id ?? 0,
+      tip: "KOORDINATOR_DEVREDILEBILIR_OGRENCI",
+    },
   });
   kontrol(
     "okula danışman gelince koordinatöre devir bildirimi düşer",
-    koordinatorBildirimi !== null,
+    devirBildirimi === 1,
   );
+
   const atamaHalaKoordinatorde = await aktifAtamaGetir(ogrenci1);
   kontrol(
     "öğrenci otomatik devredilmez, koordinatörde kalır",
@@ -380,7 +470,9 @@ async function main() {
 
   console.log("\n4. Birden fazla aday: öğrenci kendi danışmanını seçer");
   const ogretmen2 = await sagla("ogretmen-002");
-  await danismanlikDurumunuDegistir(ogretmen2, true);
+  // Başka okulun (750002) öğretmeni: aşağıda "bu okulun adayı değil" ve
+  // "ilgisiz öğretmen karar veremez" kontrollerinde kullanılıyor.
+  const ogretmen3 = await sagla("ogretmen-003");
   const ogrenci2 = await sagla("ogrenci-002");
   const karar2 = await ilkAtamayiYurut(ogrenci2);
   kontrol("iki aday varsa seçim istenir", karar2.tur === "SECIM_GEREKLI");
@@ -389,17 +481,22 @@ async function main() {
     (await aktifAtamaGetir(ogrenci2)) === null,
   );
 
-  await ogrenciDanismanSecti(ogrenci2, ogretmen2);
+  await ogrenciDanismanSecti(ogrenci2, ogretmen1);
   const atama2 = await aktifAtamaGetir(ogrenci2);
   kontrol(
     "öğrencinin seçimi OGRENCI_SECTI tipiyle kaydedilir",
-    atama2?.danismanKullaniciId === ogretmen2 &&
+    atama2?.danismanKullaniciId === ogretmen1 &&
       atama2?.atamaTipi === "OGRENCI_SECTI",
   );
 
+  /*
+   * BAŞKA OKULUN GERÇEK ÖĞRETMENİ deneniyor, uydurma bir kimlik değil: eskiden
+   * `ogretmen1 + 99999` yazıyordu ve o "kullanıcı yok" yolunu sınıyordu,
+   * sınanmak istenen kural ise "bu okulun adayı değil".
+   */
   let baskaOkulHatasi = false;
   try {
-    await ogrenciDanismanSecti(ogrenci2, ogretmen1 + 99999);
+    await ogrenciDanismanSecti(ogrenci2, ogretmen3);
   } catch {
     baskaOkulHatasi = true;
   }
@@ -417,12 +514,14 @@ async function main() {
    * var mı" sorusuna bakıyor ve cevabı veritabanında. Burada ölçülen tek şey,
    * ilk seçimle DEĞİŞİKLİĞİN farklı davranması ve onay gelene kadar
    * öğrencinin danışmansız kalmaması (Değişmez 2).
+   *
+   * ZİNCİR AYNI OKULDA KURULU: blok 20 Ağustos'ta hedef olarak ogretmen-003'ü
+   * kullanıyordu ama o öğretmen 750002'de, öğrenci ise 750001'de — yani adım
+   * eklendiği günden beri "bu okulun adayı değil" hatasıyla düşüyor ve testin
+   * geri kalanı hiç çalışmıyordu. Hedef artık aynı okuldaki ikinci aday.
    */
   console.log("\n4b. Danışman DEĞİŞİKLİĞİ onaydan geçer");
-  const ogretmen3 = await sagla("ogretmen-003");
-  await danismanlikDurumunuDegistir(ogretmen3, true);
-
-  const degisiklik = await ogrenciDanismanSecti(ogrenci2, ogretmen3);
+  const degisiklik = await ogrenciDanismanSecti(ogrenci2, ogretmen2);
   kontrol(
     "danışmanı olan öğrencinin seçimi onaya gider",
     degisiklik.tur === "ONAYA_GONDERILDI",
@@ -431,10 +530,10 @@ async function main() {
   const talepSirasindakiAtama = await aktifAtamaGetir(ogrenci2);
   kontrol(
     "talep beklerken öğrencinin danışmanı DEĞİŞMEZ",
-    talepSirasindakiAtama?.danismanKullaniciId === ogretmen2,
+    talepSirasindakiAtama?.danismanKullaniciId === ogretmen1,
   );
 
-  const ikinciDeneme = await ogrenciDanismanSecti(ogrenci2, ogretmen1);
+  const ikinciDeneme = await ogrenciDanismanSecti(ogrenci2, ogretmen2);
   kontrol(
     "bekleyen talebi olan öğrenci ikinci talep açamaz",
     ikinciDeneme.tur === "BEKLEYEN_TALEP_VAR",
@@ -446,23 +545,23 @@ async function main() {
   kontrol(
     "istenen öğretmen karara yetkili",
     bekleyen !== null &&
-      (await talebeKararVerebilirMi(bekleyen.id, ogretmen3)),
+      (await talebeKararVerebilirMi(bekleyen.id, ogretmen2)),
   );
   kontrol(
     "ilgisiz öğretmen karara yetkili DEĞİL",
     bekleyen !== null &&
-      !(await talebeKararVerebilirMi(bekleyen.id, ogretmen1)),
+      !(await talebeKararVerebilirMi(bekleyen.id, ogretmen3)),
   );
 
   if (bekleyen) {
-    const onay = await talebiOnayla(bekleyen.id, ogretmen3);
+    const onay = await talebiOnayla(bekleyen.id, ogretmen2);
     kontrol("talep onaylanır", onay.olurMu);
   }
 
   const onaySonrasiAtama = await aktifAtamaGetir(ogrenci2);
   kontrol(
     "onaydan sonra atama yeni danışmana geçer",
-    onaySonrasiAtama?.danismanKullaniciId === ogretmen3 &&
+    onaySonrasiAtama?.danismanKullaniciId === ogretmen2 &&
       onaySonrasiAtama?.atamaTipi === "OGRENCI_SECTI",
   );
   kontrol(
@@ -471,17 +570,17 @@ async function main() {
   );
 
   // Ret yolu: atama DEĞİŞMEZ ve gerekçe zorunludur.
-  const retTalebi = await ogrenciDanismanSecti(ogrenci2, ogretmen2);
+  const retTalebi = await ogrenciDanismanSecti(ogrenci2, ogretmen1);
   kontrol("ikinci değişiklik de onaya gider", retTalebi.tur === "ONAYA_GONDERILDI");
 
   const retBekleyen = await bekleyenTalebimiGetir(ogrenci2);
   if (retBekleyen) {
-    const gerekcesiz = await talebiReddet(retBekleyen.id, ogretmen2, "yok");
+    const gerekcesiz = await talebiReddet(retBekleyen.id, ogretmen1, "yok");
     kontrol("gerekçesiz ret kabul edilmez", !gerekcesiz.olurMu);
 
     const ret = await talebiReddet(
       retBekleyen.id,
-      ogretmen2,
+      ogretmen1,
       "Bu dönem danışmanlık kontenjanım dolu.",
     );
     kontrol("gerekçeli ret kabul edilir", ret.olurMu);
@@ -490,7 +589,7 @@ async function main() {
   const retSonrasiAtama = await aktifAtamaGetir(ogrenci2);
   kontrol(
     "ret öğrenciyi danışmansız BIRAKMAZ",
-    retSonrasiAtama?.danismanKullaniciId === ogretmen3,
+    retSonrasiAtama?.danismanKullaniciId === ogretmen2,
   );
 
   console.log("\n5. Tek aday: otomatik atama");

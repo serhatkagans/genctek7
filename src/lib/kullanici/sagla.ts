@@ -1,3 +1,4 @@
+import { yeniDanismanBildirimiYap } from "../danisman/atama";
 import type { AuthKimlik } from "../auth/tipler";
 import { prisma } from "../db";
 
@@ -44,6 +45,13 @@ export async function kullaniciSagla(
     where: { authProviderId: kimlik.authProviderId },
     select: { id: true, kurumKodu: true },
   });
+
+  /*
+   * Öğretmen ilk girişte danışman OLUYOR mu? Karar işlemin dışında veriliyor
+   * çünkü sonrasında bildirim gönderimi de buna bakıyor (aşağıdaki bloğa bkz.).
+   */
+  const danismanOlabilir =
+    kimlik.tip === "OGRETMEN" && kimlik.kurumKodu !== null;
 
   if (!mevcut) {
     const olusan = await prisma.$transaction(async (islem) => {
@@ -92,7 +100,6 @@ export async function kullaniciSagla(
          * girişinde yeniden danışman yapılsaydı, kendi kararı sessizce geri
          * alınırdı (bkz. danismanlikDurumunuDegistir).
          */
-        const danismanOlabilir = kimlik.kurumKodu !== null;
         await islem.ogretmenProfil.create({
           data: {
             kullaniciId: kullanici.id,
@@ -113,6 +120,26 @@ export async function kullaniciSagla(
 
       return kullanici;
     });
+
+    /*
+     * OKULA DANIŞMAN GELDİ HABERİ — ROLÜ VEREN YERE BAĞLI (3 Eylül 2026).
+     *
+     * Bu çağrı 27 Ağustos'ta (98321a9) DÜŞMÜŞTÜ ve kimse fark etmedi. O gün rol
+     * verme işi "Görevi işaretle" düğmesinden (ogretmen/danismanlik.ts) buraya,
+     * ilk girişe taşındı; bildirim ise düğmede kaldı. Sonuç: öğrencileri il
+     * koordinatörüne bağlı bir okula öğretmen ilk kez giriş yaptığında
+     * koordinatöre "bu okulda artık danışman var, N öğrenci devredilebilir"
+     * haberi HİÇ gitmiyordu ve öğrenciler koordinatörde süresiz kalıyordu.
+     * Düğme yolu da kurtarmıyor: orada gönderim `!danismanRolu` koşuluna bağlı
+     * ve öğretmen bu noktada zaten danışman.
+     *
+     * Bildirim İŞLEMİN DIŞINDA: kendi yazmalarını yapıyor ve başarısız olması
+     * kullanıcının oluşmasını geri almamalı. Rolü veren satırla bu satır BİRLİKTE
+     * okunmalı — ayrı düşmeleri bu arızayı doğurdu.
+     */
+    if (danismanOlabilir && kimlik.kurumKodu !== null) {
+      await yeniDanismanBildirimiYap(kimlik.kurumKodu);
+    }
 
     return {
       kullaniciId: olusan.id,
