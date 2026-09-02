@@ -1,0 +1,15 @@
+-- Erişim logu hedef tipi: ilgili kişi KVKK başvurusu (2 Eylül 2026 · Genelge 4/ç).
+--
+-- Başvurunun içinde kişinin talebi ve gerekçesi var; merkezde kimin okuduğu ve
+-- kimin yanıtladığı da deftere geçmeli. Denetimin sorulacağı ilk yer burasıdır.
+--
+-- MEVCUT `BASVURU` DEĞERİNE YÜKLENMEDİ: o değer FAALİYET başvurusunu anlatıyor
+-- ve ikisi aynı adla düşseydi "kim hangi KVKK başvurusunu okudu" sorusu,
+-- etkinlik başvurularının arasından ayıklanamazdı. Yanlış etiketlenmiş denetim
+-- satırı kalıcı olarak yanlış kalır.
+--
+-- AYRI MIGRATION: PostgreSQL'de `ALTER TYPE ... ADD VALUE` ile eklenen değer
+-- AYNI transaction içinde kullanılamaz. Bu dosya kullanmıyor ama tabloları
+-- kuran bir sonraki migration ile aynı dosyada durması, ileride oraya bu değere
+-- bakan bir kısıt eklendiğinde sessizce patlardı.
+ALTER TYPE "LogHedefTip" ADD VALUE IF NOT EXISTS 'KVKK_BASVURUSU';

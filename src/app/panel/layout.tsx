@@ -106,6 +106,33 @@ export default async function PanelDuzeni({
      * yönlendirmeler kırılmasın.
      */
     { yol: "/panel", etiket: "Profil", grup: "Genel", ikon: "LayoutGrid" },
+    /*
+     * KİŞİSEL VERİLERİM — ilgili kişi başvuru formu (2 Eylül 2026 ·
+     * Genelge 4/ç: aydınlatma metninin yanı sıra başvuru formu da platformda
+     * bulunmalı).
+     *
+     * "KVKK OLMASIN" İSTEĞİYLE ÇELİŞMİYOR (21 Ağustos 2026): o istek kişiden
+     * ONAY İSTEYEN ve okumadan geçilemeyen yüzeyleri kaldırdı — ilk giriş
+     * kapısı, panel şeridi, belgeler bölümü. Buradaki satır kimseden onay
+     * istemiyor, kimseyi durdurmuyor ve hiçbir metni önüne koymuyor; kişi
+     * ancak HAKKINI KULLANACAĞI zaman tıklıyor.
+     *
+     * MENÜDE OLMASI ŞART, panelin içinde bir bölüm olması yetmezdi: KVKK m.13
+     * başvuru yolunun ilgili kişi için ERİŞİLEBİLİR olmasını arıyor.
+     * Bulunması ancak aramayı bilene mümkün olan bir form, pratikte var
+     * olmayan bir formdur — nitekim 4/ç'nin karşılanmadığı tespiti de tam
+     * olarak bu yüzden çıktı.
+     *
+     * HERKESTE VAR, dış kullanıcı menüsü dahil (aşağıdaki erken dönüşten
+     * ÖNCE tanımlı): mezunun ve paydaş temsilcisinin de kişisel verisi
+     * işleniyor ve hakları öğrencininkiyle aynı.
+     */
+    {
+      yol: "/panel/kisisel-verilerim",
+      etiket: "Kişisel Verilerim",
+      grup: "Genel",
+      ikon: "ShieldUser",
+    },
   ];
 
   /*

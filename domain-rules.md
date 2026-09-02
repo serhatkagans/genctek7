@@ -382,7 +382,46 @@ Yeni bir veri kaynağı ya da "duyuru" kavramı **açılmadı**: aynı `bildirim
 ## 10. KVKK ve loglama
 
 - Kullanıcıların önemli bölümü 18 yaş altı; aydınlatma metni buna göre.
-- Veri saklama süresi politikası tanımlı olmalı.
+
+**Saklama ve imha politikası** (2 Eylül 2026 · Genelge 3/e ve 3/g). Dört süre
+vardır, dördü de sistem ayarından değiştirilir ve aylık bakım işi
+(`npm run bakim:saklama`) uygular:
+
+| Ne | Varsayılan | Ne olur |
+|---|---|---|
+| Erişim kaydı ve türevi anomali | 24 ay | Silinir |
+| Okunmuş bildirim | 12 ay | Silinir (okunmamışa dokunulmaz) |
+| Moderasyonla gizlenmiş içerik | 6 ay | Metin **imha edilir**, moderasyon izi kalır |
+| Kişisel veri (kişi bazında) | son temastan 24 ay | Kayıt **anonim hâle getirilir** |
+
+**Çıpa mezuniyet değil, son temastır.** Sistemde mezuniyet/ilişik kesme olayı
+yoktur: `kullanici.aktif` hiçbir kod yolunda false'a çevrilmiyor ve e-Okul/EBA
+eşitlemesi "bu kişi ayrıldı" bilgisini getirmiyor. Süreyi var olmayan bir olaya
+bağlamak, kâğıt üstünde politika yazıp pratikte hiçbir kaydı imha etmemek
+olurdu. Bu yüzden süre `kullanici.son_senkron_tarihi`den (kişiyi en son gördüğümüz
+an) işler.
+
+**İmha, satır silme değildir.** Kullanıcı satırı yirmiden fazla tablonun yabancı
+anahtarı; silinmesi ya zincirleme silme ya da kısıt hatası demekti. Bunun yerine
+kimliğe götüren alanlar (ad, soyad, cinsiyet, EBA kimliği, iletişim, fotoğraf,
+özgeçmiş) ve kişinin yazdığı serbest metinler boşaltılır; faaliyet/başvuru
+satırları kimliğe bağlanamaz hâlde kalır ve raporlama bozulmaz. Dosyalar
+depolamadan da silinir.
+
+**Gizleme bir imha değildir.** "SİLME YOK, GİZLEME VAR" ilkesi (model Mesaj,
+Gonderi, EkipMesaji, TalepCevabi, Yorum) şikâyet incelemesi için SÜRELİ bir
+tutmayı haklı çıkarır, süresiz tutmayı değil: gizlenen kayıt ilgili kişinin
+silme talebi karşısında "silinmiş" sayılmaz. Pencere dolunca metin gerçekten
+imha edilir, kimin ne zaman gizlediği kalır. Pencere gizlemenin anından işler
+(`gizlenme_tarihi`), oluşturma anından değil — aksi hâlde yıllar önce yazılıp
+dün gizlenen bir mesaj, tam da şikâyet açıldığı sırada yok olurdu.
+
+**Silme talebi süreyi beklemez.** İmha, süreli bakımdan bağımsız olarak tek bir
+kişi için de çalıştırılabilir: `kullaniciyiImhaEt(kullaniciId)`. Kabul edilen
+bir KVKK silme başvurusu (konu `SILME`) bunu çağırmalıdır — başvuruya "sildik"
+yanıtı yazmak silmenin kendisi değildir. **Bu bağlantı henüz kurulmadı**
+(2 Eylül 2026): başvuru akışı ayrı bir çalışmada yazılıyor, imha tarafı burada
+hazır bekliyor.
 
 **Onay belgeleri.** Sistemde KAYIT AKIŞI YOKTUR; kimlik EBA'dan gelir. Bu yüzden
 belgelerin okutulacağı tek an, kişinin sisteme **ilk girdiği** andır. Dört belge
@@ -431,6 +470,23 @@ yalnızca il koordinatöründen istenmesi bir ürün kararıdır: danışman ö�
 kendi okulundaki öğrencilerle zaten yüz yüze çalışır, koordinatör ise tanımadığı
 onlarca öğretmenin iletişim bilgisine erişir. Kapsamı danışmana ya da proje
 yöneticisine açmak teknik bir düzeltme değildir.
+
+**İlgili kişi başvuru formu** (2 Eylül 2026 · Genelge 4/ç: aydınlatma metninin yanı sıra başvuru formu da platformda bulunmalı). Aydınlatma ve açık rıza metinleri vardı, form yoktu; aydınlatma metninin 7. maddesi hakkını kullanmak isteyeni sistemin dışına yolluyordu ("okul idareniz aracılığıyla Bakanlığa başvurabilirsiniz"). Okul idaresi veri sorumlusu değildir (KVKK m.13 · veri sorumlusu YEĞİTEK) ve o kanalda ne başvurunun kaydı tutulur ne de süresi işler.
+
+Form **Kişisel Verilerim** ekranındadır (`/panel/kisisel-verilerim`, menüde "Genel" grubunda) ve şunları taşır: veri sorumlusu künyesi, Kanun'un 11. maddesindeki hakların tamamı + açık rızanın geri alınması (m.7), talebin açıklaması ve isteğe bağlı yanıt adresi. Kimlik alanları forma yazılmaz — başvuran oturumdaki kişidir ve kimliği doğrulanmıştır.
+
+| Kural | Karşılığı |
+|---|---|
+| Yanıt süresi | En geç **30 gün** (m.13/2). Sistem ayarına bağlı değildir, kanunun sayısıdır. |
+| Süre ne zaman başlar | Başvurunun kaydedildiği an. "İncelemeye alma" süreyi **durdurmaz**. |
+| Kim yanıtlar | Yalnızca proje yöneticisi (`/panel/kvkk-basvurulari`). |
+| Sonuç | Kabul / kısmen kabul / ret — **her üçünde de yanıt metni zorunludur** (gerekçesiz ret m.13'e aykırı). Veritabanı kısıtı: `ck_kvkk_basvurusu_yanit`. |
+| Yeniden yanıt | Yok. Sonuçlanmış başvurunun üzerine yazılmaz; kişi yeni başvuru açar ve süre yeniden işler. |
+| Aynı anda | Kişinin sonuçlanmamış tek başvurusu olur. |
+| Saklama | Başvuru ve yanıtı **silinmez** — saklama süresi temizliği bu tabloya dokunmaz; yükümlülüğün yerine getirildiğinin kanıtıdır. |
+
+Başvurunun açılması merkeze, yanıt ise başvurana bildirimle (ve kayıtlı adrese e-posta kopyasıyla) gider. Her okuma ve karar erişim kaydına `KVKK_BASVURUSU` hedef tipiyle yazılır.
+
 - **Erişim logu:** hangi kullanıcı, hangi öğrenci/öğretmen kaydını, ne zaman görüntüledi veya değiştirdi.
 - **İçerik logu:** yorum silme ve dosya kaldırma işlemleri de erişim logundan ayrı ya da aynı yapıda tutulur — kim sildi, ne zaman.
 - Rol bazlı erişim sınırları uygulama katmanında zorunlu — istemci tarafı filtreleme yeterli değildir.

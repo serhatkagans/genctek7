@@ -52,6 +52,10 @@
 | Ekip kurma / üye ekleme | ✗ | ✗ | Kendi ili | Tüm iller | ✗ | ✗ |
 | Ekip sohbetini okuma / yazma | Üyesiyse | Üyesiyse | Üyesi ya da ekip kendi ilindeyse | Her ekipte | Üyesiyse | Üyesiyse |
 | EBA dışı giriş başvurusunu onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| KVKK (ilgili kişi) başvurusu yapma | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| KVKK başvurusunu yanıtlama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+
+**KVKK başvurusu yapmak bir HAKTIR, yetki değildir** (2 Eylül 2026 · Genelge 4/ç). Matristeki ilk satır bu yüzden altı sütunda da ✓: oturum açmış olmak yeterli ve kimse kimsenin başvurusunu engelleyemez. Yanıtlama satırı ise yalnızca merkezde (`kvkkBasvurulariniYanitlayabilirMi`) — başvuru **veri sorumlusuna** yapılır (KVKK m.13) ve veri sorumlusu YEĞİTEK'tir. İl koordinatörü kendi ilindeki kişinin başvurusunu bile görmez: açılsaydı kanunun tek muhatap saydığı yerde ikinci bir merci doğar, ilgili kişi ilden ile değişen cevaplar alırdı. Başvurunun ve yanıtın süresi kanunîdir (en geç 30 gün) ve sistem ayarına bağlanmamıştır.
 
 **Panoda görme ile ilan açma ayrı satırlardır** (13 Ağustos 2026 · istek: "proje yöneticisinin pano sayfası görünmüyor, diğer kullanıcılarda var"). Tek satırdılar ve merkez personeli ilan açmadığı için pano onun menüsünde hiç görünmüyordu; sonuç, sistemin en canlı kullanıcı alanının onu yönetenden gizlenmesiydi. Merkez artık panoyu **okuyor** — hangi konularda destek ve mentör arandığı yönetimsel bir bilgidir — ama ilan açmıyor ve ilanlara bağlantı isteği göndermiyor: YEĞİTEK'in takım arkadaşı araması diye bir durum yok, duyuru kanalı ayrı (`panodaEslesmeArayabilirMi`). Aynı ayrım "Bağlantı isteği gönderme" satırında da geçerlidir.
 

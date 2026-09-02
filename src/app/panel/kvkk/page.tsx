@@ -16,9 +16,16 @@ import { permanentRedirect } from "next/navigation";
  */
 export default function KvkkSayfasi(): never {
   /*
-   * 21 Ağustos 2026: hedef `/panel#kvkk` idi; belge bölümü panelden kalkınca
-   * çapa da kalktı (istek: "kvkk olmasın"). Adres yine 404 vermiyor — yer
-   * imlerinde ve eski e-postalarda duruyor.
+   * HEDEF ÜÇÜNCÜ KEZ DEĞİŞTİ: `/panel#kvkk` → `/panel` → `/panel/kisisel-verilerim`.
+   *
+   * 21 Ağustos 2026'da belge bölümü panelden kalkınca çapa da kalkmıştı ve
+   * adres panelin kendisine düşüyordu — gelen kişi aradığı metinleri hiçbir
+   * yerde bulamıyordu. 2 Eylül 2026'da (Genelge 4/ç) açılan Kişisel Verilerim
+   * ekranı yürürlükteki metinleri katlı hâlde taşıyor; bu adresi bekleyen kişi
+   * tam olarak oraya gitmeli.
+   *
+   * YÖNLENDİRME KALICI VE SAYFA SİLİNMEDİ: adres bildirim e-postalarında ve
+   * yer imlerinde duruyor.
    */
-  permanentRedirect("/panel");
+  permanentRedirect("/panel/kisisel-verilerim");
 }

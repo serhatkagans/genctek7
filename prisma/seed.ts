@@ -156,6 +156,18 @@ const SISTEM_AYARLARI = [
       "Okunmuş bildirimlerin saklanma süresi (ay). Okunmamış bildirim silinmez.",
   },
   {
+    anahtar: "HAREKETSIZ_KULLANICI_AYI",
+    deger: "24",
+    aciklama:
+      "Kişi sistemle bu kadar süre temas etmezse (giriş ya da e-Okul/EBA eşitlemesi) kişisel verisi bakim:saklama işiyle anonim hâle getirilir. Çıpa mezuniyet DEĞİL son temastır: sistemde ilişik kesme olayı yok.",
+  },
+  {
+    anahtar: "GIZLI_ICERIK_SAKLAMA_AYI",
+    deger: "6",
+    aciklama:
+      "Moderasyonla gizlenen içeriğin metni bu süre sonunda imha edilir; kimin ne zaman gizlediği kaydı kalır. Gizleme tek başına imha sayılmaz.",
+  },
+  {
     anahtar: "DISA_AKTARMA_UST_SINIRI",
     deger: "5000",
     aciklama:
@@ -436,6 +448,18 @@ const BILDIRIM_SABLONLARI = [
     konu: "Olağan dışı erişim örüntüsü · {{kullaniciAdSoyad}}",
     govdeSablonu:
       "Merhaba,\n\n{{gun}} günü için olağan dışı bir erişim örüntüsü saptandı.\n\nKullanıcı: {{kullaniciAdSoyad}}\nÖrüntü: {{anomaliTuru}}\nErişim kaydı: {{logSayisi}}\nBenzersiz hedef: {{benzersizHedefSayisi}}\n\nAyrıntıları Panel → Erişim Kayıtları ekranından kullanıcı ve tarih ile süzerek inceleyin. Bu uyarı tek başına ihlal kararı değildir; inceleme gerektiren bir bulgudur.\n\nGençTek",
+  },
+  {
+    kod: "KVKK_BASVURUSU_ALINDI",
+    konu: "Yeni KVKK başvurusu: {{basvuranAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\n{{basvuranAdSoyad}}, kişisel verileriyle ilgili bir başvuru yaptı.\n\nTalep konusu: {{konular}}\n\nBaşvuru, Yönetim Paneli'ndeki KVKK Başvuruları ekranından yanıtlanır. Kanunî yanıt süresi en geç {{sonTarih}} tarihinde dolar.\n\nGençTek",
+  },
+  {
+    kod: "KVKK_BASVURUSU_YANITLANDI",
+    konu: "KVKK başvurunuz yanıtlandı",
+    govdeSablonu:
+      "Merhaba,\n\n{{tarih}} tarihli kişisel veri başvurunuz sonuçlandı.\n\nSonuç: {{sonuc}}\n\n{{yanit}}\n\nBaşvurunuzun tamamını ve bu yanıtı Kişisel Verilerim ekranından görebilirsiniz. Sonucu yeterli bulmazsanız Kişisel Verileri Koruma Kurulu'na şikâyette bulunma hakkınız saklıdır.\n\nGençTek",
   },
 ];
 

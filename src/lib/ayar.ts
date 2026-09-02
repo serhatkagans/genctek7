@@ -31,6 +31,14 @@ export const AYAR_ANAHTARLARI = {
   PROFIL_FOTO_MAKS_BAYT: "PROFIL_FOTO_MAKS_BAYT",
   ERISIM_LOGU_SAKLAMA_AYI: "ERISIM_LOGU_SAKLAMA_AYI",
   BILDIRIM_SAKLAMA_AYI: "BILDIRIM_SAKLAMA_AYI",
+  /*
+   * İMHA SÜRELERİ (Genelge 3/e-3/g). Denetim kaydının saklama süresinden
+   * ayrıdırlar ve kısaltılmaları GERİ ALINAMAZ sonuç doğurur: erişim kaydını
+   * kısaltmak geçmişi denetlenemez yapar, bunları kısaltmak kişinin
+   * geçmişini yok eder. Yardım metinleri bu farkı yazıyor.
+   */
+  HAREKETSIZ_KULLANICI_AYI: "HAREKETSIZ_KULLANICI_AYI",
+  GIZLI_ICERIK_SAKLAMA_AYI: "GIZLI_ICERIK_SAKLAMA_AYI",
   KVKK_AYDINLATMA_METNI: "KVKK_AYDINLATMA_METNI",
   /*
    * Dört onay belgesinin dördü de AYRI metindir ve ayrı ayarlarda tutulur:
@@ -129,6 +137,20 @@ export const YONETILEBILIR_AYARLAR: AyarTanimi[] = [
     baslik: "Bildirim saklama süresi (ay)",
     bicim: "sayi",
     yardim: "Yalnızca okunmuş bildirimler silinir; okunmamışlara dokunulmaz.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.HAREKETSIZ_KULLANICI_AYI,
+    baslik: "Kişisel veri imha süresi (ay)",
+    bicim: "sayi",
+    yardim:
+      "Kişi sistemle bu kadar süre temas etmezse (girişi ya da e-Okul/EBA eşitlemesi olmazsa) kimlik ve iletişim bilgileri, fotoğrafı, özgeçmişi ve yazdıkları imha edilir; faaliyet/başvuru satırları kimliğe bağlanamaz hâlde kalır. İŞLEM GERİ ALINAMAZ — kısaltmadan önce düşünün, dönen kullanıcının geçmişi bağlanamaz.",
+  },
+  {
+    anahtar: AYAR_ANAHTARLARI.GIZLI_ICERIK_SAKLAMA_AYI,
+    baslik: "Gizlenmiş içerik imha süresi (ay)",
+    bicim: "sayi",
+    yardim:
+      "Moderasyonla gizlenen mesaj, gönderi, yorum ve eklerin metni bu süre sonunda gerçekten imha edilir; kimin ne zaman gizlediği kaydı kalır. Şikâyet incelemesi için gereken süreden kısa tutmayın.",
   },
   {
     anahtar: AYAR_ANAHTARLARI.DISA_AKTARMA_UST_SINIRI,

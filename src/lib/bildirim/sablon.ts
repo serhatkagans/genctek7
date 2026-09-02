@@ -223,6 +223,30 @@ export const BILDIRIM_KODLARI = {
   PANO_ILANI_KARARI: "PANO_ILANI_KARARI",
   /** Gecelik erişim günlüğü taramasında bulunan olağan dışı örüntü; merkeze gider. */
   ERISIM_ANOMALISI: "ERISIM_ANOMALISI",
+  /**
+   * İlgili kişi KVKK başvurusu açtı; PROJE YÖNETİCİLERİNE gider (2 Eylül 2026
+   * · Genelge 4/ç).
+   *
+   * Uyarısız bir kuyruk günlerce bakılmayan kuyruktur; buradaki bedeli ise
+   * kanun ödetiyor — başvurunun otuz günlük yanıt süresi var (m.13/2) ve
+   * merkezin ekrana kendiliğinden uğramasını beklemek süreyi tesadüfe
+   * bağlamak olurdu. Metinde son tarih yazılı.
+   *
+   * KOORDİNATÖRE GİTMEZ: veri sorumlusu YEĞİTEK'tir ve başvuruyu yalnızca
+   * merkez yanıtlar. Kopya çıkarmak, ilin koordinatörüne yapacağı bir şey
+   * olmayan ama içinde kişinin talebi yazan bir bildirim göndermek olurdu.
+   */
+  KVKK_BASVURUSU_ALINDI: "KVKK_BASVURUSU_ALINDI",
+  /**
+   * Başvuru sonuçlandı; BAŞVURANA gider (2 Eylül 2026).
+   *
+   * Kanun cevabın ilgili kişiye ULAŞMASINI arıyor; panele yazılıp orada
+   * beklemesi yetmez. Bildirim, kişinin kayıtlı adresine e-posta kopyası
+   * olarak da gidiyor (bkz. lib/bildirim/eposta-kopyasi.ts) ve yanıt metninin
+   * tamamı gövdeye giriyor — özet geçilseydi kişi cevabı öğrenmek için yine
+   * panele girmek zorunda kalırdı.
+   */
+  KVKK_BASVURUSU_YANITLANDI: "KVKK_BASVURUSU_YANITLANDI",
 } as const;
 
 export type BildirimKodu =
@@ -565,6 +589,20 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
       "logSayisi",
       "benzersizHedefSayisi",
     ],
+  },
+  {
+    kod: BILDIRIM_KODLARI.KVKK_BASVURUSU_ALINDI,
+    baslik: "Yeni KVKK başvurusu",
+    aciklama:
+      "İlgili kişi kişisel verileriyle ilgili başvuru yaptığında proje yöneticilerine gider. Kanunî yanıt süresi otuz gündür; son tarih metne yazılır.",
+    degiskenler: ["basvuranAdSoyad", "konular", "sonTarih"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.KVKK_BASVURUSU_YANITLANDI,
+    baslik: "KVKK başvurusu yanıtı",
+    aciklama:
+      "Başvurusu sonuçlanan ilgili kişiye gider. Yanıt metninin tamamı gövdeye girer; özet geçilirse kişi cevabı öğrenmek için panele girmek zorunda kalır.",
+    degiskenler: ["tarih", "sonuc", "yanit"],
   },
 ];
 

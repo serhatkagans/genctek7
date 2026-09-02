@@ -9,6 +9,12 @@ import type { OturumKullanicisi } from "../yetki/tipler";
  * ve saklama süresi burada gevşetilemez. Bu dosya saf tutulur: veritabanına
  * gitmez, "şimdi"yi parametre olarak alır, böylece kararlar birim testle
  * sınanabilir.
+ *
+ * BU DOSYA BELGELERİ ANLATIR, BAŞVURULARI DEĞİL. İlgili kişinin KVKK m.11
+ * başvurusu ayrı bir dosyada (./basvuru-kurallar.ts) ve ayrı bir tabloda
+ * duruyor: buradaki kayıt kişinin BİZE verdiği iradedir (belge başına tek
+ * satır), oradaki ise kişinin BİZDEN istediği şeydir (her başvuru ayrı satır,
+ * otuz günlük yanıt süresiyle).
  */
 
 export const AYAR_KVKK_METNI = "KVKK_AYDINLATMA_METNI";
@@ -17,6 +23,8 @@ export const AYAR_TAAHHUTNAME_METNI = "KOORDINATOR_TAAHHUTNAME_METNI";
 export const AYAR_GIZLILIK_SOZLESMESI_METNI = "GIZLILIK_SOZLESMESI_METNI";
 export const AYAR_ERISIM_LOGU_SAKLAMA_AYI = "ERISIM_LOGU_SAKLAMA_AYI";
 export const AYAR_BILDIRIM_SAKLAMA_AYI = "BILDIRIM_SAKLAMA_AYI";
+export const AYAR_HAREKETSIZ_KULLANICI_AYI = "HAREKETSIZ_KULLANICI_AYI";
+export const AYAR_GIZLI_ICERIK_SAKLAMA_AYI = "GIZLI_ICERIK_SAKLAMA_AYI";
 
 /**
  * Varsayılan saklama süreleri (ay).
@@ -27,6 +35,40 @@ export const AYAR_BILDIRIM_SAKLAMA_AYI = "BILDIRIM_SAKLAMA_AYI";
  */
 export const VARSAYILAN_ERISIM_LOGU_SAKLAMA_AYI = 24;
 export const VARSAYILAN_BILDIRIM_SAKLAMA_AYI = 12;
+
+/**
+ * KİŞİSEL VERİNİN BİTİŞ SÜRESİ — ÇIPA "MEZUNİYET" DEĞİL, SON TEMASTIR.
+ *
+ * "Öğrencilik dönemi boyunca saklanır" cümlesi bir süre tanımı değildir:
+ * bitişi yoktur ve KVKK m.7 ile Genelge 3/g'nin aradığı imha süresini
+ * karşılamaz. Bitişi mezuniyete bağlamak ise UYGULANAMAZ — sistemde
+ * mezuniyet/ilişik kesme olayı YOKTUR: `Kullanici.aktif` hiçbir yerde false'a
+ * çevrilmiyor ve e-Okul/EBA eşitlemesi "bu kişi ayrıldı" bilgisini
+ * getirmiyor. Var olmayan bir olaya süre bağlamak, kâğıt üstünde politika
+ * yazıp pratikte hiçbir kaydı imha etmemek olurdu.
+ *
+ * Bu yüzden çıpa `Kullanici.sonSenkronTarihi`: kişiyi en son ne zaman
+ * gördüğümüz (girişi ya da eşitlemesi). Mezun olup sistemi kullanmayı bırakan
+ * kişide bu tarih donar ve süre işlemeye başlar; kullanmaya devam eden kişide
+ * ilişki sürüyor demektir.
+ *
+ * 24 AY, tek bir eğitim-öğretim yılı boyu ara veren kişiyi (uzun tatil, ara
+ * yıl, askerlik) imha etmemek için. Kısaltmak isteyen sistem ayarından
+ * kısaltır; kısaltmanın bedeli, dönen kişinin geçmişinin kaybolmasıdır.
+ */
+export const VARSAYILAN_HAREKETSIZ_KULLANICI_AYI = 24;
+
+/**
+ * Gizlenmiş içeriğin moderasyon penceresi.
+ *
+ * Gizleme bir imha değildir: metin satırda aynen durur (bkz. model Mesaj,
+ * Gonderi, EkipMesaji, TalepCevabi, Yorum). Gerekçesi de "şikâyet
+ * incelemesinde en çok ihtiyaç duyulan kayıt silinmiş olandır" — bu
+ * gerekçe SÜRELİ bir tutmayı haklı çıkarır, süresiz tutmayı değil. Pencere
+ * dolduğunda inceleme ya yapılmıştır ya da artık yapılmayacaktır; içerik
+ * imha edilir, kimin ne zaman gizlediği (moderasyon izi) kalır.
+ */
+export const VARSAYILAN_GIZLI_ICERIK_SAKLAMA_AYI = 6;
 
 /**
  * Bir belgenin (yeniden) onaylanması gerekiyor mu?
@@ -81,10 +123,10 @@ Erişim, görev kapsamıyla sınırlıdır. Danışman öğretmeniniz yalnızca 
 Kişisel verilerin her görüntülenmesi ve değiştirilmesi; işlemi yapan kullanıcı, tarih ve IP adresiyle birlikte kayıt altına alınır. Bu kayıtlar yalnızca kötüye kullanım denetimi için tutulur.
 
 6. Saklama süresi
-Faaliyet ve başvuru kayıtları, ekosistemin geçmişe dönük raporlaması için öğrencilik döneminiz boyunca saklanır. Erişim kayıtları 24 ay, sistem bildirimleri 12 ay sonunda silinir.
+Faaliyet ve başvuru kayıtları, ekosistemin geçmişe dönük raporlaması için sistemi kullandığınız sürece saklanır. Sistemle son temasınızın (sisteme girişiniz ya da e-Okul/EBA eşitlemeniz) üzerinden 24 ay geçtiğinde kimlik ve iletişim bilgileriniz, profil fotoğrafınız, özgeçmişiniz ve sistem içinde yazdıklarınız imha edilir; geriye yalnızca kimliğinize bağlanamayan sayısal kayıtlar kalır ve bu işlem geri alınamaz. Moderasyon gerekçesiyle gizlenen içerikler 6 ay sonunda imha edilir. Erişim kayıtları 24 ay, sistem bildirimleri 12 ay sonunda silinir. Bu süreler sistem ayarlarından değiştirilebilir; güncel değerleri "Kişisel Verilerim" ekranında görebilirsiniz. Süreyi beklemeden silinme talebinde bulunmak için 7. maddedeki başvuru yolunu kullanabilirsiniz.
 
-7. Haklarınız
-Kanun'un 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme, düzeltilmesini veya silinmesini isteme ve işlemeye itiraz etme haklarına sahipsiniz. e-Okul kaynaklı bilgilerdeki hatalar bu sistemden düzeltilemez; okul idarenize başvurmanız gerekir. Diğer talepleriniz için okul idareniz aracılığıyla Bakanlığa başvurabilirsiniz.
+7. Haklarınız ve başvuru yolu
+Kanun'un 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme, düzeltilmesini veya silinmesini isteme ve işlemeye itiraz etme haklarına sahipsiniz. Bu haklarınızı sistemdeki "Kişisel Verilerim" ekranında yer alan ilgili kişi başvuru formuyla kullanırsınız; başvurunuz veri sorumlusuna iletilir ve en geç otuz gün içinde sonuçlandırılır. Başvurunuzu ayrıca veri sorumlusunun adresine (YEĞİTEK, Emniyet Mahallesi, Milas Sokak, No:8 06560 Yenimahalle / ANKARA) yazılı olarak da iletebilirsiniz. e-Okul kaynaklı bilgilerdeki hatalar bu sistemden düzeltilemez; kaydın düzeltilmesi okul idareniz üzerinden yürütülür, başvurunuz bu durumda kaynağına yönlendirilir.
 
 8. Yaş durumu
 On sekiz yaşından küçükseniz bu metni velinizle birlikte okumanız beklenir.`;

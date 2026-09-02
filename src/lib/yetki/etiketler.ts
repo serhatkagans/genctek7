@@ -96,6 +96,7 @@ export const LOG_HEDEF_ETIKETLERI: Record<LogHedefTip, string> = {
   BILDIRIM_SABLONU: "Bildirim şablonu",
   DIS_BASVURU: "Dış giriş başvurusu",
   HATA_KAYDI: "Hata kayıtları",
+  KVKK_BASVURUSU: "KVKK başvurusu",
 };
 
 /**

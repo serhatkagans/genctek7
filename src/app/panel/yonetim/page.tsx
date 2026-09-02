@@ -10,6 +10,7 @@ import {
   Settings,
   School,
   ShieldCheck,
+  ShieldUser,
   UserCog,
   Users,
   UsersRound,
@@ -32,6 +33,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { ekipYonetebilirMi } from "@/lib/ekip/kurallar";
+import { acikKvkkBasvuruSayisi } from "@/lib/kvkk/basvuru";
 import { egitimOgretimYili } from "@/lib/ogretmen/gorev-yillari";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import {
@@ -50,6 +52,7 @@ import {
   hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
+  kvkkBasvurulariniYanitlayabilirMi,
   ogrenciEnvanteriGorebilirMi,
   ogretmenEnvanteriGorebilirMi,
   panoIlaniOnaylayabilirMi,
@@ -146,7 +149,7 @@ export default async function YonetimSayfasi({
    * aşağıdaki "Onay kuyruğu" kartı birleşik ekrana gidiyor ve rozeti o ekranın
    * gösterdiği her şeyi saymalı.
    */
-  const [bekleyenGorevBasvurusu, bekleyenIlan] =
+  const [bekleyenGorevBasvurusu, bekleyenIlan, acikKvkkBasvurusu] =
     await Promise.all([
       gencTekGoreviYonetebilirMi(kullanici)
         ? prisma.gencTekGorevBasvurusu.count({
@@ -160,6 +163,14 @@ export default async function YonetimSayfasi({
         : Promise.resolve(0),
       /* Ürün sayımı 27 Ağustos 2026'da kalktı: kuyruk GençTek Vitrin
          ekranına taşındı ve orada kendi başlığında sayılıyor. */
+      /* KVKK başvuruları (2 Eylül 2026): sayım kuralı öbürleriyle aynı —
+         yalnızca kartı basılan yetkide sorulur. Sayı, açık durumların
+         kümesini lib/kvkk/basvuru-kurallar.ts'ten okuyor; buradaki `where`
+         ile ekranın listesi aynı tanımı paylaşsın diye ortak fonksiyon
+         kullanılıyor. */
+      kvkkBasvurulariniYanitlayabilirMi(kullanici)
+        ? acikKvkkBasvuruSayisi()
+        : Promise.resolve(0),
     ]);
   /*
    * EKOSİSTEM SAYILARI (26 Ağustos 2026 · istek: "o özete mentör sayıları
@@ -661,6 +672,29 @@ export default async function YonetimSayfasi({
               aciklama="Kullanıcının bildirdiği hata kimliğinin karşılığı: hangi adres, hangi hata, ne zaman"
               Ikon={Bug}
               yol="/panel/hata-kayitlari"
+              ton="uyari"
+            />
+          )}
+          {/*
+            KVKK BAŞVURULARI (2 Eylül 2026 · Genelge 4/ç).
+
+            Kuyruğun SAYACI VAR ve olması şart: başvurunun kanunî yanıt süresi
+            otuz gün (KVKK m.13) ve bildirimi kaçıran yönetici için ekranda
+            başka hiçbir iz kalmıyordu. Ton `uyari` — kart bir envanter değil,
+            süresi işleyen bir iş kuyruğu.
+
+            YETKİ AYRI SORULUYOR (`kvkkBasvurulariniYanitlayabilirMi`):
+            merkeze kapalı olma gerekçesi hata kayıtlarınınkinden de erişim
+            kayıtlarınınkinden de farklı — başvuru VERİ SORUMLUSUNA yapılır ve
+            veri sorumlusu YEĞİTEK'tir.
+          */}
+          {kvkkBasvurulariniYanitlayabilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="KVKK Başvuruları"
+              aciklama="İlgili kişilerin kişisel veri başvuruları; yasal yanıt süresi 30 gün"
+              Ikon={ShieldUser}
+              yol="/panel/kvkk-basvurulari"
+              bekleyen={acikKvkkBasvurusu}
               ton="uyari"
             />
           )}

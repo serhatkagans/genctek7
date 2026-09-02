@@ -290,6 +290,15 @@ enum LogHedefTip {
   /// EBA dışı kullanıcı başvurusu (kayıt, onay, ret). Başvuru sahibinin henüz
   /// kullanıcı kaydı olmayabileceği için hedefId başvurunun kendi kimliğidir.
   DIS_BASVURU
+  /// İlgili kişinin KVKK m.11 başvurusu — açılması, merkezde okunması ve
+  /// yanıtlanması (2 Eylül 2026 · Genelge 4/ç).
+  ///
+  /// KENDİ HEDEF TİPİ, `BASVURU` DEĞİL: o tip faaliyet başvurusunu anlatıyor ve
+  /// ikisi aynı deftere aynı adla düşseydi "kim hangi KVKK başvurusunu okudu"
+  /// sorusu, etkinlik başvurularının arasından ayıklanamazdı. Denetimin
+  /// sorulacağı ilk yer burasıdır: başvurunun içinde kişinin talebi ve
+  /// gerekçesi var.
+  KVKK_BASVURUSU
   /// Sunucu hata günlüğünün görüntülenmesi (18 Ağustos 2026).
   ///
   /// Günlüğün kendisi kişisel veri taşımıyor ama yığın izleri sunucunun içini
@@ -337,6 +346,65 @@ enum OnayBelgesi {
   /// İl koordinatörü gizlilik sözleşmesi — başkasının verisiyle nasıl
   /// davranılacağı. Taahhütnameden ayrıdır: biri görevle, öbürü veriyle ilgili.
   GIZLILIK_SOZLESMESI
+}
+
+/// İlgili kişinin başvurusunda seçtiği talep konusu — 6698 sayılı Kanun'un
+/// 11. maddesindeki haklar (2 Eylül 2026 · Genelge 4/ç).
+///
+/// SIRA VE İÇERİK KANUNDAN GELİR, üründen değil: değerler maddenin
+/// bentleriyle birebir eşleşir ve karşılıkları koddadır (bkz.
+/// lib/kvkk/basvuru-kurallar.ts · TALEP_KONULARI). Yeni bir değer eklemek,
+/// kanunun değişmesi ya da ürünün yeni bir hak tanıması demektir.
+///
+/// AÇIK RIZANIN GERİ ALINMASI 11. maddede DEĞİL, 7. maddededir; listeye yine
+/// de konuyor çünkü ilgili kişi açısından aynı formun aynı satırıdır ve ayrı
+/// bir kanal açmak, hakkı kullanmak isteyen kişiyi "hangi form?" sorusuyla
+/// baş başa bırakırdı.
+enum KvkkTalepKonusu {
+  /// m.11/a — kişisel verisinin işlenip işlenmediğini öğrenme.
+  ISLENIYOR_MU
+  /// m.11/b — işlenmişse buna ilişkin bilgi talep etme.
+  BILGI_TALEBI
+  /// m.11/c — işlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme.
+  AMACA_UYGUNLUK
+  /// m.11/ç — yurt içinde/yurt dışında aktarıldığı üçüncü kişileri bilme.
+  UCUNCU_KISILER
+  /// m.11/d — eksik veya yanlış işlenmişse düzeltilmesini isteme.
+  DUZELTME
+  /// m.11/e — silinmesini veya yok edilmesini isteme.
+  SILME
+  /// m.11/f — düzeltme/silme işlemlerinin aktarılan üçüncü kişilere bildirilmesini isteme.
+  UCUNCU_KISIYE_BILDIRIM
+  /// m.11/g — münhasıran otomatik sistemlerle analiz sonucu aleyhe çıkan sonuca itiraz.
+  OTOMATIK_ANALIZE_ITIRAZ
+  /// m.11/ğ — kanuna aykırı işleme sebebiyle uğranılan zararın giderilmesi.
+  ZARARIN_GIDERILMESI
+  /// m.7 — daha önce verilen açık rızanın geri alınması.
+  ACIK_RIZA_GERI_ALMA
+}
+
+/// İlgili kişi başvurusunun hâli.
+///
+/// ÜÇ DEĞİL BEŞ DEĞER: "sonuçlandı" tek başına yetmiyor çünkü Tebliğ, talebin
+/// KABUL edilmesi ile GEREKÇESİ AÇIKLANARAK REDDEDİLMESİ arasında ayrım
+/// yapıyor ve kısmen kabul, bu sistemde en olası cevap — e-Okul kaynaklı
+/// kimlik verisi burada düzeltilemezken kişinin kendi girdiği alanlar
+/// düzeltilebiliyor.
+///
+/// `OnayDurumu` PAYLAŞILMADI (faaliyet/paydaş onayının enum'u): oradaki
+/// hâller bir ONAY akışına ait ("bekliyor / onaylandı / reddedildi") ve
+/// KISMEN_KABUL ile INCELENIYOR o akışta hiçbir şey ifade etmez; paylaşılan
+/// enum, iki akıştan birinin ihtiyacı büyüdüğünde öbürünü de kirletirdi.
+enum KvkkBasvuruDurumu {
+  /// Kayda geçti; süre bu andan işlemeye başlar.
+  ALINDI
+  /// Merkez başvuruyu üstlendi. Süreyi DURDURMAZ, yalnızca ilgili kişiye
+  /// "kimse bakmıyor" izlenimi vermemek için var.
+  INCELENIYOR
+  KABUL
+  KISMEN_KABUL
+  /// Gerekçesi açıklanarak reddedildi. Gerekçe `yanitMetni`dir ve zorunludur.
+  RET
 }
 
 /// İl bazlı iş birliği yapılabilecek paydaş kurumun türü. Liste sabittir:
@@ -452,6 +520,23 @@ model Kullanici {
   egitimOgretimYili String   @map("egitim_ogretim_yili") @db.VarChar(9)
   sonSenkronTarihi  DateTime @default(now()) @map("son_senkron_tarihi") @db.Timestamptz(6)
   aktif             Boolean  @default(true)
+
+  /// Kişisel verisi imha edilmiş kaydın imha anı (KVKK m.7 · Genelge 3/e-3/g).
+  ///
+  /// SATIR SİLİNMEZ, İÇİ BOŞALTILIR. Kullanıcı kaydı bu şemada yirmiden fazla
+  /// tablonun yabancı anahtarıdır (faaliyet başvurusu, danışman ataması,
+  /// erişim logu, KVKK başvurusu...); satırı silmek ya o kayıtları zincirleme
+  /// silerdi ya da kısıtlara takılıp imhayı hiç yapılamaz kılardı. Bunun
+  /// yerine kimliğe götüren ne varsa (ad, soyad, cinsiyet, AuthProvider
+  /// kimliği, iletişim bilgisi, fotoğraf, özgeçmiş, yazılan metinler)
+  /// temizlenir; geriye kimliğe bağlanamayan sayısal iz kalır ve raporlama
+  /// bozulmaz.
+  ///
+  /// DOLU OLMASI "bu kayıt bir daha taranmasın" demektir: imha tek yönlüdür ve
+  /// tekrarı, ikinci kez çalıştığında zaten boş olan alanları yeniden yazmak
+  /// dışında bir şey yapmaz — ama bakım işinin her ay aynı satırları yeniden
+  /// işlemesini de engeller.
+  anonimlestirmeTarihi DateTime? @map("anonimlestirme_tarihi") @db.Timestamptz(6)
   olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   /// Kişinin kendi yüklediği profil fotoğrafı — e-Okul'dan GELMEZ, gecelik
@@ -576,6 +661,12 @@ model Kullanici {
   erisimAnomalileri ErisimAnomalisi[]
   bildirimler       Bildirim[]
 
+  /// KVKK m.11 kapsamında kendi açtığı başvurular ve merkez tarafında
+  /// yanıtladıkları. İkisi AYRI ilişki: aynı kişi hem başvuran hem yanıtlayan
+  /// olabilir (proje yöneticisinin de kişisel verisi işleniyor).
+  kvkkBasvurulari         KvkkBasvurusu[] @relation("KvkkBasvuran")
+  yanitladigiKvkkBasvurulari KvkkBasvurusu[] @relation("KvkkBasvuruYanitlayan")
+
   gonderiler          Gonderi[]       @relation("GonderiYazan")
   gizledigiGonderiler Gonderi[]       @relation("GonderiGizleyen")
   gonderiYorumlari    GonderiYorumu[] @relation("GonderiYorumuYazan")
@@ -592,6 +683,9 @@ model Kullanici {
 
   @@index([kurumKodu])
   @@index([ilKodu])
+  /// Aylık imha taraması "henüz imha edilmemiş ve uzun süredir temas etmemiş"
+  /// kayıtları arar; sütun sırası o sorgunun sırasıdır.
+  @@index([anonimlestirmeTarihi, sonSenkronTarihi], map: "kullanici_anonimlestirme_son_senkron_idx")
   @@map("kullanici")
 }
 
@@ -1291,6 +1385,84 @@ model KullaniciOnayi {
 
   @@id([kullaniciId, belge])
   @@map("kullanici_onayi")
+}
+
+/// İLGİLİ KİŞİ BAŞVURUSU — KVKK m.11/m.13 (2 Eylül 2026 · Genelge 4/ç:
+/// aydınlatma metninin yanı sıra BAŞVURU FORMU da platformda bulunmalı).
+///
+/// Aydınlatma metni o güne kadar "okul idareniz aracılığıyla Bakanlığa
+/// başvurabilirsiniz" diyordu: hakkı kullanmak isteyen kişiyi sistemin
+/// DIŞINA, kaydı tutulmayan ve süresi işlemeyen bir kanala gönderiyordu.
+/// Kanunun aradığı şey başvurunun yapılabilmesi değil, otuz gün içinde
+/// SONUÇLANDIRILMASI — bu da ancak başvurunun kaydı tutulursa denetlenebilir.
+///
+/// ONAY KAYITLARINDAN (model KullaniciOnayi) TEMELDEN AYRI: o, kişinin bize
+/// verdiği iradedir ve belge başına tek satırdır; bu ise kişinin bizden
+/// istediği şeydir ve HER BAŞVURU AYRI SATIRDIR — aynı kişi bir yıl arayla
+/// iki kez silme isteyebilir ve ikisinin de cevabı ayrıca gerekir.
+///
+/// KİMLİK ALANLARI KOPYALANMIYOR (ad, T.C. no, adres): başvuran oturum açmış
+/// bir kullanıcıdır ve kimliği `basvuran` ilişkisinden okunur. Tebliğ'in
+/// yazılı başvuruda aradığı kimlik bilgileri burada zaten doğrulanmış hâlde
+/// duruyor; ikinci bir kopya tutmak, doğrulanmış veriyi doğrulanmamış bir
+/// kopyayla çelişme riskine sokardı. Kişinin kendi yazdığı TEK iletişim
+/// alanı `yanitAdresi` — o da isteğe bağlı (aşağıya bakın).
+///
+/// SAKLAMA SÜRESİ TEMİZLİĞİNE GİRMEZ (bkz. lib/kvkk/saklama.ts): başvuru ve
+/// cevabı, yükümlülüğün yerine getirildiğinin kanıtıdır. Erişim kaydı 24 ayda
+/// silinirken bu satırların silinmesi, denetimde "başvuru geldi mi, ne cevap
+/// verildi" sorusunu cevapsız bırakırdı.
+model KvkkBasvurusu {
+  id                  Int               @id @default(autoincrement())
+  basvuranKullaniciId Int               @map("basvuran_kullanici_id")
+  /// Kişinin kendi cümleleriyle talebi. Konu seçimi neyi istediğini,
+  /// açıklama HANGİ VERİ için istediğini söyler; ikisi birbirinin yerine
+  /// geçmez ve bu yüzden ikisi de zorunludur.
+  aciklama            String            @db.Text
+  /// Yanıtın gönderilmesi istenen adres (Tebliğ m.6 · "yazılı ya da elektronik
+  /// ortamda"). BOŞ BIRAKILABİLİR: yanıt her hâlükârda panele yazılır ve
+  /// bildirim olarak düşer, yani boş bir alan yüzünden cevapsız kalan başvuru
+  /// olmaz. Dolduğunda merkez cevabı ayrıca oraya iletir.
+  yanitAdresi         String?           @map("yanit_adresi") @db.VarChar(150)
+  durum               KvkkBasvuruDurumu @default(ALINDI)
+  olusturmaTarihi     DateTime          @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  /// Otuz günlük süre SAKLANMIYOR, `olusturmaTarihi`nden hesaplanıyor
+  /// (bkz. lib/kvkk/basvuru-kurallar.ts · yanitSonTarihi). Sütuna yazılsaydı
+  /// süre, veriyi yazan kodun o günkü hâline çakılırdı; kanunun süresi
+  /// değişirse eski satırlar yanlış tarihi göstermeye devam ederdi.
+  yanitlayanKullaniciId Int?      @map("yanitlayan_kullanici_id")
+  yanitTarihi           DateTime? @map("yanit_tarihi") @db.Timestamptz(6)
+  /// Verilen cevabın tam metni. RET'te gerekçedir ve boş geçilemez
+  /// (ck_kvkk_basvurusu_yanit, migration'da): gerekçesiz ret, Kanun'un
+  /// 13. maddesine aykırıdır.
+  yanitMetni            String?   @map("yanit_metni") @db.Text
+
+  basvuran   Kullanici  @relation("KvkkBasvuran", fields: [basvuranKullaniciId], references: [id])
+  yanitlayan Kullanici? @relation("KvkkBasvuruYanitlayan", fields: [yanitlayanKullaniciId], references: [id])
+  konular    KvkkBasvuruKonusu[]
+
+  @@index([durum, olusturmaTarihi], map: "kvkk_basvurusu_durum_olusturma_idx")
+  @@index([basvuranKullaniciId, olusturmaTarihi], map: "kvkk_basvurusu_basvuran_idx")
+  @@map("kvkk_basvurusu")
+}
+
+/// Başvuruda seçilen talep konuları — başvuru başına en az bir satır.
+///
+/// AYRI TABLO, dizi sütunu değil: "bu dönem kaç silme talebi geldi" sorusu
+/// KVKK envanterinin olağan sorusudur ve dizi sütunuyla sorulamaz. Bileşik
+/// birincil anahtar aynı konunun iki kez seçilmesini veritabanı düzeyinde
+/// engelliyor; formdan iki kez gelmesi mümkün değil ama kısıt formun değil
+/// verinin sözüdür.
+model KvkkBasvuruKonusu {
+  basvuruId Int             @map("basvuru_id")
+  konu      KvkkTalepKonusu
+
+  basvuru KvkkBasvurusu @relation(fields: [basvuruId], references: [id], onDelete: Cascade)
+
+  @@id([basvuruId, konu])
+  @@index([konu], map: "kvkk_basvuru_konusu_konu_idx")
+  @@map("kvkk_basvuru_konusu")
 }
 
 /// İl, İlçe ve Okul Temsilcisi görev rolleri HİÇBİR ek veri görüntüleme yetkisi
@@ -2435,6 +2607,18 @@ model Mesaj {
   /// silinmiş bir mesaj en çok ihtiyaç duyulan kayıttır.
   gizlendiMi          Boolean  @default(false) @map("gizlendi_mi")
   gizleyenKullaniciId Int?     @map("gizleyen_kullanici_id")
+  /// Gizlemenin ANI — imha penceresi buradan işler (2 Eylül 2026).
+  ///
+  /// Öbür gizlenebilir tablolarda (Gonderi, GonderiYorumu, EkipMesaji,
+  /// TalepCevabi) bu alan baştan vardı, burada yoktu. Pencereyi
+  /// `olusturmaTarihi`ne bağlamak, iki yıl önce yazılıp dün gizlenen bir
+  /// mesajı ertesi ay imha ederdi: şikâyet incelemesi için tutulan kayıt, tam
+  /// da şikâyet açıldığı sırada yok olurdu.
+  ///
+  /// Eski satırlarda NULL kalır — ne zaman gizlendiklerini bilmiyoruz ve
+  /// uydurulmuş bir tarih kaydı yanlışlardı; imha o satırlarda
+  /// `olusturmaTarihi`ne düşer.
+  gizlenmeTarihi      DateTime? @map("gizlenme_tarihi") @db.Timestamptz(6)
   olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   yazisma  Yazisma    @relation(fields: [yazismaId], references: [baglantiIstegiId], onDelete: Cascade)

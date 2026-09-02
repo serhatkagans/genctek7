@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   MessagesSquare,
   ShieldCheck,
+  ShieldUser,
   Store,
   UserRound,
 } from "lucide-react";
@@ -30,6 +31,13 @@ const IKONLAR = {
   LayoutGrid,
   MessagesSquare,
   ShieldCheck,
+  /*
+   * Kişisel Verilerim satırı. Yönetim Paneli'nin `ShieldCheck`inden AYRI bir
+   * ikon: ikisi de kalkan ama biri BAŞKALARININ verisini yöneten ekran,
+   * öbürü kişinin KENDİ verisi. Aynı ikonla basılsalardı menüde iki satır
+   * aynı işi yapıyormuş gibi görünürdü.
+   */
+  ShieldUser,
   Store,
   UserRound,
 } as const;

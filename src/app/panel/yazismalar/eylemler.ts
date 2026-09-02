@@ -132,7 +132,13 @@ export async function mesajGizleEylemi(veri: FormData): Promise<void> {
 
   await prisma.mesaj.update({
     where: { id: mesaj.id },
-    data: { gizlendiMi: true, gizleyenKullaniciId: kullanici.id },
+    data: {
+      gizlendiMi: true,
+      gizleyenKullaniciId: kullanici.id,
+      // Tarih İMHA PENCERESİNİ başlatır (bkz. lib/kvkk/imha.ts): gizlenen
+      // içerik moderasyon süresi dolunca gerçekten imha edilir.
+      gizlenmeTarihi: new Date(),
+    },
   });
 
   await erisimLogla({

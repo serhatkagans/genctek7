@@ -1263,6 +1263,32 @@ export function hataKayitlariniGorebilirMi(
 }
 
 /**
+ * İLGİLİ KİŞİ (KVKK) BAŞVURULARINI YANITLAYABİLİR Mİ? (2 Eylül 2026 ·
+ * Genelge 4/ç)
+ *
+ * YALNIZCA MERKEZ ve bu, ürün tercihi değil kanunun gereği: başvuru VERİ
+ * SORUMLUSUNA yapılır (KVKK m.13) ve veri sorumlusu YEĞİTEK'tir. İl
+ * koordinatörü kendi ilindeki kişinin başvurusunu bile göremez — göreydi,
+ * kanunun tek muhatap saydığı yerde ikinci bir merci doğar ve ilgili kişi
+ * ilden ile değişen cevaplar alırdı.
+ *
+ * BAŞVURU YAPMAK BU KAPIDAN GEÇMEZ: hakkı olan herkes başvurur (kendi
+ * ekranından, oturum açmış olmak yeterli). Buradaki kapı yalnızca "kim
+ * cevaplar" sorusunu kapatıyor.
+ *
+ * `erisimLoglariniGorebilirMi`DEN AYRI FONKSİYON, bugün aynı cevabı verse
+ * bile: o defter denetim izidir ve merkeze kapalı olma gerekçesi "kayıtlar il
+ * sınırından bağımsız birbirine referans veriyor"dur; buradaki kapının
+ * gerekçesi ise kanunun muhatap tanımı. Biri gevşetildiğinde öbürü sessizce
+ * açılmamalı.
+ */
+export function kvkkBasvurulariniYanitlayabilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+
+/**
  * TOPLU MESAJ GÖNDEREBİLİR Mİ? (31 Ağustos 2026 · istek: "il koordinatörü
  * yönetim panelinde toplu mesaj kartı ekle, ilindeki tüm öğrenciler, tüm
  * öğretmenler, ilçe temsilcisi, il temsilcisi, eklediği ekiplere ayrı ayrı
