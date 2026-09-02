@@ -1,15 +1,33 @@
 /**
  * Tarih biçimleme ve form girdisi çözümleme.
  *
- * Tarihler sunucunun yerel saat diliminde (VPS'te Europe/Istanbul) yorumlanır:
- * kullanıcı "1 Ağustos" yazdığında bunu kendi saatiyle kastediyor. Başvuru
- * penceresinin bitişi gün SONUNA alınır, aksi halde son gün öğlen kapanırdı.
+ * Tarihler kullanıcının saatiyle yorumlanır: "1 Ağustos" yazan kişi bunu
+ * Türkiye saatiyle kastediyor. Başvuru penceresinin bitişi gün SONUNA alınır,
+ * aksi halde son gün öğlen kapanırdı.
  */
+
+/*
+ * SAAT DİLİMİ AÇIKÇA YAZILIYOR (2 Eylül 2026).
+ *
+ * Önce yazılmıyordu ve "sunucunun yerel saati Europe/Istanbul" varsayılıyordu.
+ * VARSAYIM YANLIŞ: sunucu UTC'de çalışıyor (`timedatectl` → UTC) ve servis
+ * biriminde TZ tanımlı değil. Sonuç: panelde basılan HER saat 3 saat geride
+ * görünüyordu. En görünür belirtisi erişim/hata kayıtları ekranlarıydı — az
+ * önce yazılmış kayıt "3 saat önce" damgasıyla listelendiği için "son 2-3
+ * saatin kaydı görünmüyor" diye okundu; kayıt aslında oradaydı (27 Ağustos
+ * 2026'daki teşhis buradan kapandı).
+ *
+ * Saat dilimini süreç ortamına (TZ) bırakmak yerine burada sabitliyoruz:
+ * aynı kod hem sunucuda hem tarayıcıda çalışıyor ve ikisi ayrışırsa React
+ * hidrasyon uyuşmazlığı verirdi.
+ */
+const SAAT_DILIMI = "Europe/Istanbul";
 
 const TARIH_BICIMI = new Intl.DateTimeFormat("tr-TR", {
   day: "numeric",
   month: "long",
   year: "numeric",
+  timeZone: SAAT_DILIMI,
 });
 
 const TARIH_SAAT_BICIMI = new Intl.DateTimeFormat("tr-TR", {
@@ -18,6 +36,7 @@ const TARIH_SAAT_BICIMI = new Intl.DateTimeFormat("tr-TR", {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: SAAT_DILIMI,
 });
 
 export function tarihYaz(tarih: Date): string {
