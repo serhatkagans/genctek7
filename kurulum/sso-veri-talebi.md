@@ -156,7 +156,7 @@ Bu sütunlara gecelik senkron **asla yazmamalıdır** — kişinin kendi girdiğ
 
 | # | Konu | Sorun | Talep |
 |---|---|---|---|
-| 1 | `authProviderId` içeriği | 64 karakter, kalıcı, asla yeniden kullanılmamalı | **TCKN kullanılmamalı** — veri minimizasyonuna aykırı. Kurumdan opak / eşleşmeye özel kimlik istenmeli |
+| 1 | `authProviderId` içeriği | 64 karakter, kalıcı, asla yeniden kullanılmamalı | **TCKN gelecek** (3 Eylül 2026 kararı). Saklama biçimi §11'de; kurumdan ek bir şey istenmiyor |
 | 2 | Öğretmenin çoklu görev yeri | MEBBİS birden fazla kurum dönebilir, şema tek `kurum_kodu` tutar | **"Asıl kadro" kurum kodu** ayrıca belirtilmeli; yoksa devir akışı yanlış okula bağlar |
 | 3 | `kimlikGetir()` tazeliği | Gecelik senkronun tamamı buna dayanır | Yalnızca oturum açan değil, **güncel kurum/görev bilgisi dönen** servis gerekli |
 | 4 | `cinsiyet` kodlaması | Şema `Char(1)` `E`/`K` bekler | Kaynak `1/2` veya `M/F` dönerse eşleme sağlayıcı katmanında yapılacak |
@@ -166,7 +166,7 @@ Bu sütunlara gecelik senkron **asla yazmamalıdır** — kişinin kendi girdiğ
 
 ## 10. Uygulama Notu
 
-SSO erişimi geldiğinde **doldurulacak tek dosya** `src/lib/auth/eba-provider.ts`'tir. Üst katmanlar (yetki, atama, profil) yalnızca `AuthProvider` arayüzünü tanır ve değişmez:
+SSO erişimi geldiğinde doldurulacak asıl dosya `src/lib/auth/eba-provider.ts`'tir; yanında §11'deki kimlik kasası da aynı işte yazılır (ikisi aynı sözleşmeye dokunur, ayrı yapılırsa `AuthKimlik` iki kez değişir). Üst katmanlar (yetki, atama, profil) yalnızca `AuthProvider` arayüzünü tanır ve değişmez:
 
 ```ts
 girisYap(kimlikBilgisi: string): Promise<AuthKimlik | null>
@@ -175,3 +175,75 @@ secilebilirKimlikler(): Promise<AuthKimlik[]>   // EBA'da daima boş dizi
 ```
 
 Her kaynak (EBA, MEBBİS, e-Devlet) için ayrı bir `AuthProvider` uygulaması yazılır; hepsi aynı `AuthKimlik` sözleşmesini döndürür.
+
+---
+
+## 11. T.C. Kimlik Numarasının Saklanması
+
+§9 madde 1 başlangıçta TCKN istenmemesini talep ediyordu. **3 Eylül 2026'da karar değişti:** kimlik numarası SSO ile gelecek ve resmî yazışma ile veli izni işlemlerinde gerektiğinde kullanılacak. Bu, alanı ham hâliyle saklamayı gerektirmez.
+
+### Neden tek yönlü özet yetmiyor
+
+İlk düşünülen çözüm `authProviderId`'yi TCKN'nin HMAC'i yapmaktı. İki nedenle olmaz:
+
+1. **İzin işlemleri geri döndürülebilirlik istiyor.** Resmî yazıda kimlik numarasının kendisi yazılır.
+2. **Gecelik senkron zaten istiyor.** `lib/kullanici/senkron.ts` MEBBİS'e `kimlikGetir(authProviderId)` ile soruyor. Bu değer özet olsaydı sağlayıcı kimseyi bulamaz, danışman devir zinciri sessizce çalışmayı bırakırdı.
+
+### Desen: kör indeks + şifreli kasa
+
+Tek alandan iki uzlaşmaz iş bekleniyor — **arama** deterministik olmalı, **saklama** geri döndürülebilir ama okunamaz olmalı. İkisi ayrılır:
+
+| Nerede | Ne | Ne işe yarar |
+|---|---|---|
+| `kullanici.auth_provider_id` | `HMAC-SHA256(indeks anahtarı, TCKN)`, base64url (43 karakter, `VarChar(64)`'e sığar) | Giriş anında satırı bulmak. Üst katmanların tamamı bugünkü gibi çalışır |
+| `kimlik_numarasi.sifreli_deger` | `AES-256-GCM(kasa anahtarı, TCKN)` — `iv‖tag‖şifreli metin` | İzin işlemi ve gecelik senkron için çözülür |
+
+AES-GCM rastgele IV kullandığı için aranamaz; HMAC aranabilir ama geri döndürülemez. İkisi birlikte hem eşleştirmeyi hem geri almayı verir.
+
+**Ayrı tablo, `kullanici` sütunu değil.** `kullanici` satırı kod tabanında onlarca yerde `select` ediliyor; sütun olsaydı er geç birinin seçimine kazara girer ve oradan bir CSV'ye ya da JSON yanıtına düşerdi. Ayrı tablo, okumanın tek bir modülden geçmesini zorunlu kılar.
+
+### Erişim kuralı
+
+`src/lib/kimlik-no/` iki fonksiyon açar:
+
+```ts
+kimlikNoYaz(kullaniciId, tckn)              // sagla.ts içinde, girişte
+kimlikNoOku(kullaniciId, gerekce): string   // her çağrı erisimLogla() yazar
+```
+
+Okuma **gerekçe almadan çağrılamaz** ve her çağrı erişim kaydına yazılır — SKILL.md "Değişmezler" 7'nin zaten dayattığı şey. Yetki:
+
+```ts
+export function kimlikNoOkuyabilirMi(kullanici: OturumKullanicisi): boolean {
+  return projeYoneticisiMi(kullanici);
+}
+```
+
+Başlangıçta **yalnızca proje yöneticisi** — resmî yazı merkezden çıkar. Veli izinlerini il koordinatörü topluyorsa kural il kapsamıyla genişletilir; varsayılanı dar tutmanın nedeni, genişletmenin tek satır ama daraltmanın geriye dönük "kimler görmüştü" sorusunu açmasıdır.
+
+**TCKN hiçbir ekranda görüntülenen alan değildir.** Ne profilde, ne listede, ne CSV'de, ne belge şablonunda rutin doldurulan bir değişken olarak. Yalnızca belge üretilirken, o an, tek kişi için çözülür.
+
+### İmha
+
+`lib/kvkk/imha-kurallari.ts` bugün `auth_provider_id`'yi üzerine yazıyor; HMAC'te de doğru çalışır. Ancak **kasa satırı ayrı tabloda olduğu için açıkça silinmelidir** — eklenmediğinde imha sessizce eksik kalır ve imha edilmiş kişinin kimlik numarası sistemde durur. Bu, gözden kaçarsa yanlış davranacak tek nokta.
+
+### Anahtarlar
+
+`KIMLIK_INDEKS_ANAHTARI` (HMAC) ve `KIMLIK_NO_ANAHTARI` (AES) `lib/ortam.ts`'te tanımlanır ve `OTURUM_GIZLI_ANAHTARI`'ndan **ayrıdır**. Ondan farklı olarak **döndürülemezler**: oturum anahtarı değişirse herkes bir kez yeniden giriş yapar, kimlik anahtarları kaybolursa kasa geri gelmez. Yedekleme sorumluluğu bu yüzden başka bir seviyededir.
+
+İndeks anahtarının gizliliği kritiktir: TCKN uzayı kaba kuvvetle taranabilecek kadar küçüktür, anahtar sızarsa kör indeks çözülür.
+
+### Oturum çerezi (yapıldı · 3 Eylül 2026)
+
+Çerez gövdesi `auth_provider_id` taşıyordu. Base64url bir kodlamadır, şifreleme değil — TCKN geldiğinde her kullanıcının kimlik numarası kendi tarayıcısında, geliştirici araçlarında, ters vekil günlüklerinde ve makine yedeklerinde açık okunur hâle gelecekti. Gövde artık `kullanici.id` taşıyor ve `OturumKullanicisi` tipinde `authProviderId` alanı yok (bkz. `lib/auth/oturum-govde.ts`, `lib/yetki/tipler.ts`).
+
+### Kapatılması gereken iki nokta kaldı
+
+| Nerede | Sorun |
+|---|---|
+| `genctek-kisiler.json` + `scripts/kisi-ice-aktar.ts` | Paket `authProviderId` taşıyor. Bugün `ogrenci-001` yazdığı için zararsız; TCKN'li sürümü üretildiği an repo geçmişine giren bir kimlik listesi olur |
+| `app/giris/page.tsx`, `app/dis-giris/page.tsx` | Mock kimlikler `hidden input` ve React `key` olarak HTML'e basılıyor. Gerçek SSO'da `secilebilirKimlikler()` boş dizi döndürür, ama mock sağlayıcı üretimde açık kalırsa TCKN sayfa kaynağına düşer |
+
+### Doğum tarihi sorusu yeniden açılacak
+
+§7 doğum tarihini bilinçli olarak istemiyor ve 18 yaş altı gözetimini yaşa değil role bağlıyor. Veli izni akışı yazılırken bu karar yeniden ele alınmalıdır: "öğrenci = reşit değil" varsayımı çoğu durumda tutar, lise son sınıfta tutmaz.

@@ -216,7 +216,7 @@ export async function mockDisGirisYap(
     kullaniciId: kullanici.id,
     saglayici: "dış kimlik · geliştirme kipi",
   });
-  await oturumAc(authProviderId);
+  await oturumAc(kullanici.id);
 
   return { durum: "BASARILI" };
 }

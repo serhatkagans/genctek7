@@ -90,7 +90,7 @@ function girisSonrasiYol(
 export async function cikisEylemi(): Promise<void> {
   const kullanici = await oturumKullanicisi();
   const disKullanici = kullanici
-    ? await disKimlikliMi(kullanici.authProviderId)
+    ? await disKimlikliMi(kullanici.id)
     : false;
 
   if (kullanici) {

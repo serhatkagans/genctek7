@@ -4,7 +4,6 @@ import type { FaaliyetKapsami, OturumKullanicisi } from "@/lib/yetki/tipler";
 
 const TEMEL: OturumKullanicisi = {
   id: 1,
-  authProviderId: "test-1",
   ad: "Test",
   soyad: "Kullanıcı",
   kurumKodu: null,
@@ -22,7 +21,6 @@ export function ogrenciYap(
   return {
     ...TEMEL,
     id: 100,
-    authProviderId: "ogrenci-test",
     kurumKodu: 750001,
     ilKodu: "34",
     ilceKodu: "3401",
@@ -39,7 +37,6 @@ export function danismanYap(
   return {
     ...TEMEL,
     id: 200,
-    authProviderId: "ogretmen-test",
     kurumKodu,
     ilKodu: "34",
     ilceKodu: "3401",
@@ -55,7 +52,6 @@ export function rolsuzOgretmenYap(
   return {
     ...TEMEL,
     id: 250,
-    authProviderId: "ogretmen-rolsuz",
     kurumKodu: 750001,
     ilKodu: "34",
     brans: "Fizik",
@@ -71,7 +67,6 @@ export function koordinatorYap(
   return {
     ...TEMEL,
     id: 300,
-    authProviderId: "koordinator-test",
     kurumKodu: null,
     ilKodu,
     roller: [{ rolKodu: "IL_KOORDINATOR", ilKodu, kurumKodu: null }],
@@ -85,7 +80,6 @@ export function projeYoneticisiYap(
   return {
     ...TEMEL,
     id: 400,
-    authProviderId: "proje-yoneticisi-test",
     roller: [{ rolKodu: "PROJE_YONETICISI", ilKodu: null, kurumKodu: null }],
     ...ozellikler,
   };
@@ -102,7 +96,6 @@ export function mezunYap(
   return {
     ...TEMEL,
     id: 500,
-    authProviderId: "dis-1",
     kurumKodu: null,
     ilKodu: "34",
     roller: [{ rolKodu: "MEZUN", ilKodu: null, kurumKodu: null }],
@@ -116,7 +109,6 @@ export function paydasTemsilcisiYap(
   return {
     ...TEMEL,
     id: 600,
-    authProviderId: "dis-2",
     kurumKodu: null,
     ilKodu: "34",
     roller: [{ rolKodu: "PAYDAS_TEMSILCISI", ilKodu: null, kurumKodu: null }],

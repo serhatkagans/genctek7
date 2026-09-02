@@ -13,9 +13,17 @@ export interface AktifRol {
  * Oturumdaki kullanıcının yetki kararları için gereken asgari bilgisi.
  * Yetki, rolün kendisinden değil rolün bağlı olduğu kurum/ilden gelir.
  */
+/**
+ * Oturumdaki kişi.
+ *
+ * `authProviderId` BURADA YOKTUR (3 Eylül 2026). Bu nesne panel boyunca her
+ * sunucu bileşenine geçiyor ve oradan istemci bileşenlerine pervane olarak
+ * sızması an meselesi; SSO bağlandığında o alan T.C. kimlik numarası taşıyacağı
+ * için taşınmaması gereken tek alan odur. İhtiyaç duyan yer `id` ile
+ * veritabanına gider (bkz. lib/dis-kimlik/giris.ts · disKimlikliMi).
+ */
 export interface OturumKullanicisi {
   id: number;
-  authProviderId: string;
   ad: string;
   soyad: string;
   kurumKodu: number | null;

@@ -113,7 +113,7 @@ export async function disGirisYap(
       sifreOzeti: true,
       basarisizDeneme: true,
       kilitBitisTarihi: true,
-      kullanici: { select: { authProviderId: true, aktif: true } },
+      kullanici: { select: { aktif: true } },
     },
   });
 
@@ -206,7 +206,7 @@ export async function disGirisYap(
     kullaniciId: kimlik.kullaniciId,
     saglayici: "dış kimlik",
   });
-  await oturumAc(kimlik.kullanici.authProviderId);
+  await oturumAc(kimlik.kullaniciId);
 
   return { durum: "BASARILI", kullaniciId: kimlik.kullaniciId };
 }
@@ -221,10 +221,15 @@ export async function disGirisYap(
  *
  * ÇIKIŞTA GEREKİYOR: dış kullanıcıyı /giris'e bırakmak, onu hiç giremeyeceği
  * bir kapının önünde bırakmak olurdu (bkz. app/giris/eylemler.ts · cikisEylemi).
+ *
+ * KULLANICI KİMLİĞİYLE SORULUR, AuthProvider kimliğiyle değil: `dis_kimlik`
+ * satırının birincil anahtarı zaten `kullanici_id`'dir, yani bu arama bir
+ * birleştirme değil doğrudan anahtar okumasıdır. Oturum nesnesi de artık
+ * AuthProvider kimliğini taşımıyor (bkz. lib/yetki/tipler.ts).
  */
-export async function disKimlikliMi(authProviderId: string): Promise<boolean> {
-  const kimlik = await prisma.disKimlik.findFirst({
-    where: { kullanici: { authProviderId } },
+export async function disKimlikliMi(kullaniciId: number): Promise<boolean> {
+  const kimlik = await prisma.disKimlik.findUnique({
+    where: { kullaniciId },
     select: { kullaniciId: true },
   });
   return kimlik !== null;

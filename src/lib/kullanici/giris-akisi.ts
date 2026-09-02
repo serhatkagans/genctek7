@@ -81,7 +81,7 @@ export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
     kullaniciId: saglama.kullaniciId,
     saglayici: saglayici.saglayiciAdi,
   });
-  await oturumAc(kimlik.authProviderId);
+  await oturumAc(saglama.kullaniciId);
 
   return {
     durum: "BASARILI",

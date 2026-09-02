@@ -32,7 +32,6 @@ import type { AktifRol, OturumKullanicisi } from "@/lib/yetki/tipler";
 function kullanici(...roller: AktifRol[]): OturumKullanicisi {
   return {
     id: 1,
-    authProviderId: "T1",
     ad: "Ada",
     soyad: "Yılmaz",
     kurumKodu: 100,

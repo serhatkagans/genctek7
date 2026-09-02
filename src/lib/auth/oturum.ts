@@ -7,10 +7,14 @@ import type { OturumKullanicisi } from "../yetki/tipler";
 import { oturumGovdesiCoz, oturumGovdesiUret } from "./oturum-govde";
 
 /**
- * Oturum, imzalı bir çerezde AuthProvider kimliğini ve SON KULLANMA ANINI
- * taşır. Rol ve kapsam bilgisi her istekte veritabanından okunur; çereze
- * yazılmaz, aksi halde rolü geri alınan bir kullanıcı oturumu bitene kadar
- * yetkili kalır.
+ * Oturum, imzalı bir çerezde `kullanici.id`'yi ve SON KULLANMA ANINI taşır.
+ * Rol ve kapsam bilgisi her istekte veritabanından okunur; çereze yazılmaz,
+ * aksi halde rolü geri alınan bir kullanıcı oturumu bitene kadar yetkili
+ * kalır.
+ *
+ * NİYE SATIR KİMLİĞİ, AUTHPROVIDER KİMLİĞİ DEĞİL: gövde okunabilir (base64url
+ * şifreleme değildir) ve SSO bağlandığında `auth_provider_id` T.C. kimlik
+ * numarası taşıyacak. Gerekçenin tamamı oturum-govde.ts başlığındadır.
  *
  * SON KULLANMA NİYE GÖVDENİN İÇİNDE: çerezin `maxAge` alanını TARAYICI uygular,
  * sunucu değil. Gövde yalnızca kimliği taşısaydı, çerez değerini bir kez
@@ -36,9 +40,9 @@ function imzaDogrula(veri: string, imza: string): boolean {
   return timingSafeEqual(beklenen, gelen);
 }
 
-export async function oturumAc(authProviderId: string): Promise<void> {
+export async function oturumAc(kullaniciId: number): Promise<void> {
   const govde = oturumGovdesiUret(
-    authProviderId,
+    kullaniciId,
     Date.now() + CEREZ_OMRU_SANIYE * 1000,
   );
   const cerezDeposu = await cookies();
@@ -61,18 +65,18 @@ export async function oturumKapat(): Promise<void> {
 }
 
 /**
- * Çerezi doğrulayıp AuthProvider kimliğini döndürür.
+ * Çerezi doğrulayıp `kullanici.id`'yi döndürür.
  *
  * İmzası tutmayan, biçimi bozuk veya süresi dolmuş çerez için `null` döner ve
  * çağıran taraf kişiyi giriş ekranına gönderir. Bu üç durum arasında AYRIM
  * YAPILMAZ: hepsinin doğru cevabı "yeniden giriş yapın"dır.
  *
- * ESKİ BİÇİMDEKİ ÇEREZLER (son kullanma alanı eklenmeden önce açılmış
- * oturumlar) ayraç içermedikleri için geçersiz sayılır. Bu sürüm yayına
- * alındığında açık oturumlar bir kez giriş ekranına düşer; süresiz yaşayan bir
- * jetonu geriye dönük uyumluluk uğruna kabul etmektense yeğlenen sonuç budur.
+ * ESKİ BİÇİMDEKİ ÇEREZLER (AuthProvider kimliği taşıyanlar ve son kullanması
+ * olmayanlar) sayıya çözülmedikleri için geçersiz sayılır. Bu sürüm yayına
+ * alındığında açık oturumlar bir kez giriş ekranına düşer; eski bir jetonu
+ * geriye dönük uyumluluk uğruna kabul etmektense yeğlenen sonuç budur.
  */
-async function cerezdenKimlikOku(): Promise<string | null> {
+async function cerezdenKimlikOku(): Promise<number | null> {
   const cerezDeposu = await cookies();
   const deger = cerezDeposu.get(CEREZ_ADI)?.value;
   if (!deger) return null;
@@ -89,11 +93,11 @@ async function cerezdenKimlikOku(): Promise<string | null> {
  * yetki kararlarını izinler.ts verir.
  */
 export async function oturumKullanicisi(): Promise<OturumKullanicisi | null> {
-  const authProviderId = await cerezdenKimlikOku();
-  if (!authProviderId) return null;
+  const kullaniciId = await cerezdenKimlikOku();
+  if (kullaniciId === null) return null;
 
   const kullanici = await prisma.kullanici.findUnique({
-    where: { authProviderId },
+    where: { id: kullaniciId },
     include: {
       roller: {
         where: { bitisTarihi: null },
@@ -106,7 +110,6 @@ export async function oturumKullanicisi(): Promise<OturumKullanicisi | null> {
 
   return {
     id: kullanici.id,
-    authProviderId: kullanici.authProviderId,
     ad: kullanici.ad,
     soyad: kullanici.soyad,
     kurumKodu: kullanici.kurumKodu,
