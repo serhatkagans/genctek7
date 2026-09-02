@@ -312,10 +312,36 @@ sudo certbot renew --dry-run
 
 ```bash
 sudo cp /opt/genctek/dagitim/genctek-senkron.{service,timer} /etc/systemd/system/
+sudo cp /opt/genctek/dagitim/genctek-saklama.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now genctek-senkron.timer
-systemctl list-timers genctek-senkron.timer
+sudo systemctl enable --now genctek-senkron.timer genctek-saklama.timer
+systemctl list-timers genctek-senkron.timer genctek-saklama.timer
 ```
+
+**İKİ ZAMANLAYICI VARDIR ve ikisi de zorunludur.** `genctek-senkron` her gece
+03:00'te (danışman senkronu + erişim anomalisi taraması), `genctek-saklama`
+ayın ilk günü 04:00'te (saklama süresi bakımı ve KVKK imhası) çalışır.
+Saklama zamanlayıcısı 2 Eylül 2026'da eklendi; o güne kadar sunucuda ne cron
+ne timer vardı, yani erişim kaydının 24 aylık silme kuralı dahil hiçbir
+saklama süresi uygulanmıyordu. Kodda tanımlı ama hiç çalışmayan bir süre,
+denetimde tanımlı sayılmaz.
+
+**KURULDUKTAN SONRA "enabled" DEĞİL, BAŞARILI OLDUĞUNU DOĞRULAYIN.** Bir
+`oneshot` timer'ın etkin olması işin çalıştığı anlamına gelmez; hata verse de
+sessizce her gece yeniden dener:
+
+```bash
+systemctl show genctek-senkron.service -p Result -p ExecMainStatus
+journalctl -u genctek-senkron -n 30 --no-pager
+```
+
+`Result=exit-code` görüyorsanız ilk bakılacak yer **PATH**'tir. npm'in
+shebang'i `/usr/bin/env node`; birim npm'i tam yolla çağırsa bile node'u
+PATH'ten bulur ve systemd'nin varsayılan PATH'i `/usr/bin` ile başlar. Bu
+sunucuda oradaki Node 16, Prisma 7 ise Node 20+ istiyor — iş
+`CompileError: WebAssembly.Module(): invalid value type 'externref'` ile
+ölüyordu (2 Eylül 2026'da böyle bulundu; aylardır her gece başarısızdı).
+Çözüm birim dosyalarındaki `Environment=PATH=/opt/node24/bin:...` satırıdır.
 
 Bu zamanlayıcı danışman senkronunun ardından tamamlanmış önceki İstanbul gününü
 erişim anomalileri için tarar. Günlük 100 farklı öğrenci kaydı eşiğini aşan

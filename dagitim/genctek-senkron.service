@@ -21,7 +21,23 @@ Group=genctek
 WorkingDirectory=/opt/genctek
 EnvironmentFile=/opt/genctek/.env
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm run senkron:danisman
+
+# PATH AÇIKÇA YAZILIR — 2 Eylül 2026'da bu satır olmadığı için iş AYLARCA
+# sessizce başarısız oldu.
+#
+# npm'in shebang'i `/usr/bin/env node`. Tam yolla çağrılsa bile
+# (/opt/node24/bin/npm) çalıştıracağı node'u PATH'ten bulur; systemd'nin
+# varsayılan PATH'i ise /usr/bin ile başlar ve bu sunucuda oradaki node 16.
+# Prisma 7 Node 20+ istiyor, 16'da `CompileError: WebAssembly.Module():
+# invalid value type 'externref'` ile ölüyor. Belirtisi zor: systemd "Failed
+# with result exit-code" der, ekranda hiçbir şey görünmez ve iş her gece
+# yeniden dener.
+#
+# Yeni Node'un dizini PATH'in BAŞINA yazılmalı. Sistem Node'u güncelse bu
+# satır zararsızdır; yolu kendi sunucunuza göre düzeltin (DAGITIM.md Bölüm 13).
+Environment=PATH=/opt/node24/bin:/usr/local/bin:/usr/bin:/bin
+
+ExecStart=/opt/node24/bin/npm run senkron:danisman
 
 NoNewPrivileges=true
 PrivateTmp=true

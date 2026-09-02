@@ -1,0 +1,42 @@
+# Saklama süresi bakımı ve imha — /etc/systemd/system/genctek-saklama.service
+#
+# KVKK m.7 · Genelge 3/e ve 3/g. Süresi dolan erişim kayıtlarını ve okunmuş
+# bildirimleri siler; moderasyonla gizlenmiş içeriği ve uzun süredir temas
+# etmemiş kişilerin kişisel verisini imha eder (src/lib/kvkk/saklama.ts).
+#
+# BU BİRİM POLİTİKANIN KENDİSİDİR. Kodda tanımlı ama hiç çalışmayan bir imha
+# süresi, denetimde tanımlı sayılmaz: 2 Eylül 2026'da yapılan kontrolde
+# `bakim:saklama` için sunucuda ne cron ne timer vardı, yani 24 aylık erişim
+# kaydı silme kuralı da dahil hiçbir süre uygulanmıyordu.
+#
+# Cron yerine systemd timer: sunucu kapalıyken kaçan çalıştırma Persistent=true
+# ile açılışta telafi edilir, cron'da edilmez.
+
+[Unit]
+Description=GençTek saklama süresi bakımı ve imha
+After=network-online.target postgresql.service genctek.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=genctek
+Group=genctek
+WorkingDirectory=/opt/genctek
+EnvironmentFile=/opt/genctek/.env
+Environment=NODE_ENV=production
+
+# PATH: gecelik senkronla aynı tuzak — npm'in shebang'i `/usr/bin/env node`
+# olduğu için tam yolla çağrılsa bile node'u PATH'ten bulur ve sistemdeki eski
+# Node ile koşarsa Prisma 7 WASM hatasıyla ölür. Bkz. genctek-senkron.service.
+Environment=PATH=/opt/node24/bin:/usr/local/bin:/usr/bin:/bin
+
+ExecStart=/opt/node24/bin/npm run bakim:saklama
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# İmha, depolamadaki dosyaları da siler (fotoğraf, özgeçmiş, faaliyet eki);
+# bu dizine yazma izni olmadan imha yarım kalır.
+ReadWritePaths=/opt/genctek/depolama
+SyslogIdentifier=genctek-saklama

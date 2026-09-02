@@ -1,0 +1,29 @@
+# Saklama/imha zamanlayıcısı — /etc/systemd/system/genctek-saklama.timer
+#
+# Kurulum:
+#   sudo cp dagitim/genctek-saklama.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now genctek-saklama.timer
+#
+# Kontrol:  systemctl list-timers genctek-saklama.timer
+# Günlük:   journalctl -u genctek-saklama -n 50 --no-pager
+#
+# ÇIKTISI DENETİM KAYDIDIR: "hangi ay ne imha edildi" sorusunun cevabı bu
+# günlükte durur (scripts/veri-saklama.ts sayıları tek tek basar). Günlük
+# saklama süresini kısaltırken bunu hesaba katın.
+
+[Unit]
+Description=GençTek saklama süresi bakımını ayda bir çalıştırır
+
+[Timer]
+# Ayın ilk günü 04:00. Gecelik senkronla (03:00) ÇAKIŞMASIN diye bir saat
+# sonra: ikisi de veritabanı havuzundan bağlantı istiyor ve senkron, imhanın
+# baktığı `son_senkron_tarihi` alanını tazeliyor — önce o bitmeli.
+OnCalendar=*-*-01 04:00:00
+# Sunucu o gün kapalıysa açılışta telafi edilir. Aylık bir işte bu şart:
+# kaçan çalıştırma bir sonraki aya kalırsa süre iki kat uzar.
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target
