@@ -38,6 +38,29 @@ Write-Host "  Veritabani durduruluyor..."
 
 Start-Sleep -Seconds 2
 
+<#
+Yarı ölü veritabanı süreci (27 Ağustos 2026).
+
+"prisma dev stop" yalnızca sağlıklı sunucuya işliyor. Sunucu yarı ölüyse süreç
+saatlerce ayakta kalıyor ve teşhisi zorlaştıran bir belirti zinciri üretiyor:
+`prisma dev ls` "error" diyor, netstat portlarda hiçbir şey dinlemiyor
+gösteriyor, buna rağmen yeniden başlatma "Port 51213 is not available" ile
+düşüyor — kilit işletim sistemi soketinde değil, sürecin kendi kayıt
+defterinde. Tek çözüm süreci PID ile öldürmek; makineyi yeniden başlatmak
+gerekmiyor.
+
+Bu blok stop'tan SONRA çalışır: temiz kapanışta ortada süreç kalmadığı için
+hiçbir şey yapmaz, kilit dosyası da stop tarafından düzgün silinmiş olur.
+Yalnızca stop'un işlemediği durumda devreye girer.
+#>
+$kalanVeritabani = Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match "prisma" -and $_.CommandLine -match "\bdev\b" }
+
+foreach ($surec in $kalanVeritabani) {
+    Write-Host ("  Yari olu veritabani sureci kapatiliyor: PID {0}" -f $surec.ProcessId) -ForegroundColor Yellow
+    Stop-Process -Id $surec.ProcessId -Force -ErrorAction SilentlyContinue
+}
+
 $kalan = Get-NetTCPConnection -LocalPort @(3000, 51213, 51214, 51215, 51216) -State Listen -ErrorAction SilentlyContinue
 Write-Host ""
 if ($kalan) {

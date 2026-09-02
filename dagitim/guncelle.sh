@@ -45,6 +45,35 @@ echo "    Sorun çıkarsa geri dönüş: git reset --hard $ONCEKI_SURUM"
 echo "==> Kod çekiliyor ($DAL)"
 git fetch --prune origin
 git checkout "$DAL"
+
+# İZLENMEYEN DOSYA TUZAĞI (28 Ağustos 2026, scripts/kisi-disa-aktar.cjs).
+#
+# Sunucuya elle (scp ile) bırakılmış bir dosya, aynı yol depoya commit'lenince
+# pull'u "The following untracked working tree files would be overwritten by
+# merge" ile düşürür ve yayın HİÇBİR ŞEYE DOKUNMADAN yarıda kalır. Elle
+# müdahale gerekiyordu; artık gelen sürümde bulunan izlenmeyen dosyaları
+# /tmp'ye taşıyıp yoldan çekiyoruz. Silmiyoruz: dosya elle bırakıldıysa
+# içeriği depodakinden farklı olabilir, kopya yedek dizininde durur.
+CAKISANLAR=""
+while IFS= read -r yol; do
+  [ -n "$yol" ] || continue
+  if [ -e "$yol" ] && ! git ls-files --error-unmatch "$yol" >/dev/null 2>&1; then
+    CAKISANLAR="$CAKISANLAR $yol"
+  fi
+done <<CAKISMA_SONU
+$(git diff --name-only HEAD "origin/$DAL")
+CAKISMA_SONU
+
+if [ -n "$CAKISANLAR" ]; then
+  YEDEK_DIZINI="$(mktemp -d /tmp/genctek-izlenmeyen-XXXXXX)"
+  echo "==> İzlenmeyen dosyalar yoldan çekiliyor (yedek: $YEDEK_DIZINI)"
+  for yol in $CAKISANLAR; do
+    echo "    $yol"
+    mkdir -p "$YEDEK_DIZINI/$(dirname "$yol")"
+    mv "$yol" "$YEDEK_DIZINI/$yol"
+  done
+fi
+
 git pull --ff-only origin "$DAL"
 
 echo "==> Bağımlılıklar"

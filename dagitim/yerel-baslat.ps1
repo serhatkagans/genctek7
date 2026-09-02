@@ -34,15 +34,22 @@ sorgu "Server has closed the connection" ile düşüyor — hiçbir yerde "port
 yanlış" demeyen, teşhisi zor bir arıza. Portu tahmin etmek yerine soruyoruz.
 
 Çıktı ANSI renk ve OSC-8 köprü kaçış dizileri içeriyor; temizlenip tam
-bağlantı adresi ayıklanıyor. Kısaltılmış görünen kopya (postgres://...@localhost)
-desene UYMAZ, çünkü kullanıcı adı/şifre kısmını arıyoruz.
+bağlantı adresi ayıklanıyor.
+
+DESENİN SONU ÖNEMLİ. Kaçışlar temizlenince, OSC-8 köprüsünün görünen metni
+(kısaltılmış kopya: postgres://...@localhost) tam adresin HEMEN ARDINA,
+aralarında boşluk olmadan yapışıyor. "[^\s]*" ile bittiği sürece desen ikisini
+birden yutuyordu ve ortaya çıkan adres hem uygulamayı hem "prisma migrate
+deploy"u düşürüyordu (`P1013 · The provided database string is invalid`) —
+üstelik hata adresi göstermediği için sebebi görünmüyordu. Bu yüzden sorgu
+dizesi tembel eşleşiyor ve ikinci "postgres://" başlamadan kesiliyor.
 #>
 function VeritabaniAdresiniOku {
     $ham = (& npx prisma dev ls 2>&1 | Out-String)
     $temiz = $ham -replace "\x1b\[[0-9;]*[A-Za-z]", "" -replace "\x1b\]8;;", ""
     $eslesme = [regex]::Match(
         $temiz,
-        "postgres://postgres:postgres@localhost:(?<port>\d+)/template1[^\s]*"
+        "postgres://postgres:postgres@localhost:(?<port>\d+)/template1(?:\?[^\s]*?)?(?=postgres://|\s|$)"
     )
     if (-not $eslesme.Success) { return $null }
     return [pscustomobject]@{
@@ -110,6 +117,48 @@ if ($veritabani) {
     Write-Host "        DATABASE_URL port $($veritabani.Port) olarak ayarlandi."
 }
 
+
+<#
+Şema ve referans veriler.
+
+BURADA OLMASI GEREKİYOR: "prisma dev" bomboş bir template1 ile kalkabiliyor
+(kayıtlı örnek silinmişse ya da .env başka bir örneğe bakıyorsa). O durumda
+uygulama `P2021 · public.kullanici does not exist` veriyor ve giriş ekranı —
+kimlik listesini veritabanından çektiği için — beyaz sayfaya düşüyor.
+Betik bu iki komutu çalıştırmadığı sürece kullanıcının elle yazması
+gerekiyordu.
+
+migrate deploy her açılışta koşar: bekleyen migration yoksa saniyeler sürer ve
+"No pending migrations to apply." der. Tohumlama YALNIZCA migration
+uygulandığında yapılır — veritabanı ya sıfırdan kurulmuştur ya da yeni bir
+şema parçası gelmiştir; ikisinde de referans veri eksik olabilir. Tohumlama
+idempotent, ama her açılışta koşturmak gereksiz yere yavaşlatırdı.
+#>
+if ($veritabani) {
+    Write-Host "        Sema kontrol ediliyor..."
+    # stderr'i de topluyoruz (hata metni orada), ama ErrorRecord'ları düz
+    # metne çeviriyoruz: PS 5.1 onları olduğu gibi yazdırınca çıktıya
+    # "At line:1 char:1 + & ..." çerçevesi giriyor ve asıl satır kayboluyor.
+    $migrasyon = (& npx prisma migrate deploy 2>&1 |
+        ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { $_ }
+        } | Out-String)
+    foreach ($satir in ($migrasyon -split "`r?`n")) {
+        if ($satir.Trim()) { Write-Host "          $($satir.Trim())" -ForegroundColor DarkGray }
+    }
+
+    if ($migrasyon -match "Applying migration") {
+        Write-Host "        Migration uygulandi; referans veriler yukleniyor..."
+        & npm run db:seed 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "        Referans veriler hazir." -ForegroundColor Green
+        } else {
+            Write-Host "        TOHUMLAMA BASARISIZ. Elle: npm run db:seed" -ForegroundColor Red
+        }
+    } elseif ($migrasyon -match "does not exist|P1001|Error:") {
+        Write-Host "        SEMA UYGULANAMADI. Elle: npx prisma migrate deploy" -ForegroundColor Red
+    }
+}
 # --- 2. Uygulama -----------------------------------------------------------
 # Bu pencere AÇIK KALMALI; kapatılırsa uygulama durur.
 if (Dinliyor-Mu $UYGULAMA_PORT) {
@@ -135,7 +184,11 @@ if (Dinliyor-Mu $UYGULAMA_PORT) {
 $saglikli = $false
 try {
     $yanit = Invoke-WebRequest -Uri "http://localhost:$UYGULAMA_PORT/giris" -UseBasicParsing -TimeoutSec 40
-    $saglikli = ($yanit.StatusCode -eq 200)
+    $govde = [string]$yanit.Content
+    # Durum kodu TEK BASINA YETMEZ: hata sinir sayfasi (src/app/error.tsx) da
+    # HTTP 200 doner. Veritabani kopukken ekran "Beklenmeyen bir hata olustu"
+    # basar ama betik "hazir" derdi. Bu yuzden govde de sinaniyor.
+    $saglikli = ($yanit.StatusCode -eq 200) -and ($govde -notmatch "Beklenmeyen bir hata")
 } catch {
     $saglikli = $false
 }
