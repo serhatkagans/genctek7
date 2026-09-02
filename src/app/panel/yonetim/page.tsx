@@ -6,6 +6,7 @@ import {
   Map as Harita,
   MapPin,
   Megaphone,
+  Rocket,
   Search,
   Settings,
   School,
@@ -35,6 +36,7 @@ import { prisma } from "@/lib/db";
 import { ekipYonetebilirMi } from "@/lib/ekip/kurallar";
 import { acikKvkkBasvuruSayisi } from "@/lib/kvkk/basvuru";
 import { egitimOgretimYili } from "@/lib/ogretmen/gorev-yillari";
+import { ilerlemeYuzdesi, YOL_HARITASI } from "@/lib/proje/yol-haritasi";
 import { onayliMentorMu } from "@/lib/mentor/veri";
 import {
   birimUyarilari,
@@ -696,6 +698,31 @@ export default async function YonetimSayfasi({
               yol="/panel/kvkk-basvurulari"
               bekleyen={acikKvkkBasvurusu}
               ton="uyari"
+            />
+          )}
+          {/*
+            PROJE İLERLEME DURUMU (3 Eylül 2026 · istek: "proje yöneticisi
+            yönetim paneline proje-ilerleme kartı ekleyip … neler yapılmış
+            tarih tarih").
+
+            YALNIZCA MERKEZ (`projeYoneticisiMi`), yukarıdaki kartların
+            koşullarından hiçbirine eklenmedi: liste yayına alınmamış
+            çalışmaları, sunucu ayarlarını ve açık maddeleri içeriyor —
+            `yonetimPanosuGorebilirMi` ile açılsaydı seksen bir ilin
+            koordinatörüne de açılırdı.
+
+            AÇIKLAMAYA YÜZDE BASILIYOR: kart bir envanter değil, bir durum
+            özeti; sayı olmadan kişinin ilerlemeyi öğrenmek için karta
+            tıklaması gerekirdi. `bekleyen` rozeti KULLANILMIYOR — bu bir iş
+            kuyruğu değil, kuyruk sayacı "yapılacak 8 iş var" gibi okunurdu.
+          */}
+          {projeYoneticisiMi(kullanici) && (
+            <KisayolKarti
+              baslik="Proje İlerleme Durumu"
+              aciklama={`Yol haritası tarih tarih: ${YOL_HARITASI.length} madde, genel ilerleme %${ilerlemeYuzdesi(YOL_HARITASI)}`}
+              Ikon={Rocket}
+              yol="/panel/proje-ilerleme"
+              ton="notr"
             />
           )}
         </div>
