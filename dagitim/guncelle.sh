@@ -76,10 +76,45 @@ npx prisma migrate deploy
 echo "==> Referans veriler (idempotent)"
 npm run db:seed
 
-echo "==> Servis yeniden başlatılıyor"
-# Betik genctek kullanıcısıyla çalıştığı için systemctl sudo ister; bu tek
-# komut için sudoers'a kural yazılması gerekir (bkz. DAGITIM.md Bölüm 8).
-sudo systemctl restart genctek
+echo "==> Servisler yeniden başlatılıyor"
+# UYGULAMA ÜÇ KOPYA HALİNDE ÇALIŞIR (2 Eylül 2026). Tek Node süreci 4 vCPU'nun
+# yalnızca birini kullanabiliyordu; kopyalar Apache'de dengeleniyor (vhost:
+# balancer://genctek). Kopya listesi ÜÇ YERDE tutulur ve üçü birlikte
+# güncellenmelidir: burası, vhost'taki BalancerMember satırları ve
+# /etc/sudoers.d/genctek.
+#
+# HEPSİ YENİDEN BAŞLAMALI: biri atlanırsa o kopya ESKİ KODLA çalışmaya devam
+# eder, yayın yine "başarılı" der ve hata ancak kullanıcı o kopyaya düştüğünde
+# görünür. Bu depoda sessiz yayın hatasının geçmişi var (bkz. yayinla.ps1).
+#
+# SIRAYLA, hepsi birden değil: her an en az iki kopya ayakta kalır, dengeleyici
+# yeniden başlayanı atlar ve yayın kesintisiz geçer.
+#
+# Betik genctek kullanıcısıyla çalıştığı için systemctl sudo ister; HER KOMUT
+# için sudoers'a ayrı kural gerekir (bkz. DAGITIM.md Bölüm 8).
+KOPYALAR="${KOPYALAR:-genctek:3010 genctek@3020:3020 genctek@3021:3021}"
+
+for kopya in $KOPYALAR; do
+    servis="${kopya%%:*}"
+    port="${kopya##*:}"
+    echo "    $servis (port $port)"
+    sudo systemctl restart "$servis"
+
+    # Kendi portundan sorulur, dengeleyiciden DEĞİL: dengeleyici üzerinden
+    # sorulsaydı ayakta duran öteki kopya cevap verir ve yeniden başlatılan
+    # kopya hiç açılmasa bile kontrol geçerdi.
+    for deneme in $(seq 1 20); do
+        if curl -fsS -o /dev/null "http://127.0.0.1:$port${TEMEL_YOL:-/genctek}"; then
+            break
+        fi
+        if [ "$deneme" -eq 20 ]; then
+            echo "!!! $servis 20 saniyede yanıt vermedi; yayın durduruldu."
+            echo "!!! Geri dönmek için: git reset --hard $ONCEKI_SURUM && $0"
+            exit 1
+        fi
+        sleep 1
+    done
+done
 
 echo "==> Sağlık kontrolü ($SAGLIK_URL)"
 for deneme in $(seq 1 15); do

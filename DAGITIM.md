@@ -560,6 +560,56 @@ geri yükleme için yetmez:
 `/var/backups/genctek/` altında, `600 root:root`, 30 günden eskiler silinir
 (`SAKLAMA_GUN` ile değiştirilebilir).
 
+### Üç kopya ve Apache dengelemesi (2 Eylül 2026)
+
+Uygulama tek süreç değil, **üç kopya** halinde çalışır: `genctek` (3010),
+`genctek@3020`, `genctek@3021`. Kopyalar `genctek@.service` şablonundan
+üretilir; şablonun asıl birimden tek farkı `Environment=PORT=%i` satırıdır.
+
+**Niye:** Node'un JS'i tek iş parçacıklıdır, yani tek süreç 4 vCPU'nun yalnızca
+BİRİNİ kullanabiliyordu. Yük testinde verim 10 eşzamanlıdan 100'e kadar sabit
+kalıyor, gecikme doğrusal artıyor, node %110 CPU'da duruyor ve PostgreSQL boşta
+bekliyordu — darboğazın veritabanı değil tek çekirdek olduğunun kanıtı.
+
+**Niye üç, dört değil:** süreç boşta 403 MB, yük altında ~980 MB tutuyor. Dört
+kopya tepe anında kullanılabilir belleği aşardı ve sunucuda `genctekportal` de
+var. Üç kopya üç çekirdek kullanır, dördüncüsü Apache/PostgreSQL/komşulara kalır.
+
+**Ölçülen kazanç** (50 eşzamanlı, HTTPS): `panel/ogrenciler` 12 → 22 istek/sn,
+`panel/ogretmenler` 18 → 43, `panel/okullar` 33 → 67.
+
+**Portlar 3020/3021, 3011 DEĞİL:** 3011'i `genctekportal.service` tutuyor.
+
+**KOPYA LİSTESİ ÜÇ YERDE DURUR** ve üçü birlikte güncellenmelidir; biri
+unutulursa hata sessizdir:
+
+| Yer | Ne için |
+|---|---|
+| vhost'taki `BalancerMember` satırları | trafiğin dağıtılması |
+| `dagitim/guncelle.sh` · `KOPYALAR` | yayında hepsinin yeniden başlaması |
+| `/etc/sudoers.d/genctek` | betiğin onları yeniden başlatabilmesi |
+
+Yayın betiği kopyaları **sırayla** yeniden başlatır ve her birini kendi
+portundan yoklar (dengeleyiciden değil — ayakta duran öteki kopya cevap verir ve
+açılmayan kopya fark edilmezdi). Sıralı olduğu için yayın kesintisizdir.
+
+**`ttl=2` şart, süs değil.** Apache arka uca kalıcı (keepalive) bağlantı tutar,
+Node ise boşta kalanı beş saniyede kendisi kapatır. Apache tam o anda aynı
+bağlantıyı yeniden kullanınca `AH01102 Connection reset by peer` düşüyor ve
+istek 502 dönüyordu — 350 istekte bir. `ttl=2` havuzdaki bağlantıyı Node
+kapatmadan önce bırakır. Node'un süresi değişirse bu değer de değişmeli.
+
+**Hız sınırları kopya sayısıyla çarpılır.** `src/lib/hiz-siniri.ts` sayaçları
+süreç içi bellekte tutar; üç kopyada etkin sınır üç katına çıkar (hata bildirimi
+IP başına 10/dk yerine ~30/dk, dış başvuru 10 dakikada 5 yerine ~15). Dosyanın
+kendi notu bu günü öngörüyordu. Ortak sayaç (Redis ya da veritabanı) gerekene
+kadar sınır değerleri buna göre seçilmelidir.
+
+**Geri alma:** vhost'taki blok yerine dört düz `ProxyPass` satırı konur
+(yedek: `/root/aiotechs.cust_httpd.yedek-*`), vhost'lar yeniden üretilir,
+`httpd -t && apachectl graceful`; sonra `systemctl disable --now genctek@3020
+genctek@3021`.
+
 ---
 
 ## 14. Günlük kullanım: gönder ve yayınla
