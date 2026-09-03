@@ -677,6 +677,25 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
     not:
       "Sunucudaki birimler zaten DOĞRUYDU; yanlış olan depodaki kopyalardı — sunucuda elle düzeltilip geri yazılmamışlardı. İkisi artık sunucudakiyle birebir aynı. guncelle.sh'teki yeniden deneme döngüsü de zaten vardı ve çalışıyordu: susturulan yalnızca beklenen hataların gürültüsü, çünkü başarılı yayını bozuk gösterip çıktıdaki hataları yok saymayı öğretiyordu.",
   },
+  {
+    sira: 34,
+    baslik: "Yazılı bilgi güvenliği prosedürleri",
+    durum: "YAYINDA",
+    ozet:
+      "İhlal müdahale planı, yapay zekâ kullanım kuralı ve yetki gözden geçirme prosedürü yazıldı; boş kayıt şablonlarıyla birlikte.",
+    baslangic: "2026-09-03",
+    yayinTarihi: "2026-09-03",
+    maddeler: [
+      "Veri ihlali müdahale ve bildirim planı: 72 saat ÇÖZÜM süresi değil, bildirim üst sınırı",
+      "Olay ekibi role bağlandı; ad/telefon/e-posta üretimin kontrollü işletim kopyasına bırakıldı",
+      "Yapay zekâ kullanım kuralı: onaylı araç yok, üretim verisi geliştirme/testte kullanılamaz",
+      "Yetki ve servis hesabı gözden geçirme: üç ayda bir, anahtar rotasyon süreleriyle",
+      "Üretime çıkış kontrol listesine üç madde eklendi (DAGITIM.md)",
+    ],
+    commitler: ["1874696"],
+    not:
+      "KOD DEĞİL YAZILI KONTROL: çalışma zamanı davranışını değiştirmiyor, ekranlarda görünmüyor. tests/guvenlik-prosedurleri.test.ts belgelerin metnini değil ANLAMINI kilitliyor (72 saatin tanımı, yasak veri sınıfları, rotasyon süreleri) — belge sessizce gevşetilirse test düşer. Depoda yalnızca BOŞ şablonlar var; tamamlanmış inceleme kayıtları erişimi sınırlı kurum alanında tutulur.",
+  },
 ];
 
 /**
