@@ -610,19 +610,20 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
   {
     sira: 30,
     baslik: "Sunucu MTU kara deliği düzeltmesi",
-    durum: "PLANLANDI",
+    durum: "YAYINDA",
     ozet:
-      "Panelde ara ara çıkan 'Beklenmeyen bir hata' ekranının nedeni bulundu; düzeltme sunucuda uygulanmadı.",
+      "Panelde ara ara çıkan 'Beklenmeyen bir hata' ekranının nedeni bulundu ve düzeltme sunucuya uygulandı.",
     baslangic: "2026-08-21",
+    bitis: "2026-09-03",
+    yayinTarihi: "2026-09-03",
     maddeler: [
       "Neden bulundu: sunucu 1500 MTU ile gönderiyor, hat taşımıyor, ICMP uyarısı dönmüyor",
       "Büyük yanıtlar (yönetim panosu 63 KB) ilk tampondan sonra sessizce ölüyor",
-      "Uygulanacak: net.ipv4.tcp_mtu_probing=1, kalıcısı /etc/sysctl.d/99-mtu.conf",
-      "Yetmezse: iptables TCPMSS clamp-mss-to-pmtu",
-      "Sonrasında 15 kez curl ile doğrulama",
+      "Uygulandı: net.ipv4.tcp_mtu_probing=1, kalıcısı /etc/sysctl.d/99-mtu.conf",
+      "iptables TCPMSS clamp'i gerekmedi; yedek adım olarak duruyor",
     ],
     not:
-      "Uygulamayla ilgisi yok, sunucu ayarı. sysctl yazan komutlar araçtan geçmiyor; sunucuda elle çalıştırılmalı.",
+      "Sunucu ayarı, kod değil: yayın betiğiyle taşınmaz, sunucu yeniden kurulursa 99-mtu.conf yeniden yazılmalı. Düzeltme ÖLÇÜLEREK doğrulanamadı — 3 Eylül'de arıza zaten üretilemiyordu (259 KB yanıt, öncesi 15/15, sonrası 15/15). Kalıcı koruma olarak duruyor: kara delik tekrar oluşursa çekirdek boyu kendi düşürür.",
   },
   {
     sira: 31,
