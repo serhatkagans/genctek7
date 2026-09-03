@@ -105,13 +105,19 @@ export async function GET(
       "Content-Disposition": `${tarayicidaAcilirMi(cv.cvMimeTipi) ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(cv.cvDosyaAdi)}`,
       "Content-Length": String(icerik.byteLength),
       /*
-       * `X-Content-Type-Options` ZORUNLU oldu. Dosya artık `inline`
-       * gelebiliyor; tarayıcının içeriğe bakıp tipi kendi tahmin etmesi
-       * (MIME sniffing), pdf diye yüklenmiş bir dosyanın HTML olarak
-       * yorumlanmasına ve oturum arkasındaki bu adreste kod çalışmasına yol
-       * açardı. Tip yalnızca yüklemede doğrulanan değerden okunur.
+       * `X-Content-Type-Options: nosniff` BURADA YAZILMIYOR, next.config.ts
+       * onu `/:yol*` ile bu rota dahil her yanıta veriyor (ölçüldü). Satır
+       * burada da duruyordu; kaldırıldı çünkü aynı başlığın iki kaynağı,
+       * birini değiştirenin diğerini görmemesi demek — korumanın kalktığı
+       * sanılan ya da kalktığı fark edilmeyen hâller oradan çıkar.
+       *
+       * Koruma neye karşı: dosya `inline` gelebiliyor ve tarayıcının içeriğe
+       * bakıp tipi kendi tahmin etmesi (MIME sniffing), pdf diye yüklenmiş bir
+       * dosyanın HTML olarak yorumlanmasına yol açardı. İkinci savunma
+       * yüklemede: içerik artık imzasıyla doğrulanıyor
+       * (lib/guvenlik/dosya-imzasi.ts), yani `cvMimeTipi` istemcinin yazdığı
+       * doğrulanmamış bir dize olmaktan çıktı.
        */
-      "X-Content-Type-Options": "nosniff",
       // Kapsam kontrolünden geçen içerik ara belleklerde tutulmamalı.
       "Cache-Control": "private, no-store",
     },
