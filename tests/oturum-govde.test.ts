@@ -14,6 +14,10 @@ import {
  * BİÇİM: gövde `kullanici.id` taşır, AuthProvider kimliği değil (bkz.
  * oturum-govde.ts başlığı — SSO sonrası o alan T.C. kimlik numarası olacak).
  * Sayı olmayan bir gövdenin kabul edilmesi, eski biçimin geri sızması demektir.
+ *
+ * SÜRÜM: üçüncü alan, açık oturumları toplu iptal etmenin tek kolu. Sürümsüz
+ * (iki parçalı) bir gövdenin kabul edildiği bir gerileme, iptal edilemeyen
+ * oturumların geri gelmesi demektir.
  */
 
 const SEKIZ_SAAT = 8 * 60 * 60 * 1000;
@@ -21,31 +25,47 @@ const SEKIZ_SAAT = 8 * 60 * 60 * 1000;
 describe("oturum gövdesi", () => {
   const simdi = Date.UTC(2026, 7, 16, 12, 0, 0);
 
-  test("üretilen gövde aynı kullanıcı kimliğini geri verir", () => {
-    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT);
-    expect(oturumGovdesiCoz(govde, simdi)).toBe(4127);
+  test("üretilen gövde aynı kimliği ve sürümü geri verir", () => {
+    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT, 3);
+    expect(oturumGovdesiCoz(govde, simdi)).toEqual({
+      kullaniciId: 4127,
+      surum: 3,
+    });
+  });
+
+  /* Hiç şifre sıfırlamamış hesabın sürümü sıfırdır; kimlikten farklı olarak
+   * "0" burada geçerli bir değerdir. */
+  test("sıfır sürüm geçerlidir", () => {
+    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT, 0);
+    expect(oturumGovdesiCoz(govde, simdi)).toEqual({
+      kullaniciId: 4127,
+      surum: 0,
+    });
   });
 
   test("gövde çerez biçimini bozacak karakter içermez", () => {
-    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT);
+    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT, 0);
     // Çerez değeri "gövde.imza" olarak birleştirildiği için gövde nokta
     // içermemeli; base64url alfabesi zaten içermez ama biçim buna dayanıyor.
     expect(govde).not.toContain(".");
   });
 
   test("süresi dolmuş gövde reddedilir", () => {
-    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT);
+    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT, 0);
     expect(oturumGovdesiCoz(govde, simdi + SEKIZ_SAAT + 1)).toBeNull();
   });
 
   test("son kullanma anının kendisi artık geçersizdir", () => {
-    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT);
+    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT, 0);
     expect(oturumGovdesiCoz(govde, simdi + SEKIZ_SAAT)).toBeNull();
   });
 
   test("son kullanmadan bir milisaniye önce hâlâ geçerlidir", () => {
-    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT);
-    expect(oturumGovdesiCoz(govde, simdi + SEKIZ_SAAT - 1)).toBe(4127);
+    const govde = oturumGovdesiUret(4127, simdi + SEKIZ_SAAT, 0);
+    expect(oturumGovdesiCoz(govde, simdi + SEKIZ_SAAT - 1)).toEqual({
+      kullaniciId: 4127,
+      surum: 0,
+    });
   });
 
   /**
@@ -64,26 +84,57 @@ describe("oturum gövdesi", () => {
    */
   test("AuthProvider kimliği taşıyan gövde reddedilir", () => {
     const eski = Buffer.from(
-      `ogrenci-001|${simdi + SEKIZ_SAAT}`,
+      `ogrenci-001|${simdi + SEKIZ_SAAT}|0`,
       "utf8",
     ).toString("base64url");
     expect(oturumGovdesiCoz(eski, simdi)).toBeNull();
   });
 
+  /**
+   * Sürüm alanı eklenmeden önce yazılmış iki parçalı gövdeler. Kabul
+   * edilselerdi iptal edilemeyen oturumlar olarak yaşamaya devam ederlerdi —
+   * alanın eklenme sebebi tam olarak budur.
+   */
+  test("sürümsüz (iki parçalı) gövde reddedilir", () => {
+    const eski = Buffer.from(
+      `4127|${simdi + SEKIZ_SAAT}`,
+      "utf8",
+    ).toString("base64url");
+    expect(oturumGovdesiCoz(eski, simdi)).toBeNull();
+  });
+
+  test("sayı olmayan sürüm reddedilir", () => {
+    const bozuk = Buffer.from(
+      `4127|${simdi + SEKIZ_SAAT}|son`,
+      "utf8",
+    ).toString("base64url");
+    expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
+  });
+
+  test("eksi ve gevşek biçimli sürüm reddedilir", () => {
+    for (const surum of ["-1", " 1", "1 ", "+1", "0x1", "1.0", "01"]) {
+      const bozuk = Buffer.from(
+        `4127|${simdi + SEKIZ_SAAT}|${surum}`,
+        "utf8",
+      ).toString("base64url");
+      expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
+    }
+  });
+
   test("sayı olmayan son kullanma reddedilir", () => {
-    const bozuk = Buffer.from("4127|sonsuza-kadar", "utf8").toString(
+    const bozuk = Buffer.from("4127|sonsuza-kadar|0", "utf8").toString(
       "base64url",
     );
     expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
   });
 
   test("boş son kullanma reddedilir", () => {
-    const bozuk = Buffer.from("4127|", "utf8").toString("base64url");
+    const bozuk = Buffer.from("4127||0", "utf8").toString("base64url");
     expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
   });
 
   test("kimliği boş gövde reddedilir", () => {
-    const bozuk = Buffer.from(`|${simdi + SEKIZ_SAAT}`, "utf8").toString(
+    const bozuk = Buffer.from(`|${simdi + SEKIZ_SAAT}|0`, "utf8").toString(
       "base64url",
     );
     expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
@@ -91,7 +142,7 @@ describe("oturum gövdesi", () => {
 
   test("fazladan ayraç taşıyan gövde reddedilir", () => {
     const bozuk = Buffer.from(
-      `4127|9|${simdi + SEKIZ_SAAT}`,
+      `4127|9|${simdi + SEKIZ_SAAT}|0`,
       "utf8",
     ).toString("base64url");
     expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
@@ -105,7 +156,7 @@ describe("oturum gövdesi", () => {
   test("gevşek sayı biçimleri reddedilir", () => {
     for (const kimlik of [" 4127", "4127 ", "+4127", "0x10", "4.0", "4e3"]) {
       const bozuk = Buffer.from(
-        `${kimlik}|${simdi + SEKIZ_SAAT}`,
+        `${kimlik}|${simdi + SEKIZ_SAAT}|0`,
         "utf8",
       ).toString("base64url");
       expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();
@@ -115,7 +166,7 @@ describe("oturum gövdesi", () => {
   test("sıfır ve eksi kimlik reddedilir", () => {
     for (const kimlik of ["0", "-1"]) {
       const bozuk = Buffer.from(
-        `${kimlik}|${simdi + SEKIZ_SAAT}`,
+        `${kimlik}|${simdi + SEKIZ_SAAT}|0`,
         "utf8",
       ).toString("base64url");
       expect(oturumGovdesiCoz(bozuk, simdi)).toBeNull();

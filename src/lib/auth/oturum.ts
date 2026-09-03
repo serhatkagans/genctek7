@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { prisma } from "../db";
 import { CEREZ_YOLU, ortam } from "../ortam";
 import type { OturumKullanicisi } from "../yetki/tipler";
-import { oturumGovdesiCoz, oturumGovdesiUret } from "./oturum-govde";
+import {
+  type OturumGovdesi,
+  oturumGovdesiCoz,
+  oturumGovdesiUret,
+} from "./oturum-govde";
 
 /**
  * Oturum, imzalı bir çerezde `kullanici.id`'yi ve SON KULLANMA ANINI taşır.
@@ -15,6 +19,13 @@ import { oturumGovdesiCoz, oturumGovdesiUret } from "./oturum-govde";
  * NİYE SATIR KİMLİĞİ, AUTHPROVIDER KİMLİĞİ DEĞİL: gövde okunabilir (base64url
  * şifreleme değildir) ve SSO bağlandığında `auth_provider_id` T.C. kimlik
  * numarası taşıyacak. Gerekçenin tamamı oturum-govde.ts başlığındadır.
+ *
+ * OTURUM SÜRÜMÜ: gövde, çerez yazıldığı andaki `kullanici.oturum_surumu`
+ * değerini de taşır ve her istekte veritabanındaki güncel değerle
+ * karşılaştırılır. Eşleşmeyen çerez reddedilir — sayıyı artırmak o kişinin tüm
+ * açık oturumlarını düşürmenin yoludur (şifre sıfırlama bunu yapar). Çalınan
+ * bir çerezi iptal etmenin başka yolu yoktu: `aktif` alanı kişiyi tümden
+ * dışarıda bırakır, gizli anahtarı değiştirmek ise herkesi atardı.
  *
  * SON KULLANMA NİYE GÖVDENİN İÇİNDE: çerezin `maxAge` alanını TARAYICI uygular,
  * sunucu değil. Gövde yalnızca kimliği taşısaydı, çerez değerini bir kez
@@ -41,9 +52,22 @@ function imzaDogrula(veri: string, imza: string): boolean {
 }
 
 export async function oturumAc(kullaniciId: number): Promise<void> {
+  /*
+   * Sürüm ÇEREZ YAZILIRKEN okunur, çağırandan alınmaz: giriş akışlarının üçü
+   * de (mock, EBA, dış kimlik) bu alanı taşımak zorunda kalsaydı biri unutur
+   * ve o yoldan açılan oturumlar iptal edilemez olurdu. Kayıt yoksa 0
+   * kullanılır; oturum zaten bir sonraki istekte kullanıcı bulunamadığı için
+   * düşer.
+   */
+  const kayit = await prisma.kullanici.findUnique({
+    where: { id: kullaniciId },
+    select: { oturumSurumu: true },
+  });
+
   const govde = oturumGovdesiUret(
     kullaniciId,
     Date.now() + CEREZ_OMRU_SANIYE * 1000,
+    kayit?.oturumSurumu ?? 0,
   );
   const cerezDeposu = await cookies();
   cerezDeposu.set(CEREZ_ADI, `${govde}.${imzala(govde)}`, {
@@ -76,7 +100,7 @@ export async function oturumKapat(): Promise<void> {
  * alındığında açık oturumlar bir kez giriş ekranına düşer; eski bir jetonu
  * geriye dönük uyumluluk uğruna kabul etmektense yeğlenen sonuç budur.
  */
-async function cerezdenKimlikOku(): Promise<number | null> {
+async function cerezdenGovdeOku(): Promise<OturumGovdesi | null> {
   const cerezDeposu = await cookies();
   const deger = cerezDeposu.get(CEREZ_ADI)?.value;
   if (!deger) return null;
@@ -93,11 +117,11 @@ async function cerezdenKimlikOku(): Promise<number | null> {
  * yetki kararlarını izinler.ts verir.
  */
 export async function oturumKullanicisi(): Promise<OturumKullanicisi | null> {
-  const kullaniciId = await cerezdenKimlikOku();
-  if (kullaniciId === null) return null;
+  const govde = await cerezdenGovdeOku();
+  if (govde === null) return null;
 
   const kullanici = await prisma.kullanici.findUnique({
-    where: { id: kullaniciId },
+    where: { id: govde.kullaniciId },
     include: {
       roller: {
         where: { bitisTarihi: null },
@@ -107,6 +131,14 @@ export async function oturumKullanicisi(): Promise<OturumKullanicisi | null> {
   });
 
   if (!kullanici || !kullanici.aktif) return null;
+
+  /*
+   * Çerez, sürümü artırılmadan önce yazılmışsa geçersizdir. `!==` ile
+   * karşılaştırılıyor, `<` ile değil: sürüm yalnızca artar, dolayısıyla eşit
+   * olmayan her değer ya eski bir çerezdir ya da anlamsız. Diğer red
+   * durumlarıyla aynı sonuç veriliyor — kişi giriş ekranına düşer.
+   */
+  if (kullanici.oturumSurumu !== govde.surum) return null;
 
   return {
     id: kullanici.id,

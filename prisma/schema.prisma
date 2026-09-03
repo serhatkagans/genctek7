@@ -521,6 +521,22 @@ model Kullanici {
   sonSenkronTarihi  DateTime @default(now()) @map("son_senkron_tarihi") @db.Timestamptz(6)
   aktif             Boolean  @default(true)
 
+  /// Açık oturumları toplu iptal etmenin kolu (3 Eylül 2026).
+  ///
+  /// Oturum sunucuda tutulan bir kayıt DEĞİL, imzalı bir çerezdir: tek tek
+  /// iptal edilemez ve çalınan bir çerez 8 saat boyunca geçerli kalırdı.
+  /// Çerezin gövdesi bu sayıyı taşır; buradaki değerle eşleşmeyen her çerez
+  /// reddedilir, yani sayıyı artırmak o kullanıcının TÜM oturumlarını aynı
+  /// anda düşürür (bkz. lib/auth/oturum.ts).
+  ///
+  /// Şifre sıfırlandığında artırılır (lib/dis-kimlik/sifirlama.ts): "şifremi
+  /// değiştirdim" demek, çerezini kopyalamış birini de atmak anlamına gelmeli.
+  ///
+  /// `aktif` ALANININ YERİNİ TUTMAZ, onu tamamlar: pasife almak kişiyi tümden
+  /// dışarıda bırakır, sürüm ise hesabı açık tutup yalnızca eski çerezleri
+  /// geçersiz kılar.
+  oturumSurumu      Int      @default(0) @map("oturum_surumu")
+
   /// Kişisel verisi imha edilmiş kaydın imha anı (KVKK m.7 · Genelge 3/e-3/g).
   ///
   /// SATIR SİLİNMEZ, İÇİ BOŞALTILIR. Kullanıcı kaydı bu şemada yirmiden fazla

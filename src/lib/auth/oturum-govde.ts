@@ -22,12 +22,19 @@
 /** Kimlik ile son kullanma anını ayıran karakter. */
 const AYRAC = "|";
 
+export interface OturumGovdesi {
+  kullaniciId: number;
+  /** `kullanici.oturum_surumu`nun çerez yazıldığı andaki değeri. */
+  surum: number;
+}
+
 export function oturumGovdesiUret(
   kullaniciId: number,
   sonKullanma: number,
+  surum: number,
 ): string {
   return Buffer.from(
-    `${kullaniciId}${AYRAC}${sonKullanma}`,
+    `${kullaniciId}${AYRAC}${sonKullanma}${AYRAC}${surum}`,
     "utf8",
   ).toString("base64url");
 }
@@ -44,22 +51,25 @@ export function oturumGovdesiUret(
  * işaret edebilirdi. Denetim kaydında "bu oturum hangi çerezle açıldı"
  * sorusunun tek cevabı olsun diye yalnızca ondalık basamaklar geçerlidir.
  *
- * ESKİ BİÇİMDEKİ GÖVDELER (AuthProvider kimliği taşıyanlar ve son kullanması
- * olmayanlar) sayı olmadıkları için burada elenir: bu sürüm yayına alındığında
- * açık oturumlar bir kez giriş ekranına düşer.
+ * ESKİ BİÇİMDEKİ GÖVDELER (AuthProvider kimliği taşıyanlar, son kullanması
+ * olmayanlar ve sürüm alanından önce yazılmış İKİ PARÇALI olanlar) burada
+ * elenir: her biçim değişikliğinde açık oturumlar bir kez giriş ekranına
+ * düşer. Geriye dönük uyumluluk BİLEREK YOK — iki parçalı gövdeyi kabul etmek,
+ * sürümü olmayan yani iptal edilemeyen çerezlerin yaşamaya devam etmesi
+ * demekti, ki bu alanın eklenme sebebi tam olarak odur.
  */
 export function oturumGovdesiCoz(
   govde: string,
   simdi: number = Date.now(),
-): number | null {
+): OturumGovdesi | null {
   const icerik = Buffer.from(govde, "base64url").toString("utf8");
 
-  // Tam iki parça: kimlik de son kullanma da ayraç içeremeyeceği için
-  // fazladan ayraç taşıyan gövde bozuktur.
+  // Tam üç parça: üçü de ayraç içeremeyeceği için fazladan ya da eksik ayraç
+  // taşıyan gövde bozuktur.
   const parcalar = icerik.split(AYRAC);
-  if (parcalar.length !== 2) return null;
+  if (parcalar.length !== 3) return null;
 
-  const [kimlikMetni, sonKullanmaMetni] = parcalar;
+  const [kimlikMetni, sonKullanmaMetni, surumMetni] = parcalar;
 
   // Sıfır ve eksi değerler de elenir: `kullanici.id` daima pozitiftir.
   if (!/^[1-9][0-9]*$/.test(kimlikMetni)) return null;
@@ -70,5 +80,11 @@ export function oturumGovdesiCoz(
   const sonKullanma = Number(sonKullanmaMetni);
   if (!Number.isSafeInteger(sonKullanma) || simdi >= sonKullanma) return null;
 
-  return kullaniciId;
+  // Sürüm sıfırdan başlar (hiç sıfırlanmamış hesap), o yüzden kimlikten farklı
+  // olarak "0" geçerlidir; eksi ve gevşek biçimler yine elenir.
+  if (!/^(0|[1-9][0-9]*)$/.test(surumMetni)) return null;
+  const surum = Number(surumMetni);
+  if (!Number.isSafeInteger(surum)) return null;
+
+  return { kullaniciId, surum };
 }

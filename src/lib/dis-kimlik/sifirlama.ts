@@ -164,23 +164,40 @@ export async function sifirlamayiTamamla(
     return { olduMu: false, neden: karar.neden };
   }
 
-  await prisma.disKimlik.update({
-    where: { kullaniciId: kimlik.kullaniciId },
-    data: {
-      sifreOzeti: await sifreOzetle(yeniSifre),
-      sifirlamaJetonuOzeti: null,
-      sifirlamaSonGecerlilik: null,
-      basarisizDeneme: 0,
-      kilitBitisTarihi: null,
-    },
-  });
+  /*
+   * ŞİFRE VE OTURUM SÜRÜMÜ TEK İŞLEMDE: ikisi ayrı yazılsaydı ve arada bir hata
+   * çıksaydı, şifre değişmiş ama eski oturumlar ayakta kalmış olurdu — yani
+   * kullanıcının "şifremi değiştirdim, artık güvendeyim" varsayımı sessizce
+   * yanlış olurdu.
+   *
+   * SÜRÜM NİYE ARTIYOR: şifresini sıfırlayan kişi çoğu zaman bunu hesabına
+   * başkasının eriştiğinden şüphelendiği için yapar. Şifre yeni çerez almayı
+   * engeller, ELDEKİ çerezi engellemez; sürüm artınca o çerezlerin hepsi bir
+   * anda geçersizleşir (bkz. auth/oturum.ts).
+   */
+  await prisma.$transaction([
+    prisma.disKimlik.update({
+      where: { kullaniciId: kimlik.kullaniciId },
+      data: {
+        sifreOzeti: await sifreOzetle(yeniSifre),
+        sifirlamaJetonuOzeti: null,
+        sifirlamaSonGecerlilik: null,
+        basarisizDeneme: 0,
+        kilitBitisTarihi: null,
+      },
+    }),
+    prisma.kullanici.update({
+      where: { id: kimlik.kullaniciId },
+      data: { oturumSurumu: { increment: 1 } },
+    }),
+  ]);
 
   await erisimLogla({
     kullaniciId: kimlik.kullaniciId,
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: kimlik.kullaniciId,
-    detay: "Şifre sıfırlandı",
+    detay: "Şifre sıfırlandı; açık oturumlar düşürüldü",
   });
 
   return { olduMu: true };
