@@ -1,6 +1,7 @@
 import { AYAR_ANAHTARLARI, ayarListe, ayarSayi } from "../ayar";
 import { prisma } from "../db";
 import { depolama } from "../depolama";
+import { dosyaImzasiUyuyorMu } from "../guvenlik/dosya-imzasi";
 import {
   type ProfilFotoSinirlari,
   profilFotoKabulEdilirMi,
@@ -51,10 +52,20 @@ export async function profilFotoKaydet(girdi: {
   );
   if (!karar.olurMu) return karar;
 
+  /*
+   * İçerik gerçekten görsel mi? Gerekçe: guvenlik/dosya-imzasi.ts. Fotoğraf
+   * indirme rotası `Content-Type`'ı buraya yazılan tipten veriyor ve dosyayı
+   * `inline` gönderiyor, yani sahte tipin sonucu doğrudan tarayıcıda görünür.
+   * Kontrol önceki fotoğrafa dokunmadan önce yapılır.
+   */
+  const icerik = Buffer.from(await dosya.arrayBuffer());
+  const imza = dosyaImzasiUyuyorMu(icerik, dosya.type);
+  if (!imza.olurMu) return { olurMu: false, neden: imza.neden };
+
   const oncekiAnahtar = await mevcutFotoAnahtari(girdi.kullaniciId);
 
   const anahtar = await depolama().yaz({
-    icerik: Buffer.from(await dosya.arrayBuffer()),
+    icerik,
     dosyaAdi: dosya.name,
     mimeTipi: dosya.type,
   });

@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { depolama } from "../depolama";
 import { ekKabulEdilirMi, type EkSinirlari } from "../faaliyet/ek-kurallar";
 import { ekSinirlariniGetir } from "../faaliyet/ek-kaydet";
+import { dosyaImzasiUyuyorMu } from "../guvenlik/dosya-imzasi";
 import { gorselMi } from "./kapak";
 
 /**
@@ -50,8 +51,13 @@ export async function kazanimEkiKaydet(girdi: {
    */
   const kapakMi = girdi.kapakMi === true && gorselMi(dosya.type);
 
+  /* İçerik iddia edilen tiple uyuşmalı — gerekçe: guvenlik/dosya-imzasi.ts. */
+  const icerik = Buffer.from(await dosya.arrayBuffer());
+  const imza = dosyaImzasiUyuyorMu(icerik, dosya.type);
+  if (!imza.olurMu) return { olurMu: false, neden: imza.neden };
+
   const anahtar = await depolama().yaz({
-    icerik: Buffer.from(await dosya.arrayBuffer()),
+    icerik,
     dosyaAdi: dosya.name,
     mimeTipi: dosya.type,
   });

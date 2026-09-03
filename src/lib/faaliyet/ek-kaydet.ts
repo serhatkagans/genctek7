@@ -1,6 +1,7 @@
 import { AYAR_ANAHTARLARI, ayarListe, ayarSayi } from "../ayar";
 import { prisma } from "../db";
 import { depolama } from "../depolama";
+import { dosyaImzasiUyuyorMu } from "../guvenlik/dosya-imzasi";
 import {
   type EkSinirlari,
   type EkTuru,
@@ -59,8 +60,17 @@ export async function ekKaydet(girdi: {
   );
   if (!karar.olurMu) return { olurMu: false, neden: karar.neden };
 
+  /*
+   * İçerik, iddia edilen tiple uyuşuyor mu? `dosya.type` istemciden gelir ve
+   * indirme rotası `Content-Type`'ı ondan verir (bkz. guvenlik/dosya-imzasi.ts).
+   * Baytlar burada bir kez okunur; depolamaya da aynı tampon gider.
+   */
+  const icerik = Buffer.from(await dosya.arrayBuffer());
+  const imza = dosyaImzasiUyuyorMu(icerik, dosya.type);
+  if (!imza.olurMu) return { olurMu: false, neden: imza.neden };
+
   const anahtar = await depolama().yaz({
-    icerik: Buffer.from(await dosya.arrayBuffer()),
+    icerik,
     dosyaAdi: dosya.name,
     mimeTipi: dosya.type,
   });

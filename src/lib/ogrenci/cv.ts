@@ -1,6 +1,7 @@
 import { AYAR_ANAHTARLARI, ayarListe, ayarSayi } from "../ayar";
 import { prisma } from "../db";
 import { depolama } from "../depolama";
+import { dosyaImzasiUyuyorMu } from "../guvenlik/dosya-imzasi";
 import {
   type CvSinirlari,
   cvEkNotuKabulEdilirMi,
@@ -67,11 +68,20 @@ export async function cvKaydet(girdi: {
   );
   if (!karar.olurMu) return karar;
 
+  /*
+   * İçerik gerçekten pdf mi? `dosya.type` istemciden gelir; gerekçenin tamamı
+   * guvenlik/dosya-imzasi.ts başlığındadır. Kontrol ÖNCEKİ CV'YE DOKUNMADAN
+   * ÖNCE yapılır: reddedilen yükleme kişinin duran CV'sini etkilememeli.
+   */
+  const icerik = Buffer.from(await dosya.arrayBuffer());
+  const imza = dosyaImzasiUyuyorMu(icerik, dosya.type);
+  if (!imza.olurMu) return { olurMu: false, neden: imza.neden };
+
   const sahip = girdi.sahip ?? "OGRENCI";
   const oncekiAnahtar = await mevcutCvAnahtari(girdi.ogrenciId, sahip);
 
   const anahtar = await depolama().yaz({
-    icerik: Buffer.from(await dosya.arrayBuffer()),
+    icerik,
     dosyaAdi: dosya.name,
     mimeTipi: dosya.type,
   });
