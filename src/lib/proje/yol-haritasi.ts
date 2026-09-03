@@ -696,6 +696,67 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
     not:
       "KOD DEĞİL YAZILI KONTROL: çalışma zamanı davranışını değiştirmiyor, ekranlarda görünmüyor. tests/guvenlik-prosedurleri.test.ts belgelerin metnini değil ANLAMINI kilitliyor (72 saatin tanımı, yasak veri sınıfları, rotasyon süreleri) — belge sessizce gevşetilirse test düşer. Depoda yalnızca BOŞ şablonlar var; tamamlanmış inceleme kayıtları erişimi sınırlı kurum alanında tutulur.",
   },
+  {
+    sira: 35,
+    baslik: "Dış inceleme bulguları: yükleme, istemci adresi ve oturum",
+    durum: "YAYINDA",
+    ozet:
+      "Yüklenen dosyanın içeriği imzasıyla doğrulanıyor, istemci IP'si güvenilir biçimde çözülüyor ve oturumlar toplu iptal edilebiliyor.",
+    baslangic: "2026-09-03",
+    bitis: "2026-09-03",
+    yayinTarihi: "2026-09-03",
+    maddeler: [
+      "Dosya imzası: depoya yazan dört yolun hepsi ilk baytları tipiyle karşılaştırıyor",
+      "X-Forwarded-For zincirin SONUNDAN okunuyor; erişim kaydına sahte IP yazdırılamıyor",
+      "x-real-ip yedeği kaldırıldı: başlığı vekilin mi istemcinin mi yazdığı görünmüyordu",
+      "kullanici.oturum_surumu: şifre sıfırlamada açık oturumların hepsi düşüyor",
+      "Dış girişe IP başına hız sınırı — hesap kilidi şifre püskürtmesini görmüyordu",
+      "nosniff'in ikinci kaynağı kaldırıldı; tek kaynak next.config.ts",
+    ],
+    commitler: [
+      "3fb1003",
+      "e889eb0",
+      "bffd4c9",
+      "3a21569",
+      "0c6dc28",
+      "ceeeba0",
+    ],
+  },
+  {
+    sira: 36,
+    baslik: "Açık istatistik ucunda sunucu tarafı önbellek",
+    durum: "YAYINDA",
+    ozet:
+      "Tanıtım portalının hero panelini besleyen altı sayım sorgusu her ziyaretçide değil, beş dakikada bir çalışıyor.",
+    baslangic: "2026-09-03",
+    bitis: "2026-09-03",
+    yayinTarihi: "2026-09-03",
+    maddeler: [
+      "Önbellek rotanın değil SORGULARIN etrafında (unstable_cache)",
+      "Uç dinamik kaldı: derleme anında veritabanı gerektirmemesi için",
+      "Süre, yanıttaki Cache-Control max-age ile aynı (300 sn) tutuldu",
+    ],
+    commitler: ["d27ad1b"],
+  },
+  {
+    sira: 37,
+    baslik: "Hız sınırı sayacı kopyalar arasında ortaklaştı",
+    durum: "TESTTE",
+    ozet:
+      "Sayaçlar süreç belleğinden veritabanına taşındı; üç kopyaya bölünen sınırlar artık yazıldığı değeri uyguluyor.",
+    baslangic: "2026-09-03",
+    bitis: "2026-09-03",
+    maddeler: [
+      "hiz_siniri_penceresi tablosu; sayım tek deyimde ve atomik (ON CONFLICT ... RETURNING)",
+      "Veritabanına ulaşılamazsa süreç içi yedeğe düşülür, sınır kaldırılmaz",
+      "Başvuru 5/10dk ve hata bildirimi 10/dk artık gerçekten o değer (fiilen 15 ve 30'du)",
+      "Hata bildirimindeki süreç tavanı bilerek süreç başına kaldı",
+      "Penceresi geçmiş satırlar gecelik bakımda siliniyor",
+    ],
+    commitler: [],
+    not:
+      "SUNUCUDA HENÜZ YOK: migration uygulanmadı. Yayına çıkana kadar sınırlar üç kopyaya bölünmüş hâlde çalışmaya devam ediyor, yani etkin değerler yazılanın üç katı. Doğru çözüm buydu çünkü önceki ara çözüm — sınırları elle üçe bölmek — kopya sayısını koda gömüyordu ve sayı değiştiği gün sessizce yanlışa düşerdi.",
+  },
 ];
 
 /**
