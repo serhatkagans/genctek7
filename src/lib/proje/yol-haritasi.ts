@@ -578,16 +578,17 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
   {
     sira: 28,
     baslik: "Oturum gövdesi ve dış kimlik düzeni",
-    durum: "GELISTIRILIYOR",
+    durum: "YAYINDA",
     ozet:
-      "Oturum çerezinin gövdesi ve dış kullanıcı giriş akışı yeniden düzenleniyor.",
+      "Oturum çerezi artık kullanıcı kimliğini taşıyor; dış kimlik giriş akışı buna göre düzenlendi.",
     baslangic: "2026-09-03",
+    yayinTarihi: "2026-09-03",
     maddeler: [
       "lib/auth/oturum-govde.ts ve oturum.ts yeniden düzenlendi",
-      "Dış kimlik giriş akışı ve yetki tipleri buna göre güncelleniyor",
-      "Testler yazıldı, çalışma ağacında duruyor",
+      "Dış kimlik giriş akışı ve yetki tipleri buna göre güncellendi",
+      "tests/oturum-govde.test.ts ile korunuyor",
     ],
-    not: "Depoya henüz commit edilmedi; çalışma ağacında sürüyor.",
+    commitler: ["98d7262"],
   },
   {
     sira: 29,
