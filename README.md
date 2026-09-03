@@ -1397,6 +1397,15 @@ dolan oturum bir arıza değil, olağan bir durumdur.
 
 ### Güvenlik notları
 
+Yazılı işletim kontrolleri uygulama kodundan ayrı tutulur. Üretime çıkmadan önce
+rol bazlı irtibat bilgileri ve kurum içi kayıt konumları doldurulmalıdır:
+
+- [Kişisel veri ihlali müdahale ve bildirim planı](kurulum/veri-ihlali-mudahale-ve-bildirim-plani.md)
+- [Yapay zekâ araçları kullanım kuralı](kurulum/yapay-zeka-kullanim-kurali.md)
+- [Yetki ve servis hesabı gözden geçirme prosedürü](kurulum/yetki-ve-servis-hesabi-gozden-gecirme-proseduru.md)
+- Boş denetim kayıtları: `kurulum/kayitlar/` (şablonlar kanıt değildir; gerçek
+  inceleme kayıtları erişimi sınırlı kurum alanında tutulur)
+
 - **Oturum anahtarı.** `OTURUM_GIZLI_ANAHTARI` örnek değerde bırakılırsa uygulama
   `NODE_ENV=production` ile **açılmaz**. Anahtar çerez imzasını üretir; depoda
   yazılı bir değerle imzalanan oturum taklit edilebilir.

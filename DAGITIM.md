@@ -397,6 +397,15 @@ Yayına açmadan önce hepsi işaretlenmeli:
 - [ ] Sunucu yeniden başlatıldığında (`sudo reboot`) her şey açılıyor
 - [ ] `sudo -u postgres /usr/local/bin/genctek-yedek` çalışıyor ve dosya üretiyor
 - [ ] `.env` izinleri 600 ve sahibi `genctek`
+- [ ] `kurulum/veri-ihlali-mudahale-ve-bildirim-plani.md` iletişim kartındaki
+      asıl/yedek kişiler kontrollü işletim kopyasında dolduruldu ve olay kaydı
+      konumu oluşturuldu
+- [ ] İlk yetki/servis hesabı incelemesi
+      `kurulum/kayitlar/yetki-servis-hesabi-gozden-gecirme-sablonu.csv` ile
+      yapıldı; inceleyen ve onaylayan kişi/tarihleri kaydedildi
+- [ ] Yapay zekâ kullanım kuralı ekibe duyuruldu; kurumsal veya kişisel veri için
+      onaylı araç bulunmadığı ve üretim verisinin geliştirme/testte
+      kullanılamayacağı teyit edildi
 
 ---
 
