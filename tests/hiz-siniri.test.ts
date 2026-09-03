@@ -113,10 +113,25 @@ describe("basliklardanAnahtar", () => {
     expect(anahtarlar[0]).toBe(vekilinGorduğu);
   });
 
-  it("x-forwarded-for yoksa x-real-ip'e düşer", () => {
+  /*
+   * x-real-ip YEDEĞİ YOK: başlığı vekilin mi istemcinin mi yazdığı uygulamadan
+   * görünmüyor (üretimdeki Apache kurulumunda kimse yazmıyor, yani istemciden
+   * gelen değer olduğu gibi geçerdi). Gerekçenin tamamı
+   * lib/guvenlik/istemci-ip.ts'te.
+   */
+  it("x-real-ip tek başına güvenilir sayılmaz", () => {
     expect(
       basliklardanAnahtar(new Headers({ "x-real-ip": "198.51.100.4" }), 1),
-    ).toBe("198.51.100.4");
+    ).toBe("bilinmeyen");
+  });
+
+  it("x-real-ip, uydurulmuş bir zincirin yerine de geçmez", () => {
+    const basliklar = new Headers({
+      "x-forwarded-for": "203.0.113.9",
+      "x-real-ip": "198.51.100.4",
+    });
+    // Zincirdeki tek değer vekilin yazdığıdır; x-real-ip'e hiç bakılmaz.
+    expect(basliklardanAnahtar(basliklar, 1)).toBe("203.0.113.9");
   });
 
   /*

@@ -27,8 +27,8 @@
  */
 
 /**
- * `x-forwarded-for` / `x-real-ip` başlıklarından istemci adresini çözer.
- * Güvenilir bir adres bulunamazsa `null` döner.
+ * `x-forwarded-for` zincirinden istemci adresini çözer. Güvenilir bir adres
+ * bulunamazsa `null` döner (yalnızca bu başlığa bakılır — gerekçe aşağıda).
  *
  * @param guvenilenVekilSayisi Uygulamanın önünde duran ve başlığa kendi
  *   gördüğü adresi ekleyen vekil sayısı. 0 ise uygulama doğrudan internete
@@ -62,11 +62,22 @@ export function istemciIpAdresi(
   }
 
   /*
-   * `x-real-ip` yalnızca YEDEKTİR ve zincir hiç yoksa bakılır. Bu başlığı
-   * nginx yapılandırmamız `$remote_addr` ile EZEREK yazar (bkz.
-   * dagitim/nginx-genctek.conf), yani orada istemci onu belirleyemez. Apache
-   * kurulumunda ise başlığı kimse yazmaz; ama orada da mod_proxy her isteğe
-   * `x-forwarded-for` eklediği için bu satıra hiç düşülmez.
+   * `x-real-ip` YEDEĞİ BİLEREK YOK.
+   *
+   * Bir zamanlar zincir yoksa o başlığa bakılıyordu. Sorun, başlığın kimin
+   * yazdığının uygulamadan görünmemesi: nginx yapılandırmamız onu
+   * `$remote_addr` ile ezer (dagitim/nginx-genctek.conf) ve orada güvenilirdir,
+   * ama üretimdeki Apache kurulumunda (DAGITIM.md Bölüm 13) başlığı kimse
+   * yazmaz — istemcinin gönderdiği değer olduğu gibi buraya kadar gelir.
+   * Uygulama ikisini ayırt edemez.
+   *
+   * Yedeği tutmanın bedeli, tam da kapatmaya çalıştığımız açığı ikinci bir
+   * kapıdan geri açmaktı. Kaldırmanın bedeli ise yok denecek kadar az: iki
+   * kurulumda da `x-forwarded-for` HER isteğe yazılır (nginx yapılandırmayla,
+   * Apache mod_proxy ile), yani bu satıra zaten düşülmüyordu.
+   *
+   * Yalnızca X-Real-IP yazan bir vekilin arkasına kurulursa adres "bilinmeyen"
+   * olur: hız sınırı sıkılaşır, erişim kaydında IP boş kalır. Güvenli yön bu.
    */
-  return basliklar.get("x-real-ip")?.trim() || null;
+  return null;
 }
