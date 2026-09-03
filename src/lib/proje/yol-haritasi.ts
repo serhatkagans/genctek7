@@ -628,17 +628,20 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
   {
     sira: 31,
     baslik: "Üretim veritabanı havuzu",
-    durum: "PLANLANDI",
+    durum: "YAYINDA",
     ozet:
-      "Havuz kopya başına 4 bağlantı — yerel geliştirme için seçilmiş bir değer, 50 eşzamanlı kullanıcı için dar.",
+      "Havuz kopya başına 4 bağlantıydı — yerel geliştirme değeriydi; üretimde 20'ye çıkarıldı.",
     baslangic: "2026-08-21",
+    bitis: "2026-09-03",
+    yayinTarihi: "2026-09-03",
     maddeler: [
-      "DATABASE_URL'de connection_limit yok; varsayılan 4",
-      "Üç kopyayla toplam 12 bağlantı",
-      "Yapılacak: .env'e &connection_limit=20 — derleme gerektirmiyor",
-      "idleTimeoutMillis 1000 ms de yerel değer, gözden geçirilecek",
+      "Üretim .env'ine &connection_limit=20 eklendi; kod değişmedi",
+      "Kopya başına 4 -> 20; üç kopyayla toplam 12 -> 60",
+      "max_connections 100, 3'ü rezerve: gecelik işlerle en kötü hâl 80",
+      "idleTimeoutMillis 1000 ms hâlâ yerel değer — ayrı iş, sabit yerelle paylaşımlı",
     ],
-    not: "Tek satırlık .env değişikliği; sunucuda uygulanacak.",
+    not:
+      "Sunucu ayarı, kod değil: .env yayın betiğiyle taşınmaz, sunucu yeniden kurulursa parametre yeniden eklenmeli. Sınırı adaptör değil src/lib/db-havuz.ts okuyor; havuzSiniriniCoz bu adres için 20 döndürüyor (öncesi 4).",
   },
   {
     sira: 32,
