@@ -1,14 +1,26 @@
-# GençTek uygulama servisi — /etc/systemd/system/genctek.service
+# GençTek kopya servisi (ŞABLON) — /etc/systemd/system/genctek@.service
+#
+# NİYE ŞABLON: uygulama üç kopya çalışıyor (2 Eylül 2026). Ana kopya
+# genctek.service (3010), diğer ikisi bu şablondan türer: örnek adı %i doğrudan
+# PORT olarak kullanılıyor, yani `genctek@3020` 3020'yi dinler. Kopya başına
+# ayrı dosya yazılsaydı üçü birlikte güncellenmek zorunda kalırdı.
+#
+# BU DOSYA DEPODA YOKTU (3 Eylül 2026'da eklendi): şablon yalnızca sunucuda
+# duruyordu, yani üç kopyalı kurulum depodan yeniden kurulamıyordu.
 #
 # Kurulum:
-#   sudo cp dagitim/genctek.service /etc/systemd/system/
+#   sudo cp dagitim/genctek@.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now genctek
+#   sudo systemctl enable --now genctek@3020 genctek@3021
 #
-# Günlükler:  journalctl -u genctek -f
+# Günlükler:  journalctl -u genctek@3020 -f
+#
+# KOPYA LİSTESİ ÜÇ YERDE: burası (hangi örnekler enable edilecek),
+# guncelle.sh içindeki KOPYALAR ve vhost'taki BalancerMember satırları.
+# Üçü birlikte güncellenmelidir.
 
 [Unit]
-Description=GençTek Bilgi Sistemi
+Description=GençTek Bilgi Sistemi (kopya %i)
 Documentation=file:/opt/genctek/DAGITIM.md
 # Veritabanı hazır olmadan açılırsa uygulama ilk isteklerde hata verir.
 After=network-online.target postgresql.service
@@ -28,8 +40,8 @@ WorkingDirectory=/opt/genctek
 # ait olmalı: içinde veritabanı şifresi ve oturum imza anahtarı var.
 EnvironmentFile=/opt/genctek/.env
 Environment=NODE_ENV=production
-# 3010, kopya birimlerinin (genctek@3020, genctek@3021) dışında kalan ana port.
-Environment=PORT=3010
+# PORT = örnek adı: `genctek@3020` -> 3020. Tek kaynak, ayrıca yazılmıyor.
+Environment=PORT=%i
 # Yalnızca yerel arayüzü dinler; dışarıya ters vekil açar. Uygulamayı 0.0.0.0'a
 # bağlamak, güvenlik duvarı yanlış yapılandırılırsa paneli doğrudan internete
 # açardı.

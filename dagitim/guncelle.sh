@@ -132,12 +132,20 @@ for kopya in $KOPYALAR; do
     # Kendi portundan sorulur, dengeleyiciden DEĞİL: dengeleyici üzerinden
     # sorulsaydı ayakta duran öteki kopya cevap verir ve yeniden başlatılan
     # kopya hiç açılmasa bile kontrol geçerdi.
+    # DENEMELER SESSİZ (-fs, -S YOK): kopya yeniden başlarken ilk bir iki
+    # deneme her zaman "Connection refused" verir, bu BEKLENEN durumdur.
+    # `-S` ile bunlar ekrana basılıyordu ve başarılı bir yayın bozuk görünüyordu;
+    # asıl zararı, yayın çıktısındaki hataları yok saymayı öğretmesiydi.
+    # Hata ancak GERÇEKTEN başarısız olunca, sebebiyle birlikte basılır.
     for deneme in $(seq 1 20); do
-        if curl -fsS -o /dev/null "http://127.0.0.1:$port${TEMEL_YOL:-/genctek}"; then
+        if curl -fs -o /dev/null "http://127.0.0.1:$port${TEMEL_YOL:-/genctek}"; then
             break
         fi
         if [ "$deneme" -eq 20 ]; then
             echo "!!! $servis 20 saniyede yanıt vermedi; yayın durduruldu."
+            echo "!!! Son denemenin sebebi:"
+            curl -fsS -o /dev/null "http://127.0.0.1:$port${TEMEL_YOL:-/genctek}" || true
+            sudo journalctl -u "$servis" -n 20 --no-pager
             echo "!!! Geri dönmek için: git reset --hard $ONCEKI_SURUM && $0"
             exit 1
         fi
@@ -147,7 +155,7 @@ done
 
 echo "==> Sağlık kontrolü ($SAGLIK_URL)"
 for deneme in $(seq 1 15); do
-  if curl -fsS -o /dev/null "$SAGLIK_URL"; then
+  if curl -fs -o /dev/null "$SAGLIK_URL"; then
     echo "    Uygulama yanıt veriyor."
     echo "==> Güncelleme tamamlandı: $(git rev-parse --short HEAD)"
     exit 0

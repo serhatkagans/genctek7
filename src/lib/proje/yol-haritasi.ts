@@ -646,16 +646,36 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
   {
     sira: 32,
     baslik: "Sunucudaki kişisel veri dosyasının imhası",
-    durum: "PLANLANDI",
+    durum: "YAYINDA",
     ozet:
-      "Kişi aktarımı için sunucuya bırakılan dosya gerçek kişisel veri taşıyor ve hâlâ duruyor.",
+      "Kişi aktarımı için sunucuya bırakılan, gerçek kişisel veri taşıyan dosya imha edildi.",
     baslangic: "2026-08-28",
+    bitis: "2026-09-03",
+    yayinTarihi: "2026-09-03",
     maddeler: [
-      "/opt/genctek altındaki genctek-kisiler.json silinmeli",
-      "Artık betikler /tmp'ye bırakılıyor, /opt/genctek içine değil",
-      "DAGITIM.md ters vekil bölümü güncel değil: Apache/DirectAdmin kullanılıyor",
+      "/opt/genctek/genctek-kisiler.json silindi — 389 KB, herkese okunur duruyordu",
+      "Betikler artık /tmp'ye bırakılıyor, /opt/genctek içine değil",
+      "DAGITIM.md ters vekil bölümü zaten güncelmiş; yanlış olan servis dosyasıydı (bkz. 33)",
     ],
-    not: "KVKK saklama politikasının kapsamı dışında kalan, elle bırakılmış dosya.",
+    not:
+      "KVKK saklama politikasının kapsamı DIŞINDAYDI: imha işi veritabanına bakıyor, elle bırakılmış bir dosyayı bilmiyor. Dosya bir çıktıydı — kisi-disa-aktar.ts üretir, kisi-ice-aktar.ts yerelde okur; silinmesi kullanıcıları etkilemez, gerekirse yeniden üretilir.",
+  },
+  {
+    sira: 33,
+    baslik: "Servis birimleri depoyla sunucu arasında ayrışmıştı",
+    durum: "YAYINDA",
+    ozet:
+      "Depodaki servis dosyasıyla kurulum yapan çalışmayan bir servis kuruyordu; kopya şablonu ise depoda hiç yoktu.",
+    baslangic: "2026-09-03",
+    yayinTarihi: "2026-09-03",
+    maddeler: [
+      "genctek.service: ExecStart /usr/bin/node -> /opt/node24/bin/node (sistem Node'u 16, Prisma 7 onunla ölüyor)",
+      "Aynı dosyada PORT 3000 -> 3010; ters vekilin Apache olduğu not düşüldü",
+      "genctek@.service depoya eklendi: üç kopyalı kurulum depodan yeniden kurulamıyordu",
+      "guncelle.sh: yeniden başlatma beklenirken çıkan 'Connection refused' gürültüsü susturuldu",
+    ],
+    not:
+      "Sunucudaki birimler zaten DOĞRUYDU; yanlış olan depodaki kopyalardı — sunucuda elle düzeltilip geri yazılmamışlardı. İkisi artık sunucudakiyle birebir aynı. guncelle.sh'teki yeniden deneme döngüsü de zaten vardı ve çalışıyordu: susturulan yalnızca beklenen hataların gürültüsü, çünkü başarılı yayını bozuk gösterip çıktıdaki hataları yok saymayı öğretiyordu.",
   },
 ];
 
