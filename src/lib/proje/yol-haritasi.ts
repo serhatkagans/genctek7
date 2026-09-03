@@ -531,25 +531,26 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
   {
     sira: 25,
     baslik: "Panel saatleri İstanbul saatiyle",
-    durum: "TESTTE",
+    durum: "YAYINDA",
     ozet:
       "Kayıtlar üç saat geride görünüyordu; tüm ekranlarda saat İstanbul diliminde basılıyor.",
     baslangic: "2026-09-02",
+    yayinTarihi: "2026-09-03",
     maddeler: [
       "Sunucu UTC koşuyor, ekran İstanbul saatiyle basıyor",
       "Erişim kayıtlarındaki üç saatlik kayma kapandı",
       "Tarih süzgeçleri de aynı dilimde değerlendiriliyor",
     ],
     commitler: ["5313d30"],
-    not: "Depoya girdi ve denendi; sunucuya yayınlanması bekleniyor.",
   },
   {
     sira: 26,
     baslik: "KVKK Genelge uyumu",
-    durum: "TESTTE",
+    durum: "YAYINDA",
     ozet:
       "Genelge 2/d, 3/e-3/g ve 4/ç maddeleri karşılandı: oturum izleri, imha politikası ve ilgili kişi başvurusu.",
     baslangic: "2026-09-02",
+    yayinTarihi: "2026-09-03",
     maddeler: [
       "2/d — oturum izleri ve olağan dışı erişim örüntülerinin izlenmesi",
       "4/ç — ilgili kişi başvuru kuyruğu; yasal yanıt süresi 30 gün",
@@ -558,23 +559,21 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
       "İlk girişte onay kapısı; onay tek düğmeyle veriliyor",
     ],
     commitler: ["41dfc1f", "a8d06eb", "9aa36ad", "0f48912"],
-    not: "Depoya girdi ve denendi; sunucuya yayınlanması bekleniyor.",
   },
   {
     sira: 27,
     baslik: "Üç kopya çalışma ve yayın betiği",
-    durum: "TESTTE",
+    durum: "YAYINDA",
     ozet:
       "Uygulama üç kopya koşuyor; yayın hepsini sırayla yeniliyor ve izlenmeyen dosyaya artık takılmıyor.",
     baslangic: "2026-09-02",
+    yayinTarihi: "2026-09-03",
     maddeler: [
       "Üç kopya (cluster) çalışma; yayın kopyaları sırayla yeniliyor",
       "guncelle.sh, pull'dan önce izlenmeyen dosyaları yoldan çekiyor",
       "Yerel başlatma şemayı kendisi kuruyor",
     ],
     commitler: ["dfafbf1", "e8e39c7"],
-    not:
-      "Sahte depoda uçtan uca denendi ama SUNUCUYA YAYINLANMADI: bir sonraki yayın hâlâ eski betikle koşacak. Sunucuda /opt/genctek/scripts/kisi-disa-aktar.ts izlenmeyen dosya olarak duruyor.",
   },
   {
     sira: 28,
