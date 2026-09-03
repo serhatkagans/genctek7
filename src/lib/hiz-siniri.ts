@@ -7,13 +7,18 @@ import { istemciIpAdresi } from "./guvenlik/istemci-ip";
  * ---------------------------------------------------------------------------
  * NİYE VAR
  * ---------------------------------------------------------------------------
- * Kimlik istemeyen üç kapı var: dış kullanıcı başvurusu, parola sıfırlama ve
- * istemci hata bildirimi. Sıfırlamanın kendi beklemesi var
- * (dis-kimlik/kurallar.ts · SIFIRLAMA_BEKLEME_DAKIKA) ama diğer ikisi ya
- * sınırsızdı ya da SÜREÇ BAŞINA TEK sayaçla korunuyordu. Süreç başına tek
- * sayaç, bir isteği çok yapanın herkesin payını yemesi demek: hata bildirim
- * ucunda saldırgan dakikada 60 boş kayıt gönderip GERÇEK hata kayıtlarının
- * yazılmasını engelleyebiliyordu.
+ * Kimlik doğrulanmadan ulaşılan dört kapı var: dış kullanıcı başvurusu, dış
+ * kullanıcı girişi, parola sıfırlama ve istemci hata bildirimi.
+ *
+ * Sıfırlamanın kendi beklemesi var (dis-kimlik/kurallar.ts ·
+ * SIFIRLAMA_BEKLEME_DAKIKA). Başvuru ve hata bildirimi ya sınırsızdı ya da
+ * SÜREÇ BAŞINA TEK sayaçla korunuyordu; süreç başına tek sayaç, bir isteği çok
+ * yapanın herkesin payını yemesi demek — hata bildirim ucunda saldırgan
+ * dakikada 60 boş kayıt gönderip GERÇEK hata kayıtlarının yazılmasını
+ * engelleyebiliyordu.
+ *
+ * GİRİŞ SONRADAN EKLENDİ (3 Eylül 2026): oradaki hesap başına kilit şifre
+ * püskürtmesini görmüyor, gerekçesi app/dis-giris/eylemler.ts'te.
  *
  * ---------------------------------------------------------------------------
  * BELLEKTE, SÜREÇ BAŞINA
