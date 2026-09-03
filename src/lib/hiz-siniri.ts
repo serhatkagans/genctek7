@@ -1,3 +1,5 @@
+import { istemciIpAdresi } from "./guvenlik/istemci-ip";
+
 /**
  * Anahtar başına sabit pencereli hız sınırı (27 Ağustos 2026 · güvenlik
  * incelemesi).
@@ -85,21 +87,26 @@ export function hizSiniriOlustur(ayar: HizSiniriAyari): HizSiniri {
 /**
  * İsteği yapan IP — hız sınırı anahtarı olarak.
  *
- * Uygulama ters vekil arkasında (Apache/DirectAdmin) çalıştığından gerçek IP
- * `x-forwarded-for` başlığındadır ve zincirin İLKİ istemcidir. Başlık yoksa
- * anahtar "bilinmeyen" olur: o durumda başlıksız isteklerin HEPSİ tek bir
- * kovayı paylaşır, yani sınır daha sıkı uygulanır — açık kalmasındansa.
+ * Çözümleme guvenlik/istemci-ip.ts'te; gerekçesi (zincirin neden SONUNDAN
+ * okunduğu) orada yazılı. Burada yalnızca "adres bulunamadı" hâlinin hız
+ * sınırına nasıl çevrildiği kararı var.
+ *
+ * ADRESSİZ İSTEKLERİN HEPSİ TEK KOVAYI PAYLAŞIR ("bilinmeyen"): sınır o
+ * durumda daha SIKI uygulanır. Tersi — her adressiz isteğe ayrı kova açmak —
+ * sınırı tamamen kaldırırdı, ki atlatmak isteyenin gideceği yer tam olarak
+ * orasıdır.
  */
-export function basliklardanAnahtar(basliklar: Headers): string {
-  const iletilen = basliklar.get("x-forwarded-for");
-  if (iletilen) {
-    const ilk = iletilen.split(",")[0]?.trim();
-    if (ilk) return ilk;
-  }
-  return basliklar.get("x-real-ip")?.trim() || "bilinmeyen";
+export function basliklardanAnahtar(
+  basliklar: Headers,
+  guvenilenVekilSayisi: number,
+): string {
+  return istemciIpAdresi(basliklar, guvenilenVekilSayisi) ?? "bilinmeyen";
 }
 
 /** Rota işleyicileri için; sunucu eylemleri `basliklardanAnahtar` kullanır. */
-export function istekAnahtari(istek: Request): string {
-  return basliklardanAnahtar(istek.headers);
+export function istekAnahtari(
+  istek: Request,
+  guvenilenVekilSayisi: number,
+): string {
+  return basliklardanAnahtar(istek.headers, guvenilenVekilSayisi);
 }

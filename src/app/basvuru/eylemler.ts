@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { disBasvuruOlustur } from "@/lib/dis-kimlik/basvuru";
 import { disBasvuruGirdisiniCoz } from "@/lib/dis-kimlik/kurallar";
 import { basliklardanAnahtar, hizSiniriOlustur } from "@/lib/hiz-siniri";
+import { ortam } from "@/lib/ortam";
 
 /**
  * BAŞVURU HIZ SINIRI (27 Ağustos 2026 · güvenlik incelemesi).
@@ -79,7 +80,7 @@ export async function basvuruEylemi(veri: FormData): Promise<void> {
    * Sınır BİÇİM DOĞRULAMASINDAN SONRA, veritabanına sorulmadan önce: boş
    * gönderilen bir form hakkı yakmamalı, ama hiçbir sorgu da çalışmamalı.
    */
-  if (basvuruSiniri.takildiMi(basliklardanAnahtar(await headers()))) {
+  if (basvuruSiniri.takildiMi(basliklardanAnahtar(await headers(), ortam.GUVENILEN_VEKIL_SAYISI))) {
     redirect(
       `${temelYol}&hata=${encodeURIComponent(
         `Kısa sürede çok fazla başvuru gönderildi. ${PENCERE_DAKIKA} dakika sonra tekrar deneyin.`,

@@ -177,6 +177,9 @@ Doldurulması **zorunlu** olanlar:
 | `DEPOLAMA_YEREL_DIZIN` | `/opt/genctek/depolama` |
 | `IZINLI_HOSTLAR` | Uygulamanın alan adı, ör. `genctek.meb.gov.tr` |
 
+İsteğe bağlı ama gözden geçirilmesi gereken: `GUVENILEN_VEKIL_SAYISI`
+(varsayılan `1`, aşağıda).
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
@@ -192,6 +195,49 @@ başlıkları isteği yapan belirlediği için türetilen alan adı bu listeye k
 sınanır. Liste olmadan, kötü niyetli bir istek kurbanın e-postasına saldırganın
 alan adına giden bir sıfırlama bağlantısı göndertebilir. Tanımlanmazsa uygulama
 üretimde **açılmaz**.
+
+### `GUVENILEN_VEKIL_SAYISI` — istemci adresinin doğruluğu
+
+Varsayılan `1` ve bu bölümdeki iki kurulum (nginx ve aiotechs.cloud'daki
+Apache) için doğru değer odur; uygulamanın önünde **kaç vekil** durduğunu
+söyler.
+
+`x-forwarded-for` bir **ekleme** zinciridir: her vekil gördüğü adresi listenin
+sonuna yazar, baştakileri silmez. Yani başlığın başındaki değerleri isteği
+yapan kendisi yazmış olabilir. Uygulama gerçek adresi bu yüzden **sondan
+sayarak** bulur ve kaçıncı sıradan sayacağını bu değişkenden öğrenir.
+
+Yanlış ayarlamanın iki yönü eşit değildir:
+
+- **Fazla verilirse** adres bulunamaz, istekler ortak `bilinmeyen` kovasına
+  düşer — hız sınırı sıkılaşır, erişim kaydında IP boş kalır. Rahatsız edici
+  ama güvenli.
+- **Eksik verilirse** istemcinin uydurduğu adres gerçek sanılır: hız sınırı
+  atlatılabilir ve **KVKK erişim kaydına sahte IP yazdırılabilir**. Şüphede
+  kalırsanız değeri büyük tutun.
+
+Vekilin önüne bir CDN ya da yük dengeleyici eklerseniz bu sayıyı da artırın.
+Uygulama doğrudan internete açıksa `0` yazın; o zaman iletilen başlıkların
+hiçbirine güvenilmez.
+
+**Ek sıkılaştırma (isteğe bağlı, önerilir):** vekil gelen `X-Forwarded-For`
+başlığını uygulamaya iletmeden temizlerse zincirde uydurma değer hiç
+bulunmaz. Apache'de, Bölüm 13'teki proxy bloğunun yanına:
+
+```apache
+<Location /genctek>
+    RequestHeader unset X-Forwarded-For
+</Location>
+```
+
+nginx'te `dagitim/nginx-genctek.conf` içindeki satırı değiştirerek:
+
+```nginx
+proxy_set_header X-Forwarded-For $remote_addr;   # $proxy_add_x_forwarded_for yerine
+```
+
+Bu, uygulamadaki korumanın **yerine geçmez**; ikisi birlikte çalışır. Vekil
+yapılandırması sunucu taşındığında geride kalır, uygulamadaki kontrol taşınır.
 
 ### `AUTH_PROVIDER` — dikkat
 

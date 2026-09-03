@@ -71,34 +71,88 @@ describe("hizSiniriOlustur", () => {
 });
 
 describe("basliklardanAnahtar", () => {
-  it("x-forwarded-for zincirinin İLKİNİ alır", () => {
+  /*
+   * TEK VEKİL (üretimdeki kurulum): zincirin sonundaki değer, vekilin kendi
+   * gördüğü adrestir. Öndekiler istemcinin yazdıklarıdır — sahtedir.
+   */
+  it("tek vekilde zincirin SONUNU alır, başını değil", () => {
     const basliklar = new Headers({
-      "x-forwarded-for": "203.0.113.9, 10.0.0.1, 10.0.0.2",
+      "x-forwarded-for": "203.0.113.9, 10.0.0.1, 198.51.100.7",
     });
-    expect(basliklardanAnahtar(basliklar)).toBe("203.0.113.9");
+    expect(basliklardanAnahtar(basliklar, 1)).toBe("198.51.100.7");
   });
 
-  it("x-forwarded-for yoksa x-real-ip'e düşer", () => {
-    expect(basliklardanAnahtar(new Headers({ "x-real-ip": "198.51.100.4" }))).toBe(
-      "198.51.100.4",
-    );
+  it("tek adreslik zincirde o adresi alır", () => {
+    expect(
+      basliklardanAnahtar(new Headers({ "x-forwarded-for": "198.51.100.7" }), 1),
+    ).toBe("198.51.100.7");
+  });
+
+  it("iki vekilde sondan ikinciyi alır", () => {
+    const basliklar = new Headers({
+      "x-forwarded-for": "sahte, 198.51.100.7, 10.0.0.1",
+    });
+    expect(basliklardanAnahtar(basliklar, 2)).toBe("198.51.100.7");
   });
 
   /*
-   * Başlıksız isteklerin HEPSİ tek kovayı paylaşır. Sınırın açık kalmasındansa
+   * ASIL KORUNAN DAVRANIŞ: istemci başlığa istediğini yazar, vekil kendi
+   * gördüğünü SONA ekler. Uydurulan değer anahtarı değiştirememeli — aksi
+   * halde her istekte başka bir adres yazıp her seferinde yeni bir kova açmak
+   * hız sınırını tamamen kaldırırdı.
+   */
+  it("istemcinin uydurduğu adres anahtarı değiştiremez", () => {
+    const vekilinGorduğu = "198.51.100.7";
+    const anahtarlar = ["1.2.3.4", "5.6.7.8", "9.10.11.12"].map((sahte) =>
+      basliklardanAnahtar(
+        new Headers({ "x-forwarded-for": `${sahte}, ${vekilinGorduğu}` }),
+        1,
+      ),
+    );
+    expect(new Set(anahtarlar).size).toBe(1);
+    expect(anahtarlar[0]).toBe(vekilinGorduğu);
+  });
+
+  it("x-forwarded-for yoksa x-real-ip'e düşer", () => {
+    expect(
+      basliklardanAnahtar(new Headers({ "x-real-ip": "198.51.100.4" }), 1),
+    ).toBe("198.51.100.4");
+  });
+
+  /*
+   * Adressiz isteklerin HEPSİ tek kovayı paylaşır. Sınırın açık kalmasındansa
    * fazla sıkı olması yeğ — anahtarın boş dönmemesi bunun için önemli.
    */
   it("hiçbir başlık yoksa ortak bir anahtara düşer", () => {
-    expect(basliklardanAnahtar(new Headers())).toBe("bilinmeyen");
-    expect(basliklardanAnahtar(new Headers({ "x-forwarded-for": "  " }))).toBe(
+    expect(basliklardanAnahtar(new Headers(), 1)).toBe("bilinmeyen");
+    expect(basliklardanAnahtar(new Headers({ "x-forwarded-for": "  " }), 1)).toBe(
       "bilinmeyen",
     );
   });
 
+  /*
+   * Zincir beklenenden kısaysa (vekil sayısı yanlış yapılandırılmış ya da
+   * istek vekili atlamış) elde güvenilir adres yoktur.
+   */
+  it("zincir vekil sayısından kısaysa ortak anahtara düşer", () => {
+    expect(
+      basliklardanAnahtar(new Headers({ "x-forwarded-for": "203.0.113.9" }), 2),
+    ).toBe("bilinmeyen");
+  });
+
+  /* Vekilsiz kurulumda başlığı yazan tek taraf istemcidir; hiçbirine güvenilmez. */
+  it("vekil yoksa iletilen başlıklara güvenilmez", () => {
+    const basliklar = new Headers({
+      "x-forwarded-for": "203.0.113.9",
+      "x-real-ip": "198.51.100.4",
+    });
+    expect(basliklardanAnahtar(basliklar, 0)).toBe("bilinmeyen");
+  });
+
   it("istekAnahtari aynı çözümlemeyi kullanır", () => {
     const istek = new Request("https://ornek.test/api/hata-bildir", {
-      headers: { "x-forwarded-for": "203.0.113.9" },
+      headers: { "x-forwarded-for": "sahte, 203.0.113.9" },
     });
-    expect(istekAnahtari(istek)).toBe("203.0.113.9");
+    expect(istekAnahtari(istek, 1)).toBe("203.0.113.9");
   });
 });

@@ -54,6 +54,28 @@ const semaOrtam = z.object({
    * değişir. Üretimde ZORUNLUDUR.
    */
   IZINLI_HOSTLAR: z.string().default(""),
+  /**
+   * Uygulamanın önünde duran ve `x-forwarded-for` başlığına kendi gördüğü
+   * adresi EKLEYEN vekil sayısı.
+   *
+   * NİYE AYAR: istemcinin gerçek adresi zincirin sonundan sayılarak bulunur ve
+   * kaçıncı sıradan sayılacağı kurulumun şekline bağlıdır (bkz.
+   * guvenlik/istemci-ip.ts). Değer fazla verilirse adres bulunamaz ve istekler
+   * "bilinmeyen" kovasına düşer; EKSİK verilirse istemcinin uydurduğu adres
+   * gerçek sanılır — asıl kaçınılan budur, o yüzden şüphede kalındığında değer
+   * BÜYÜK tutulmalıdır.
+   *
+   * Varsayılan 1: hem dagitim/nginx-genctek.conf hem aiotechs.cloud'daki
+   * Apache kurulumu (DAGITIM.md Bölüm 13) uygulamanın önünde tek vekil
+   * bırakıyor. Uygulama doğrudan internete açıksa 0 yazın — o zaman iletilen
+   * başlıkların hiçbirine güvenilmez.
+   */
+  GUVENILEN_VEKIL_SAYISI: z.coerce
+    .number()
+    .int()
+    .min(0, "GUVENILEN_VEKIL_SAYISI eksi olamaz")
+    .default(1),
+
   OTURUM_GIZLI_ANAHTARI: z
     .string()
     .min(16, "OTURUM_GIZLI_ANAHTARI en az 16 karakter olmalı"),

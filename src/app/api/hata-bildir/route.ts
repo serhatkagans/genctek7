@@ -1,6 +1,7 @@
 import { hataKaydet, hataKaydiHazirla } from "@/lib/hata-kaydi";
 import { hizSiniriOlustur, istekAnahtari } from "@/lib/hiz-siniri";
 import { sorgusuzYol } from "@/lib/hata-kurallar";
+import { ortam } from "@/lib/ortam";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -89,7 +90,7 @@ const surecSiniri = hizSiniriOlustur({
 
 /** Kaydın yazılmasına izin var mı? IP sınırı önce, süreç tavanı sonra. */
 function siniraTakildiMi(istek: Request): boolean {
-  if (ipSiniri.takildiMi(istekAnahtari(istek))) return true;
+  if (ipSiniri.takildiMi(istekAnahtari(istek, ortam.GUVENILEN_VEKIL_SAYISI))) return true;
   return surecSiniri.takildiMi("hepsi");
 }
 

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { LogHedefTip, LogIslemi } from "@/generated/prisma/enums";
 import { prisma } from "../db";
+import { istemciIpAdresi } from "../guvenlik/istemci-ip";
 
 /**
  * Erişim logu — SKILL.md "Değişmezler" 7: her veri görüntüleme ve değiştirme
@@ -25,16 +26,19 @@ export interface LogKaydi {
  * ya da headers() çağrısı hata verir. IP yüzünden log kaydı düşmemeli, o
  * yüzden hata yutuluyor ve alan null kalıyor.
  *
- * Uygulama ters vekil (nginx) arkasında çalıştığından gerçek IP
- * `x-forwarded-for` başlığındadır; zincirin ilki istemcidir.
+ * Adres ÇÖZÜMLEMESİ guvenlik/istemci-ip.ts'tedir: `x-forwarded-for` bir
+ * ekleme zinciridir ve gerçek istemci SONDAN sayılarak bulunur. Zincirin
+ * ilkini almak, isteği yapanın bu alana istediğini yazdırabilmesi demekti —
+ * denetim kaydı için kabul edilemez.
+ *
+ * `ortam` da DİNAMİK yükleniyor: modül açılışta ortam değişkenlerini doğrular
+ * ve bu dosyayı içe aktaran birim testlerde onlar yok.
  */
 async function istekIpAdresi(): Promise<string | null> {
   try {
     const { headers } = await import("next/headers");
-    const basliklar = await headers();
-    const iletilen = basliklar.get("x-forwarded-for");
-    if (iletilen) return iletilen.split(",")[0]?.trim() || null;
-    return basliklar.get("x-real-ip");
+    const { ortam } = await import("../ortam");
+    return istemciIpAdresi(await headers(), ortam.GUVENILEN_VEKIL_SAYISI);
   } catch {
     return null;
   }
