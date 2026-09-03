@@ -1,5 +1,9 @@
 import { hataKaydet, hataKaydiHazirla } from "@/lib/hata-kaydi";
-import { hizSiniriOlustur, istekAnahtari } from "@/lib/hiz-siniri";
+import {
+  hizSiniriOlustur,
+  istekAnahtari,
+  paylasilanHizSiniri,
+} from "@/lib/hiz-siniri";
 import { sorgusuzYol } from "@/lib/hata-kurallar";
 import { ortam } from "@/lib/ortam";
 
@@ -72,13 +76,21 @@ const GOVDE_SINIRI = 32 * 1024;
  * olmayan isteklerden) gelen yük dosyayı kontrolsüz büyütmesin diye. IP sınırı
  * adaleti, ortak tavan dosya boyutunu korur.
  *
+ * İKİSİNİN KAPSAMI FARKLI (3 Eylül 2026). IP sınırı KOPYALAR ARASINDA ORTAK bir
+ * sayaç kullanıyor: üç kopyaya serpilen istekler tek satırda toplanıyor, yani
+ * 10 gerçekten 10 (önceden fiilen 30'du). Süreç tavanı ise BİLEREK süreç
+ * başına kaldı — sorduğu soru "bu kopya ne kadar yazsın", ve kopya başına 60
+ * yazma zaten kopya başına bir kaynak sınırıdır. Ortaklaştırılsaydı üç kopya
+ * tek bir 60'lık kotayı paylaşır, tavan üçe bölünmüş olurdu.
+ *
  * DİKKAT: bu uç KİMLİK İSTEMEZ, dolayısıyla kayıtlar doğrulanmamış veridir;
  * sınırın gevşetilmesi doğrudan günlüğün güvenilirliğini düşürür.
  */
 const IP_DAKIKA_SINIRI = 10;
 const SUREC_DAKIKA_SINIRI = 60;
 
-const ipSiniri = hizSiniriOlustur({
+const ipSiniri = paylasilanHizSiniri({
+  kova: "hata-bildir",
   pencereMs: 60_000,
   sinir: IP_DAKIKA_SINIRI,
 });
@@ -89,8 +101,9 @@ const surecSiniri = hizSiniriOlustur({
 });
 
 /** Kaydın yazılmasına izin var mı? IP sınırı önce, süreç tavanı sonra. */
-function siniraTakildiMi(istek: Request): boolean {
-  if (ipSiniri.takildiMi(istekAnahtari(istek, ortam.GUVENILEN_VEKIL_SAYISI))) return true;
+async function siniraTakildiMi(istek: Request): Promise<boolean> {
+  const anahtar = istekAnahtari(istek, ortam.GUVENILEN_VEKIL_SAYISI);
+  if (await ipSiniri.takildiMi(anahtar)) return true;
   return surecSiniri.takildiMi("hepsi");
 }
 
@@ -129,7 +142,7 @@ export async function POST(istek: Request) {
   const mesaj = metin(nesne.mesaj, MESAJ_SINIRI);
   if (!mesaj) return new Response(null, { status: 204 });
 
-  if (siniraTakildiMi(istek)) return new Response(null, { status: 204 });
+  if (await siniraTakildiMi(istek)) return new Response(null, { status: 204 });
 
   /*
    * Kayıt, sunucu tarafıyla AYNI işlevden geçiriliyor: `hataKaydiHazirla`

@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { disBasvuruOlustur } from "@/lib/dis-kimlik/basvuru";
 import { disBasvuruGirdisiniCoz } from "@/lib/dis-kimlik/kurallar";
-import { basliklardanAnahtar, hizSiniriOlustur } from "@/lib/hiz-siniri";
+import { basliklardanAnahtar, paylasilanHizSiniri } from "@/lib/hiz-siniri";
 import { ortam } from "@/lib/ortam";
 
 /**
@@ -28,7 +28,12 @@ import { ortam } from "@/lib/ortam";
 const PENCERE_DAKIKA = 10;
 const PENCERE_BASINA_BASVURU = 5;
 
-const basvuruSiniri = hizSiniriOlustur({
+/*
+ * SAYAÇ ORTAK (veritabanında): üç kopya aynı satırı sayıyor, yani buradaki
+ * sayı doğrudan etkin değerdir. Süreç içi sayaçla bu sınır fiilen 15'ti.
+ */
+const basvuruSiniri = paylasilanHizSiniri({
+  kova: "basvuru",
   pencereMs: PENCERE_DAKIKA * 60_000,
   sinir: PENCERE_BASINA_BASVURU,
 });
@@ -80,7 +85,11 @@ export async function basvuruEylemi(veri: FormData): Promise<void> {
    * Sınır BİÇİM DOĞRULAMASINDAN SONRA, veritabanına sorulmadan önce: boş
    * gönderilen bir form hakkı yakmamalı, ama hiçbir sorgu da çalışmamalı.
    */
-  if (basvuruSiniri.takildiMi(basliklardanAnahtar(await headers(), ortam.GUVENILEN_VEKIL_SAYISI))) {
+  if (
+    await basvuruSiniri.takildiMi(
+      basliklardanAnahtar(await headers(), ortam.GUVENILEN_VEKIL_SAYISI),
+    )
+  ) {
     redirect(
       `${temelYol}&hata=${encodeURIComponent(
         `Kısa sürede çok fazla başvuru gönderildi. ${PENCERE_DAKIKA} dakika sonra tekrar deneyin.`,

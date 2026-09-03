@@ -21,27 +21,28 @@ import { istemciIpAdresi } from "./guvenlik/istemci-ip";
  * püskürtmesini görmüyor, gerekçesi app/dis-giris/eylemler.ts'te.
  *
  * ---------------------------------------------------------------------------
- * BELLEKTE, SÜREÇ BAŞINA
+ * İKİ UYGULAMA: ORTAK (veritabanı) ve SÜREÇ İÇİ (bellek)
  * ---------------------------------------------------------------------------
- * Veritabanına yazılmıyor: sınırın amacı kötüye kullanımı pahalı kılmak, muhasebe
- * tutmak değil. Her istekte bir yazma, korumaya çalıştığı yükü kendisi üretirdi.
- * Süreç yeniden başlarsa sayaçlar sıfırlanır; bu kabul edilebilir, çünkü sınır
- * saldırıyı YAVAŞLATMAK için var, kanıt üretmek için değil.
+ * `paylasilanHizSiniri` sayacı VERİTABANINDA tutar ve üç kopyanın hepsi aynı
+ * satırı sayar; yazılan değer doğrudan etkin değerdir. Kimlik doğrulanmadan
+ * ulaşılan üç kapı bunu kullanır.
  *
- * SINIRLAR KOPYA SAYISIYLA ÇARPILIR — bu artık bir olasılık değil, DURUM.
- * Burada "tek systemd servisi varsayılıyor" yazıyordu; 2 Eylül 2026'da uygulama
- * ÜÇ kopyaya çıktı (genctek 3010, genctek@3020, genctek@3021) ve bu not geride
- * kaldı. Apache aralarında `lbmethod=bybusyness` ile dağıtıyor ve
- * `stickysession` YOK, yani aynı IP'nin istekleri üç kopyaya serpiliyor: her
- * kopya kendi sayacını tuttuğu için etkin sınır ÜÇ KATI oluyor.
+ * `hizSiniriOlustur` sayacı SÜREÇ BELLEĞİNDE tutar. İki işi kaldı: ortak
+ * sayacın veritabanına ulaşamadığı anlarda yedek olmak, ve bilerek süreç
+ * başına olan tavanlar (hata bildiriminde dosya büyümesini kesen tavan gibi —
+ * orada amaç zaten "bu kopya ne kadar yazsın" sorusudur).
  *
- * SONUÇ: buradaki değerler "kopya başına" okunmalı ve çağıranlar sınırı etkin
- * değerin ÜÇTE BİRİ olarak seçmelidir. Kopya sayısı değişirse (DAGITIM.md
- * Bölüm 13 · kopya listesi üç yerde durur) bu değerler de gözden geçirilmeli.
+ * NİYE DEĞİŞTİ: sayaçlar yalnızca bellekteydi ve 2 Eylül 2026'da uygulama ÜÇ
+ * kopyaya çıktı (genctek 3010, genctek@3020, genctek@3021). Apache aralarında
+ * `lbmethod=bybusyness` ile ve `stickysession` OLMADAN dağıtıyor, yani aynı
+ * IP'nin istekleri üç ayrı sayaca serpiliyor ve etkin sınır ÜÇ KATI oluyordu.
+ * Bir süre sınırlar üçe bölünerek yaşandı; kırılgandı, çünkü kopya sayısı koda
+ * gömülüydü ve değiştiği gün sessizce yanlışa düşerdi.
  *
- * Doğru çözüm ortak bir sayaç (Redis ya da veritabanı); o gelene kadar
- * çarpanla yaşanıyor. Bkz. DAGITIM.md · "Hız sınırları kopya sayısıyla
- * çarpılır".
+ * "HER İSTEKTE VERİTABANINA YAZMA" İTİRAZI — burada eskiden bu yazıyordu ve o
+ * gün için doğruydu. Artık geçerli değil: ortak sayaç yalnızca üç düşük
+ * hacimli kapıda kullanılıyor ve üçü de zaten aynı istekte veritabanına
+ * gidiyor. Sayfa görüntülemeleri bu yoldan GEÇMEZ.
  *
  * BELLEK SINIRLI: anahtarlar dışarıdan geliyor (IP, e-posta) ve sınırsız
  * büyüyen bir Map'in kendisi bir saldırı yüzeyidir. Tavana varılınca önce
@@ -68,6 +69,10 @@ export interface HizSiniri {
   sifirla(): void;
 }
 
+/**
+ * Süreç içi sayaç. Ortak sayacın yedeği ve bilerek süreç başına olan tavanlar
+ * için; kopyalar arası sınır isteniyorsa `paylasilanHizSiniri` kullanılmalı.
+ */
 export function hizSiniriOlustur(ayar: HizSiniriAyari): HizSiniri {
   const enFazlaAnahtar = ayar.enFazlaAnahtar ?? VARSAYILAN_EN_FAZLA_ANAHTAR;
   const pencereler = new Map<string, { baslangic: number; sayi: number }>();
@@ -95,6 +100,99 @@ export function hizSiniriOlustur(ayar: HizSiniriAyari): HizSiniri {
     },
     sifirla() {
       pencereler.clear();
+    },
+  };
+}
+
+export interface PaylasilanHizSiniriAyari extends HizSiniriAyari {
+  /**
+   * Sayacın adı — "basvuru", "dis-giris", "hata-bildir". Kovalar ayrı sayılır,
+   * yoksa bir uçtaki trafik diğerinin kotasını yerdi.
+   */
+  kova: string;
+}
+
+export interface PaylasilanHizSiniri {
+  /** İstek sayılır; sınır AŞILDIYSA true döner. */
+  takildiMi(anahtar: string): Promise<boolean>;
+}
+
+/** Anahtar sütunu VARCHAR(120); daha uzunu sessizce kesilmesin diye burada kırpılır. */
+const ANAHTAR_AZAMI = 120;
+
+/**
+ * Kopyalar arasında ORTAK sayaç (3 Eylül 2026).
+ *
+ * SAYIM TEK DEYİMDE VE ATOMİK: `ON CONFLICT DO UPDATE ... RETURNING`. Önce
+ * okuyup sonra yazan bir uygulama, üç kopya aynı anda saydığında artışları
+ * kaybederdi — sınır tam da yük altında, yani en çok gerektiği anda gevşerdi.
+ * Pencere de aynı deyimde sıfırlanıyor: penceresi geçmiş satır ayrı bir
+ * temizliği beklemeden ilk istekte yeniden başlar.
+ *
+ * VERİTABANINA ULAŞILAMAZSA SÜREÇ İÇİ YEDEĞE DÜŞÜLÜR, sınır KALDIRILMAZ.
+ * Fail-open (herkesi geçir) korumayı tam da veritabanı sıkıntıdayken kapatırdı;
+ * fail-closed (herkesi durdur) ise bir veritabanı arızasını, aksi hâlde
+ * çalışabilecek girişlerin de kapanmasına çevirirdi. Yedek sayaç kopya başına
+ * olduğu için o anda sınır gevşer (üç katı) — ama vardır.
+ *
+ * YEDEĞE DÜŞÜŞ GÜNLÜĞE YAZILIR. Sessiz bir `catch` burada tehlikeliydi: deyimde
+ * bir hata olsa (tablo yok, sütun adı yanlış) sistem hatasız görünür, yalnızca
+ * ortak sayaç hiç çalışmazdı — yani düzeltmenin yayına çıkmadığı FARK EDİLMEZDİ.
+ * Günlük kaydı kova başına dakikada bir ile sınırlı: veritabanı arızası
+ * sırasında her istek için satır yazmak, arızayı büyütmekten başka işe yaramaz.
+ */
+/** Yedeğe düşüş günlüğü için: kova başına en son ne zaman yazıldı. */
+const SON_UYARI_ARALIGI_MS = 60_000;
+
+export function paylasilanHizSiniri(
+  ayar: PaylasilanHizSiniriAyari,
+): PaylasilanHizSiniri {
+  const yedek = hizSiniriOlustur(ayar);
+  let sonUyari = 0;
+
+  const yedegeDus = (sebep: unknown): void => {
+    const simdi = Date.now();
+    if (simdi - sonUyari < SON_UYARI_ARALIGI_MS) return;
+    sonUyari = simdi;
+    console.error(
+      `[hiz-siniri] "${ayar.kova}" ortak sayacı kullanılamadı, süreç içi yedeğe düşüldü. ` +
+        `Sınır bu süre boyunca kopya başına uygulanır. Sebep:`,
+      sebep,
+    );
+  };
+
+  return {
+    async takildiMi(anahtar: string): Promise<boolean> {
+      const kirpik = anahtar.slice(0, ANAHTAR_AZAMI);
+      const simdi = new Date();
+      const pencereSiniri = new Date(simdi.getTime() - ayar.pencereMs);
+
+      try {
+        const { prisma } = await import("./db");
+        const satirlar = await prisma.$queryRaw<{ sayi: number }[]>`
+          INSERT INTO hiz_siniri_penceresi (kova, anahtar, pencere_baslangici, sayi)
+          VALUES (${ayar.kova}, ${kirpik}, ${simdi}, 1)
+          ON CONFLICT (kova, anahtar) DO UPDATE SET
+            sayi = CASE
+              WHEN hiz_siniri_penceresi.pencere_baslangici <= ${pencereSiniri} THEN 1
+              ELSE hiz_siniri_penceresi.sayi + 1
+            END,
+            pencere_baslangici = CASE
+              WHEN hiz_siniri_penceresi.pencere_baslangici <= ${pencereSiniri} THEN ${simdi}
+              ELSE hiz_siniri_penceresi.pencere_baslangici
+            END
+          RETURNING sayi`;
+
+        const sayi = satirlar[0]?.sayi;
+        if (sayi === undefined) {
+          yedegeDus("sorgu satır döndürmedi");
+          return yedek.takildiMi(kirpik);
+        }
+        return sayi > ayar.sinir;
+      } catch (hata) {
+        yedegeDus(hata);
+        return yedek.takildiMi(kirpik);
+      }
     },
   };
 }

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { erisimAnomalileriniIzle } from "../src/lib/guvenlik/erisim-anomali";
+import { hizSiniriTemizligi } from "../src/lib/guvenlik/hiz-siniri-bakim";
 import { gecelikSenkronCalistir } from "../src/lib/kullanici/senkron";
 
 /**
@@ -13,11 +14,19 @@ async function main() {
   const baslangic = Date.now();
   const sonuc = await gecelikSenkronCalistir();
   const anomali = await erisimAnomalileriniIzle();
+  /*
+   * Hız sınırı satırları burada süpürülüyor, ayrı bir timer açılmadı: iş zaten
+   * her gece çalışıyor ve temizlik tek bir DELETE. Sayaç bu koşu hiç
+   * çalışmasa da doğru işler (penceresi geçmiş satır ilk istekte sıfırlanır);
+   * mesele yalnızca tablonun sınırsız büyümemesi.
+   */
+  const hizSiniri = await hizSiniriTemizligi();
   console.log(
     `[${new Date().toISOString()}] Gecelik senkron: ${sonuc.kontrolEdilen} danışman kontrol edildi, ` +
       `${sonuc.kurumuDegisen} tanesinin kurumu değişti; ` +
       `${anomali.gun} erişim taraması: ${anomali.incelenenAday} aday, ` +
-      `${anomali.yeniAnomali} yeni bulgu, ${anomali.gonderilenUyari} bildirim ` +
+      `${anomali.yeniAnomali} yeni bulgu, ${anomali.gonderilenUyari} bildirim; ` +
+      `${hizSiniri.silinen} hız sınırı satırı silindi (${hizSiniri.sinir.toISOString()} öncesi) ` +
       `(${Date.now() - baslangic} ms)`,
   );
 }

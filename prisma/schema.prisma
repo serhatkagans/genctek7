@@ -2714,3 +2714,34 @@ model GonderiYorumu {
   @@index([gonderiId, olusturmaTarihi])
   @@map("gonderi_yorumu")
 }
+
+/// Kopyalar arasında ORTAK hız sınırı sayacı (3 Eylül 2026).
+///
+/// NİYE VERİTABANI: sayaçlar süreç içi bellekteydi ve uygulama üç kopya
+/// çalışıyor (DAGITIM.md Bölüm 13). Apache aralarında yapışkan oturum olmadan
+/// dağıttığı için aynı IP'nin istekleri üç ayrı sayaca serpiliyor ve etkin
+/// sınır üç katına çıkıyordu. Kopya sayısını koda gömmek kırılgandı: sayı
+/// değiştiğinde sessizce yanlışa düşerdi.
+///
+/// "HER İSTEKTE YAZMA YÜKÜ" İTİRAZI BURADA GEÇERSİZ: sayaç yalnızca kimlik
+/// doğrulanmadan ulaşılan üç kapıda kullanılıyor (başvuru, dış giriş, istemci
+/// hata bildirimi). Üçü de düşük hacimli ve üçü de zaten aynı istekte
+/// veritabanına gidiyor — tek bir UPSERT ölçülebilir bir yük eklemiyor.
+/// Sayfa görüntülemeleri bu yoldan GEÇMEZ.
+///
+/// SATIRLAR KALICI DEĞİL: penceresi geçmiş satırları gecelik bakım siler
+/// (lib/guvenlik/hiz-siniri-bakim.ts). Silinmeseler bile sayaç doğru çalışır —
+/// penceresi geçmiş satır ilk istekte sıfırlanır — ama tablo sınırsız büyürdü.
+model HizSiniriPenceresi {
+  /// Hangi sınır: "basvuru", "dis-giris", "hata-bildir". Kovalar ayrı
+  /// sayılmalı, yoksa bir uçtaki trafik diğerinin kotasını yerdi.
+  kova              String   @db.VarChar(40)
+  /// Sayacın anahtarı — bugün hepsinde istemci IP'si.
+  anahtar           String   @db.VarChar(120)
+  pencereBaslangici DateTime @map("pencere_baslangici") @db.Timestamptz(6)
+  sayi              Int      @default(0)
+
+  @@id([kova, anahtar])
+  @@index([pencereBaslangici])
+  @@map("hiz_siniri_penceresi")
+}

@@ -689,23 +689,34 @@ bağlantıyı yeniden kullanınca `AH01102 Connection reset by peer` düşüyor 
 istek 502 dönüyordu — 350 istekte bir. `ttl=2` havuzdaki bağlantıyı Node
 kapatmadan önce bırakır. Node'un süresi değişirse bu değer de değişmeli.
 
-**Hız sınırları kopya sayısıyla çarpılır.** `src/lib/hiz-siniri.ts` sayaçları
-süreç içi bellekte tutar. Balancer `lbmethod=bybusyness` kullanıyor ve
-`stickysession` YOK, yani aynı IP'nin istekleri üç kopyaya serpilir ve her
-kopya kendi sayacını tutar:
+**Hız sınırları artık kopya sayısıyla ÇARPILMIYOR** (3 Eylül 2026). Sayaçlar
+süreç içi bellekteydi; balancer `lbmethod=bybusyness` kullandığı ve
+`stickysession` OLMADIĞI için aynı IP'nin istekleri üç kopyaya serpiliyor, her
+kopya kendi sayacını tutuyor ve etkin sınır üç katına çıkıyordu:
 
-| Uç | Yazılan (kopya başına) | Etkin |
-|---|---|---|
-| İstemci hata bildirimi | 10/dk | ~30/dk |
-| Dış kullanıcı başvurusu | 10 dakikada 5 | ~15 |
-| Dış kullanıcı girişi | 10 dakikada 7 | ~21 |
+| Uç | Yazılan | Eskiden etkin | Şimdi etkin |
+|---|---|---|---|
+| İstemci hata bildirimi (IP) | 10/dk | ~30/dk | 10/dk |
+| Dış kullanıcı başvurusu | 10 dakikada 5 | ~15 | 5 |
+| Dış kullanıcı girişi | 10 dakikada 20 | — | 20 |
 
-Giriş sınırı (3 Eylül 2026) bu çarpan BİLİNEREK seçildi: hedef ~20 olduğu için
-koda 7 yazıldı. Diğer ikisi çarpan öğrenilmeden önce konmuştu ve etkin
-değerleri hedeflenenin üç katı; düşürülmeleri ayrı bir karar.
+Sayaç `hiz_siniri_penceresi` tablosuna taşındı ve üç kopya aynı satırı sayıyor;
+sayım tek deyimde ve atomik (`ON CONFLICT DO UPDATE ... RETURNING`), yani
+eşzamanlı artışlar kaybolmuyor. **Yazılan değer artık doğrudan etkin
+değerdir**; kopya sayısı değiştiğinde bu sayılara dokunmak gerekmez.
 
-Ortak sayaç (Redis ya da veritabanı) gerekene kadar sınır değerleri buna göre
-seçilmelidir. **Kopya sayısı değişirse bu tablo da güncellenmeli.**
+Ara çözüm olarak sınırları elle üçe bölmek denenmişti (giriş sınırı bir tur
+boyunca 7 yazıldı); kopya sayısını koda gömdüğü ve sayı değiştiği gün sessizce
+yanlışa düşeceği için terk edildi.
+
+**Veritabanına ulaşılamazsa** süreç içi yedek sayaca düşülür — sınır kaldırılmaz,
+yalnızca o süre boyunca kopya başına uygulanır. Penceresi geçmiş satırları
+gecelik bakım siler (`scripts/gecelik-senkron.ts`); silinmeseler de sayaç doğru
+çalışır, mesele tablonun sınırsız büyümemesi.
+
+**İstisna:** hata bildirimindeki *süreç tavanı* (60/dk) bilerek süreç başına
+kaldı — sorduğu soru "bu kopya dosyayı ne kadar büyütsün", ortaklaştırılsaydı
+tavan üçe bölünmüş olurdu.
 
 **Geri alma:** vhost'taki blok yerine dört düz `ProxyPass` satırı konur
 (yedek: `/root/aiotechs.cust_httpd.yedek-*`), vhost'lar yeniden üretilir,

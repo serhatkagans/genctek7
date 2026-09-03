@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { disGirisYap } from "@/lib/dis-kimlik/giris";
 import { mockDisGirisYap } from "@/lib/dis-kimlik/mock-giris";
-import { basliklardanAnahtar, hizSiniriOlustur } from "@/lib/hiz-siniri";
+import { basliklardanAnahtar, paylasilanHizSiniri } from "@/lib/hiz-siniri";
 import { ortam } from "@/lib/ortam";
 
 /**
@@ -30,18 +30,18 @@ import { ortam } from "@/lib/ortam";
  * kullanıcılar (mezun, paydaş, mentör) ve çoğu kendi bağlantısından geliyor —
  * `basvuru`daki kurumsal NAT endişesi burada aynı ağırlıkta değil.
  *
- * SAYI KOPYA BAŞINADIR. Uygulama üç kopya çalışıyor ve Apache aralarında
- * yapışkan oturum olmadan dağıtıyor, yani sayaç üçe bölünmüş durumda ve etkin
- * sınır yazılanın üç katı (bkz. hiz-siniri.ts başlığı · DAGITIM.md Bölüm 13).
- * Hedef 10 dakikada ~20 deneme olduğu için buraya 7 yazıldı: 7 x 3 = 21.
- * Kopya sayısı değişirse bu değer de değişmeli.
+ * SAYAÇ KOPYALAR ARASINDA ORTAKTIR (veritabanında), yani buradaki sayı
+ * doğrudan ETKİN değerdir. Bir süre kopya başına 7 yazılıyordu; üç kopyaya
+ * bölünen sayacı telafi etmek içindi ve kopya sayısı değiştiğinde sessizce
+ * yanlışa düşerdi. Ortak sayaçla o düzeltme gereksiz kaldı.
  */
 const PENCERE_DAKIKA = 10;
-const KOPYA_BASINA_DENEME = 7;
+const PENCERE_BASINA_DENEME = 20;
 
-const girisSiniri = hizSiniriOlustur({
+const girisSiniri = paylasilanHizSiniri({
+  kova: "dis-giris",
   pencereMs: PENCERE_DAKIKA * 60_000,
-  sinir: KOPYA_BASINA_DENEME,
+  sinir: PENCERE_BASINA_DENEME,
 });
 
 /**
@@ -66,7 +66,7 @@ export async function disGirisEylemi(veri: FormData): Promise<void> {
    * hakkında hiçbir şey söylemiyor.
    */
   if (
-    girisSiniri.takildiMi(
+    await girisSiniri.takildiMi(
       basliklardanAnahtar(await headers(), ortam.GUVENILEN_VEKIL_SAYISI),
     )
   ) {
