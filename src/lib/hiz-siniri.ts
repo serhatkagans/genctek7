@@ -28,10 +28,20 @@ import { istemciIpAdresi } from "./guvenlik/istemci-ip";
  * Süreç yeniden başlarsa sayaçlar sıfırlanır; bu kabul edilebilir, çünkü sınır
  * saldırıyı YAVAŞLATMAK için var, kanıt üretmek için değil.
  *
- * TEK SÜREÇ VARSAYIMI: üretimde uygulama tek systemd servisi olarak çalışıyor
- * (bkz. DAGITIM.md). Yatay ölçeklenirse her kopya kendi sayacını tutar ve etkin
- * sınır kopya sayısıyla çarpılır — o gün geldiğinde ortak bir sayaç (Redis ya da
- * veritabanı) gerekir. Bu not o kararın işaretidir.
+ * SINIRLAR KOPYA SAYISIYLA ÇARPILIR — bu artık bir olasılık değil, DURUM.
+ * Burada "tek systemd servisi varsayılıyor" yazıyordu; 2 Eylül 2026'da uygulama
+ * ÜÇ kopyaya çıktı (genctek 3010, genctek@3020, genctek@3021) ve bu not geride
+ * kaldı. Apache aralarında `lbmethod=bybusyness` ile dağıtıyor ve
+ * `stickysession` YOK, yani aynı IP'nin istekleri üç kopyaya serpiliyor: her
+ * kopya kendi sayacını tuttuğu için etkin sınır ÜÇ KATI oluyor.
+ *
+ * SONUÇ: buradaki değerler "kopya başına" okunmalı ve çağıranlar sınırı etkin
+ * değerin ÜÇTE BİRİ olarak seçmelidir. Kopya sayısı değişirse (DAGITIM.md
+ * Bölüm 13 · kopya listesi üç yerde durur) bu değerler de gözden geçirilmeli.
+ *
+ * Doğru çözüm ortak bir sayaç (Redis ya da veritabanı); o gelene kadar
+ * çarpanla yaşanıyor. Bkz. DAGITIM.md · "Hız sınırları kopya sayısıyla
+ * çarpılır".
  *
  * BELLEK SINIRLI: anahtarlar dışarıdan geliyor (IP, e-posta) ve sınırsız
  * büyüyen bir Map'in kendisi bir saldırı yüzeyidir. Tavana varılınca önce

@@ -690,10 +690,22 @@ istek 502 dönüyordu — 350 istekte bir. `ttl=2` havuzdaki bağlantıyı Node
 kapatmadan önce bırakır. Node'un süresi değişirse bu değer de değişmeli.
 
 **Hız sınırları kopya sayısıyla çarpılır.** `src/lib/hiz-siniri.ts` sayaçları
-süreç içi bellekte tutar; üç kopyada etkin sınır üç katına çıkar (hata bildirimi
-IP başına 10/dk yerine ~30/dk, dış başvuru 10 dakikada 5 yerine ~15). Dosyanın
-kendi notu bu günü öngörüyordu. Ortak sayaç (Redis ya da veritabanı) gerekene
-kadar sınır değerleri buna göre seçilmelidir.
+süreç içi bellekte tutar. Balancer `lbmethod=bybusyness` kullanıyor ve
+`stickysession` YOK, yani aynı IP'nin istekleri üç kopyaya serpilir ve her
+kopya kendi sayacını tutar:
+
+| Uç | Yazılan (kopya başına) | Etkin |
+|---|---|---|
+| İstemci hata bildirimi | 10/dk | ~30/dk |
+| Dış kullanıcı başvurusu | 10 dakikada 5 | ~15 |
+| Dış kullanıcı girişi | 10 dakikada 7 | ~21 |
+
+Giriş sınırı (3 Eylül 2026) bu çarpan BİLİNEREK seçildi: hedef ~20 olduğu için
+koda 7 yazıldı. Diğer ikisi çarpan öğrenilmeden önce konmuştu ve etkin
+değerleri hedeflenenin üç katı; düşürülmeleri ayrı bir karar.
+
+Ortak sayaç (Redis ya da veritabanı) gerekene kadar sınır değerleri buna göre
+seçilmelidir. **Kopya sayısı değişirse bu tablo da güncellenmeli.**
 
 **Geri alma:** vhost'taki blok yerine dört düz `ProxyPass` satırı konur
 (yedek: `/root/aiotechs.cust_httpd.yedek-*`), vhost'lar yeniden üretilir,

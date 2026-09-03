@@ -29,13 +29,19 @@ import { ortam } from "@/lib/ortam";
  * çalışmış olur. Sayı bu yüzden bol tutuldu: bu kapıdan giren kitle dış
  * kullanıcılar (mezun, paydaş, mentör) ve çoğu kendi bağlantısından geliyor —
  * `basvuru`daki kurumsal NAT endişesi burada aynı ağırlıkta değil.
+ *
+ * SAYI KOPYA BAŞINADIR. Uygulama üç kopya çalışıyor ve Apache aralarında
+ * yapışkan oturum olmadan dağıtıyor, yani sayaç üçe bölünmüş durumda ve etkin
+ * sınır yazılanın üç katı (bkz. hiz-siniri.ts başlığı · DAGITIM.md Bölüm 13).
+ * Hedef 10 dakikada ~20 deneme olduğu için buraya 7 yazıldı: 7 x 3 = 21.
+ * Kopya sayısı değişirse bu değer de değişmeli.
  */
 const PENCERE_DAKIKA = 10;
-const PENCERE_BASINA_DENEME = 20;
+const KOPYA_BASINA_DENEME = 7;
 
 const girisSiniri = hizSiniriOlustur({
   pencereMs: PENCERE_DAKIKA * 60_000,
-  sinir: PENCERE_BASINA_DENEME,
+  sinir: KOPYA_BASINA_DENEME,
 });
 
 /**
