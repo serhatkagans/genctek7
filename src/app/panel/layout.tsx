@@ -16,6 +16,7 @@ import { aktifTema } from "@/lib/tema";
 import { rolIlAdlariniGetir } from "@/lib/yetki/rol-il-adlari";
 import {
   disKullaniciMi,
+  projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
   yonetimPanosuGorebilirMi,
 } from "@/lib/yetki/izinler";
@@ -119,28 +120,40 @@ export default async function PanelDuzeni({
      * Genelge 4/ç: aydınlatma metninin yanı sıra başvuru formu da platformda
      * bulunmalı).
      *
-     * "KVKK OLMASIN" İSTEĞİYLE ÇELİŞMİYOR (21 Ağustos 2026): o istek kişiden
-     * ONAY İSTEYEN ve okumadan geçilemeyen yüzeyleri kaldırdı — ilk giriş
-     * kapısı, panel şeridi, belgeler bölümü. Buradaki satır kimseden onay
-     * istemiyor, kimseyi durdurmuyor ve hiçbir metni önüne koymuyor; kişi
-     * ancak HAKKINI KULLANACAĞI zaman tıklıyor.
+     * MENÜ SATIRI 4 EYLÜL 2026'DA YALNIZCA PROJE YÖNETİCİSİNE İNDİ (istek:
+     * "fazla göz önünde olmaması lazım, proje yöneticisi için dursun;
+     * öğretmen, koordinatör, öğrenci, paydaş, mentör vs. için görünürlüğünü
+     * kaldıralım").
      *
-     * MENÜDE OLMASI ŞART, panelin içinde bir bölüm olması yetmezdi: KVKK m.13
-     * başvuru yolunun ilgili kişi için ERİŞİLEBİLİR olmasını arıyor.
-     * Bulunması ancak aramayı bilene mümkün olan bir form, pratikte var
-     * olmayan bir formdur — nitekim 4/ç'nin karşılanmadığı tespiti de tam
-     * olarak bu yüzden çıktı.
+     * KALKAN YALNIZCA GÖRÜNÜRLÜK: `/panel/kisisel-verilerim` herkese açık
+     * durmaya devam ediyor — sayfada da eylemde de rol kapısı YOK
+     * (bkz. kisisel-verilerim/eylemler.ts · "yetki kapısı yok ve olmamalı").
+     * Adresi bilen ya da aydınlatma metnindeki yönlendirmeyi izleyen herkes
+     * formu doldurup başvurusunu takip edebiliyor; değişen tek şey, satırın
+     * kenar çubuğunda herkese basılmaması.
      *
-     * HERKESTE VAR, dış kullanıcı menüsü dahil (aşağıdaki erken dönüşten
-     * ÖNCE tanımlı): mezunun ve paydaş temsilcisinin de kişisel verisi
-     * işleniyor ve hakları öğrencininkiyle aynı.
+     * NEDEN SAYFA DA KAPATILMADI: başvuru bir HAKTIR (KVKK m.11) ve
+     * yürürlükteki aydınlatma metni hakkın bu ekrandan kullanılacağını
+     * yazıyor (bkz. lib/kvkk/kurallar.ts). Sayfayı role bağlamak, metnin
+     * gösterdiği kapıyı kilitler ve ekranın var oluş sebebini — kişiyi
+     * sistemin dışına yollamamayı — ortadan kaldırırdı.
+     *
+     * AÇIK RİSK: 2 Eylül'de bu satır tam da m.13'ün aradığı ERİŞİLEBİLİRLİK
+     * için konmuştu; menüden kalkınca form pratikte yalnızca adresini
+     * bilenin bulabildiği bir yüzeye dönüyor. Denetimde 4/ç yeniden gündeme
+     * gelirse çözüm, satırı geri açmak ya da forma menü dışından görünür bir
+     * giriş (örneğin panelin altında tek satırlık bağlantı) vermektir.
      */
-    {
-      yol: "/panel/kisisel-verilerim",
-      etiket: "Kişisel Verilerim",
-      grup: "Genel",
-      ikon: "ShieldUser",
-    },
+    ...(projeYoneticisiMi(kullanici)
+      ? [
+          {
+            yol: "/panel/kisisel-verilerim",
+            etiket: "Kişisel Verilerim",
+            grup: "Genel",
+            ikon: "ShieldUser",
+          } as const,
+        ]
+      : []),
   ];
 
   /*
