@@ -741,11 +741,12 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
   {
     sira: 37,
     baslik: "Hız sınırı sayacı kopyalar arasında ortaklaştı",
-    durum: "TESTTE",
+    durum: "YAYINDA",
     ozet:
       "Sayaçlar süreç belleğinden veritabanına taşındı; üç kopyaya bölünen sınırlar artık yazıldığı değeri uyguluyor.",
     baslangic: "2026-09-03",
     bitis: "2026-09-03",
+    yayinTarihi: "2026-09-03",
     maddeler: [
       "hiz_siniri_penceresi tablosu; sayım tek deyimde ve atomik (ON CONFLICT ... RETURNING)",
       "Veritabanına ulaşılamazsa süreç içi yedeğe düşülür, sınır kaldırılmaz",
@@ -753,9 +754,9 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
       "Hata bildirimindeki süreç tavanı bilerek süreç başına kaldı",
       "Penceresi geçmiş satırlar gecelik bakımda siliniyor",
     ],
-    commitler: [],
+    commitler: ["72a4aef", "bdc86f1"],
     not:
-      "SUNUCUDA HENÜZ YOK: migration uygulanmadı. Yayına çıkana kadar sınırlar üç kopyaya bölünmüş hâlde çalışmaya devam ediyor, yani etkin değerler yazılanın üç katı. Doğru çözüm buydu çünkü önceki ara çözüm — sınırları elle üçe bölmek — kopya sayısını koda gömüyordu ve sayı değiştiği gün sessizce yanlışa düşerdi.",
+      "Sunucuda çalışıyor: migration 3 Eylül 2026 yayınında uygulandı, üç kopya da o sürümle yeniden başladı ve ortak sayaç tablosuna yazıyor. Madde bir gün TESTTE göründü çünkü yayın bu kaydı güncellemeden yapıldı; durum git'ten türetilmediği için ancak elle düzeltilir. İlk commit (72a4aef) ara çözümdü — sınırları elle üçe bölüyordu, kopya sayısını koda gömdüğü için sayı değiştiği gün sessizce yanlışa düşerdi; ikincisi (bdc86f1) sayacı kopyaların dışına taşıdı.",
   },
 ];
 
