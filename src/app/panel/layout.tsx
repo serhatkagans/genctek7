@@ -138,11 +138,13 @@ export default async function PanelDuzeni({
      * gösterdiği kapıyı kilitler ve ekranın var oluş sebebini — kişiyi
      * sistemin dışına yollamamayı — ortadan kaldırırdı.
      *
-     * AÇIK RİSK: 2 Eylül'de bu satır tam da m.13'ün aradığı ERİŞİLEBİLİRLİK
-     * için konmuştu; menüden kalkınca form pratikte yalnızca adresini
-     * bilenin bulabildiği bir yüzeye dönüyor. Denetimde 4/ç yeniden gündeme
-     * gelirse çözüm, satırı geri açmak ya da forma menü dışından görünür bir
-     * giriş (örneğin panelin altında tek satırlık bağlantı) vermektir.
+     * ERİŞİLEBİLİRLİK AÇIĞI AYNI GÜN KAPATILDI: 2 Eylül'de bu satır tam da
+     * m.13'ün aradığı ERİŞİLEBİLİRLİK için konmuştu ve menüden kalkınca form,
+     * pratikte yalnızca adresini bilenin bulabildiği bir yüzeye dönüyordu.
+     * Karşılığı sayfa altlığına kondu: her panel ekranının en altında,
+     * gezinmenin dışında tek satırlık sessiz bir bağlantı (bkz. aşağıda
+     * PanelCercevesi · "ALT BİLGİ"). Altlık YALNIZCA bu satırı menüde
+     * görmeyene basılır, yani kimsede iki kapı olmuyor.
      */
     ...(projeYoneticisiMi(kullanici)
       ? [
@@ -680,6 +682,52 @@ function PanelCercevesi({
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+
+      {/*
+        ALT BİLGİ — İLGİLİ KİŞİ BAŞVURUSUNUN GÖRÜNÜR KAPISI (4 Eylül 2026).
+
+        Aynı gün "Kişisel Verilerim" menü satırı yalnızca proje yöneticisine
+        indirildi (istek: "fazla göz önünde olmasın"). Satır kalkınca form,
+        pratikte yalnızca adresini bilenin bulabildiği bir yüzeye dönüyordu ve
+        KVKK m.13'ün aradığı ERİŞİLEBİLİRLİK ile Genelge 4/ç bunu karşılamaz:
+        bulunması aramayı bilmeyi gerektiren bir başvuru yolu, olmayan bir
+        başvuru yoludur. Üstelik yürürlükteki aydınlatma metni hakların "Kişisel
+        Verilerim ekranındaki formla" kullanılacağını YAZIYOR
+        (bkz. lib/kvkk/kurallar.ts) — gösterdiği kapının bulunabilir olması
+        gerekiyor.
+
+        MENÜ SATIRI DEĞİL, ALT BİLGİ: istek satırın göz önünde olmamasıydı,
+        erişimin kapanması değil. Sayfa altlığı ikisini birden karşılıyor —
+        her panel ekranının en altında, gezinmenin dışında, tek satır ve sessiz.
+        Kimseyi durdurmuyor, kimseye bir şey okutmuyor, menüdeki sırayı
+        değiştirmiyor.
+
+        YALNIZCA MENÜDE GÖRMEYENE BASILIR: proje yöneticisinde satır zaten
+        kenar çubuğunda ve aynı ekrana iki kapı, kullanıcıya "bunlar farklı
+        şeyler mi?" sorusunu sordururdu. Koşul menüdeki gateyle AYNI yardımcıyı
+        soruyor (projeYoneticisiMi) — iki ayrı ölçüt yazılsaydı biri
+        değiştiğinde öbürü sessizce ayrışır, kullanıcı ya iki kapı ya hiç kapı
+        görürdü.
+
+        Çerçeve `kullanici`yi zaten alıyor ve koşulu KENDİ soruyor; düzenden
+        prop olarak geçirilseydi iki ayrı çağrı yerinde (dış kullanıcı erken
+        dönüşü ve normal dönüş) tek tek verilmesi gerekirdi — bu dosyanın
+        bileşeni tam olarak o unutulma yüzünden tek yere toplanmıştı.
+
+        `yazdirma-disi`: gezinme gibi, kâğıtta işi yok.
+      */}
+      {!projeYoneticisiMi(kullanici) && (
+        <footer className="yazdirma-disi border-t border-cizgi">
+          <div className="mx-auto max-w-[1240px] px-6 py-4">
+            <Link
+              href="/panel/kisisel-verilerim"
+              className="text-xs text-metin-yumusak underline-offset-4 transition hover:text-vurgu-metin hover:underline"
+            >
+              Kişisel verileriniz: haklarınız ve başvuru formu
+            </Link>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
